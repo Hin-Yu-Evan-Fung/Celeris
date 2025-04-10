@@ -1,0 +1,36 @@
+[package]
+name = "sophos"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+macros = { path = "./macros" }
+
+[lib]
+doctest = false
+
+[profile.release]
+# Optimize for speed
+opt-level = 3
+# Enable link-time optimization
+lto = "fat"
+# Enable codegen units for parallel compilation
+codegen-units = 1
+# Enable CPU-specific optimizations
+target-cpu = "native"
+# Enable aggressive inlining
+incremental = false
+# Enable panic=abort for smaller binary size
+panic = "abort"
+# Enable overflow checks in debug mode
+overflow-checks = false
+
+[profile.bench]
+# Use the same optimizations as release
+inherits = "release"
+# Enable overflow checks for benchmarks
+overflow-checks = true
+
+[profile.dev]
+# Enable overflow checks in debug mode
+overflow-checks = true
