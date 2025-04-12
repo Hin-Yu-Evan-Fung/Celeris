@@ -1,4 +1,6 @@
 use crate::core::*;
+use crate::movegen::{Magic, SliderAttackTable, attacks_on_the_fly, init_magic_struct};
+use crate::utils::PRNG;
 
 const MAX_PERM: usize = 0x1000; // 2^16
 
@@ -139,17 +141,18 @@ pub fn gen_slider_attacks<const N: usize>(pt: PieceType) -> SliderAttackTable<N>
 
         // Store the magic number for the square
         magic[sq as usize] = m;
-        // if sq.file() == File::FileH {
-        //     println!("{}", total_attempt);
-        //     total_attempt = 0;
-        // }
+
+        if sq.file() == File::FileH {
+            println!("{}", total_attempt);
+            total_attempt = 0;
+        }
     }
 
     SliderAttackTable { table, magic }
 }
 
 /// # Find Best Magic Seeds
-fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
+pub fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
     let mut offset = 0;
     let mut magic = [Magic::default(); Square::NUM];
 

@@ -6,7 +6,7 @@ use crate::core::Square;
 |==========================================|
 \******************************************/
 
-pub const BISHOP_MAGICS: [u64; Square::NUM] = [
+pub(super) const BISHOP_MAGICS: [u64; Square::NUM] = [
     0x1200440A0890200,
     0x2040122021A0407,
     0x4008880108210401,
@@ -73,7 +73,7 @@ pub const BISHOP_MAGICS: [u64; Square::NUM] = [
     0x82100116240041,
 ];
 
-pub const ROOK_MAGICS: [u64; Square::NUM] = [
+pub(super) const ROOK_MAGICS: [u64; Square::NUM] = [
     0x80002018804000,
     0xA040004010002000,
     0x100200040081100,

@@ -1,4 +1,7 @@
-use sophos::movegen::init_all_tables;
+use sophos::core::board::fen::*;
+use sophos::core::*;
+use sophos::core::{Board, BoardState};
+use sophos::movegen::{init_all_tables, slider_attack};
 
 fn main() {
     use std::time::Instant;
@@ -11,4 +14,12 @@ fn main() {
         "Time taken to initialize the move generation tables: {:?}",
         duration
     );
+
+    let mut board = Board::new();
+
+    board
+        .set("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 2")
+        .unwrap();
+
+    println!("{}", board.fen());
 }

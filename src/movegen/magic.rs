@@ -1,4 +1,4 @@
-use super::{BISHOP_MAGICS, ROOK_MAGICS};
+use super::magic_numbers::{BISHOP_MAGICS, ROOK_MAGICS};
 use crate::core::*;
 
 /******************************************\
@@ -8,15 +8,15 @@ use crate::core::*;
 \******************************************/
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct Magic {
-    pub magic: u64,
-    mask: Bitboard,
-    shift: u8,
-    offset: usize,
+pub(crate) struct Magic {
+    pub(crate) magic: u64,
+    pub(crate) mask: Bitboard,
+    pub(crate) shift: u8,
+    pub(crate) offset: usize,
 }
 
 impl Magic {
-    pub fn index(self, occ: Bitboard) -> usize {
+    pub(crate) fn index(self, occ: Bitboard) -> usize {
         (((occ & self.mask).0.wrapping_mul(self.magic)) >> self.shift) as usize + self.offset
     }
 }
@@ -35,15 +35,15 @@ impl Magic {
 ///
 /// ## Function
 /// - get_entry(sq, occ) - Gets the corresponding attack pattern for a given square and occupancy
-pub struct SliderAttackTable<const N: usize> {
-    pub table: Box<[Bitboard; N]>,
-    pub magic: [Magic; Square::NUM],
+pub(crate) struct SliderAttackTable<const N: usize> {
+    pub(crate) table: Box<[Bitboard; N]>,
+    pub(crate) magic: [Magic; Square::NUM],
 }
 
 ///
 impl<const N: usize> SliderAttackTable<N> {
     /// ### Gets the corresponding attack pattern for a given square and occupancy
-    pub fn get_entry(&self, sq: Square, occ: Bitboard) -> Bitboard {
+    pub(crate) fn get_entry(&self, sq: Square, occ: Bitboard) -> Bitboard {
         let magic = self.magic[sq as usize];
         let index = magic.index(occ);
         self.table[index as usize]
@@ -60,7 +60,7 @@ impl<const N: usize> SliderAttackTable<N> {
 /// - Calculate the attacks of a piece on the fly (Slow approach used to populate
 /// tables).
 /// - This is used for rook and bishop attacks.
-pub fn attacks_on_the_fly(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
+pub(crate) fn attacks_on_the_fly(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
     use Direction::*;
     // Directions for rook and bishop
     let dirs: [Direction; 4] = match pt {
@@ -74,8 +74,11 @@ pub fn attacks_on_the_fly(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard 
     for dir in dirs {
         let mut to = sq;
         // Shift in the direction if the current square is empty and not occupied
-        while (to + dir) != None && !occ.get(to) {
-            to += dir;
+        while !occ.get(to) {
+            to = match to + dir {
+                Ok(to) => to,
+                Err(_) => break,
+            };
             attacks |= to.into();
         }
         // The last square is either occupied or at the border
@@ -91,7 +94,7 @@ pub fn attacks_on_the_fly(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard 
 
 /// # Get Magic Tables (If you have a list of magics)
 /// - This function is used to generate the magic and attack table using existing magic numbers
-pub fn get_magic_tables<const N: usize>(pt: PieceType) -> SliderAttackTable<N> {
+pub(super) fn get_magic_tables<const N: usize>(pt: PieceType) -> SliderAttackTable<N> {
     let mut offset = 0;
     let mut table = Box::new([Bitboard::EMPTY; N]);
     let mut magic = [Magic::default(); Square::NUM];
@@ -136,7 +139,7 @@ pub fn get_magic_tables<const N: usize>(pt: PieceType) -> SliderAttackTable<N> {
 /// - The edge mask is used to remove the edges of the board from the attack mask.
 /// - The edges of the board are not included in the attack lookup because it doesn't matter if there is a blocker there or not.
 /// - Except in the cases where the attacking piece is on the edge, if so the edge mask should not include the attack area.
-fn get_edge_mask(sq: Square) -> Bitboard {
+pub(crate) fn get_edge_mask(sq: Square) -> Bitboard {
     use File::*;
     use Rank::*;
 
@@ -150,7 +153,7 @@ fn get_edge_mask(sq: Square) -> Bitboard {
     (rank_18bb & !sq_rank_bb) | (file_ahbb & !sq_file_bb)
 }
 
-fn init_magic_struct(pt: PieceType, sq: Square, offset: &mut usize) -> Magic {
+pub(crate) fn init_magic_struct(pt: PieceType, sq: Square, offset: &mut usize) -> Magic {
     let mut m = Magic::default();
     m.magic = 0;
     m.mask = attacks_on_the_fly(pt, sq, Bitboard::EMPTY) & !get_edge_mask(sq);

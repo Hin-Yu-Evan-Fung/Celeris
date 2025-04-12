@@ -28,7 +28,7 @@
 /// // Create a PRNG with a specific seed for reproducible sequences
 /// let mut seeded_prng = PRNG::new(0x123456789ABCDEF);
 /// ```
-pub struct PRNG {
+pub(crate) struct PRNG {
     s: (u64, u64, u64, u64),
 }
 

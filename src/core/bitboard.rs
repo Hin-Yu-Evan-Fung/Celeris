@@ -168,6 +168,45 @@ impl From<File> for Bitboard {
     }
 }
 
+impl<const N: usize> From<[Square; N]> for Bitboard {
+    /// Creates a `Bitboard` from a slice of `Square`s.
+    ///
+    /// This function sets the bits corresponding to each square in the input slice.
+    ///    /// # Panics
+    ///
+    /// This function will panic if the input slice contains more than 64 squares.
+    ///
+    /// # Examples          
+    ///
+    /// ```rust,no_run
+    /// use sophos::{Bitboard, Square};
+    ///
+    /// let squares = [Square::E4, Square::D5, Square::A1];
+    /// let bb = Bitboard::from(squares);
+    ///
+    /// assert!(bb.get(Square::E4));
+    /// assert!(bb.get(Square::D5));
+    /// assert!(bb.get(Square::A1));
+    /// assert_eq!(bb.count_bits(), 3);
+    ///
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `squares` - A slice of `Square`s to set in the bitboard.
+    ///
+    /// # Returns
+    ///
+    /// A `Bitboard` with the specified squares set.
+    fn from(squares: [Square; N]) -> Bitboard {
+        let mut bb = Bitboard::EMPTY;
+        for square in squares {
+            bb.set(square);
+        }
+        bb
+    }
+}
+
 /******************************************\
 |==========================================|
 |         Bit Manipulation Functions       |
@@ -513,10 +552,9 @@ impl Bitboard {
         }
     }
 }
-
 /******************************************\
 |==========================================|
-|                  Display                 |
+|                 Display                  |
 |==========================================|
 \******************************************/
 

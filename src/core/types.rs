@@ -1,6 +1,7 @@
+use super::errors::SquareAddError;
+use super::{File, Square};
 use macros::{BitOps, EnumIter, FromPrimitive};
 
-use super::{File, Rank, Square};
 /******************************************\
 |==========================================|
 |                 Colours                  |
@@ -9,7 +10,7 @@ use super::{File, Rank, Square};
 
 /// # Colour Representation
 /// 
-/// Represents the two colors in chess: White and Black.
+/// Represents the two colours in chess: White and Black.
 /// 
 /// ```rust,no_run
 /// use sophos::Colour;
@@ -25,8 +26,9 @@ use super::{File, Rank, Square};
 
 #[rustfmt::skip]
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, FromPrimitive)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, EnumIter, FromPrimitive)]
 pub enum Colour {
+    #[default]
     White, 
     Black
 }
@@ -164,6 +166,12 @@ pub enum Direction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, BitOps)]
 pub struct Castling(pub u8);
 
+impl Default for Castling {
+    fn default() -> Self {
+        Castling::ALL
+    }
+}
+
 /******************************************\
 |==========================================|
 |              Implementation              |
@@ -185,7 +193,7 @@ impl TryFrom<i8> for Square {
 
 // Add a direction to a square, shifting it
 impl std::ops::Add<Direction> for Square {
-    type Output = Option<Self>;
+    type Output = Result<Self, SquareAddError>;
 
     fn add(self, rhs: Direction) -> Self::Output {
         // Get file and rank for bounds checking
@@ -203,18 +211,11 @@ impl std::ops::Add<Direction> for Square {
         };
 
         match valid {
-            true => Square::try_from(self as i8 + rhs as i8).ok(),
-            false => None,
-        }
-    }
-}
-
-// Add a direction to a square, shifting it and assigning the result
-// If the move is invalid, the square is not changed
-impl std::ops::AddAssign<Direction> for Square {
-    fn add_assign(&mut self, rhs: Direction) {
-        if let Some(square) = *self + rhs {
-            *self = square;
+            true => match Square::try_from(self as i8 + rhs as i8) {
+                Ok(sq) => Ok(sq),
+                Err(_) => return Err(SquareAddError::OutOfBounds),
+            },
+            false => return Err(SquareAddError::OutOfBounds),
         }
     }
 }
@@ -288,7 +289,7 @@ impl Castling {
     pub const NONE: Castling = Castling(0);
 
     /// ### Check if a castling right is set
-    pub fn is_set(self, right: Castling) -> bool {
+    pub fn has(self, right: Castling) -> bool {
         self & right != Castling::NONE
     }
 
@@ -427,34 +428,40 @@ mod tests {
     #[test]
     fn test_square_plus_direction() {
         // Test cardinal directions
-        assert_eq!(Square::E4 + Direction::N, Some(Square::E5));
-        assert_eq!(Square::E4 + Direction::S, Some(Square::E3));
-        assert_eq!(Square::E4 + Direction::E, Some(Square::F4));
-        assert_eq!(Square::E4 + Direction::W, Some(Square::D4));
+        assert_eq!(Square::E4 + Direction::N, Ok(Square::E5));
+        assert_eq!(Square::E4 + Direction::S, Ok(Square::E3));
+        assert_eq!(Square::E4 + Direction::E, Ok(Square::F4));
+        assert_eq!(Square::E4 + Direction::W, Ok(Square::D4));
 
         // Test diagonal directions
-        assert_eq!(Square::E4 + Direction::NE, Some(Square::F5));
-        assert_eq!(Square::E4 + Direction::NW, Some(Square::D5));
-        assert_eq!(Square::E4 + Direction::SE, Some(Square::F3));
-        assert_eq!(Square::E4 + Direction::SW, Some(Square::D3));
+        assert_eq!(Square::E4 + Direction::NE, Ok(Square::F5));
+        assert_eq!(Square::E4 + Direction::NW, Ok(Square::D5));
+        assert_eq!(Square::E4 + Direction::SE, Ok(Square::F3));
+        assert_eq!(Square::E4 + Direction::SW, Ok(Square::D3));
 
         // Test edge cases
-        assert_eq!(Square::H4 + Direction::E, None); // Off board to the right
-        assert_eq!(Square::A4 + Direction::W, None); // Off board to the left
-        assert_eq!(Square::E8 + Direction::N, None); // Off board to the top
-        assert_eq!(Square::E1 + Direction::S, None); // Off board to the bottom
+        assert_eq!(Square::H4 + Direction::E, Err(SquareAddError::OutOfBounds)); // Off board to the right
+        assert_eq!(Square::A4 + Direction::W, Err(SquareAddError::OutOfBounds)); // Off board to the left
+        assert_eq!(Square::E8 + Direction::N, Err(SquareAddError::OutOfBounds)); // Off board to the top
+        assert_eq!(Square::E1 + Direction::S, Err(SquareAddError::OutOfBounds)); // Off board to the bottom
 
         // Test knight moves
-        assert_eq!(Square::E4 + Direction::NNE, Some(Square::F6));
-        assert_eq!(Square::E4 + Direction::NEE, Some(Square::G5));
+        assert_eq!(Square::E4 + Direction::NNE, Ok(Square::F6));
+        assert_eq!(Square::E4 + Direction::NEE, Ok(Square::G5));
 
         // Test double moves
-        assert_eq!(Square::E4 + Direction::NN, Some(Square::E6));
-        assert_eq!(Square::E4 + Direction::SS, Some(Square::E2));
+        assert_eq!(Square::E4 + Direction::NN, Ok(Square::E6));
+        assert_eq!(Square::E4 + Direction::SS, Ok(Square::E2));
 
         // Test edge cases with knight moves
-        assert_eq!(Square::H7 + Direction::NEE, None); // Would go off the board
-        assert_eq!(Square::A2 + Direction::SWW, None); // Would go off the board
+        assert_eq!(
+            Square::H7 + Direction::NEE,
+            Err(SquareAddError::OutOfBounds)
+        ); // Would go off the board
+        assert_eq!(
+            Square::A2 + Direction::SWW,
+            Err(SquareAddError::OutOfBounds)
+        ); // Would go off the board
 
         // Test all directions
         use Direction::*;
@@ -465,10 +472,9 @@ mod tests {
 
         for dir in directions {
             for sq in Square::iter() {
-                let shifted = sq + dir;
-                if let Some(shifted_sq) = shifted {
-                    let shifted_back = shifted_sq + -dir;
-                    assert_eq!(shifted_back, Some(sq));
+                match sq + dir {
+                    Ok(new_sq) => assert_eq!(new_sq + -dir, Ok(sq)),
+                    Err(err) => assert_eq!(err, SquareAddError::OutOfBounds),
                 }
             }
         }
@@ -518,37 +524,37 @@ mod tests {
         let mut castling = Castling::ALL;
 
         // Test is_set
-        assert!(castling.is_set(Castling::WK));
-        assert!(castling.is_set(Castling::WQ));
-        assert!(castling.is_set(Castling::BK));
-        assert!(castling.is_set(Castling::BQ));
+        assert!(castling.has(Castling::WK));
+        assert!(castling.has(Castling::WQ));
+        assert!(castling.has(Castling::BK));
+        assert!(castling.has(Castling::BQ));
 
         // Test remove
         castling.remove(Castling::WK);
-        assert!(!castling.is_set(Castling::WK));
-        assert!(castling.is_set(Castling::WQ));
-        assert!(castling.is_set(Castling::BK));
-        assert!(castling.is_set(Castling::BQ));
+        assert!(!castling.has(Castling::WK));
+        assert!(castling.has(Castling::WQ));
+        assert!(castling.has(Castling::BK));
+        assert!(castling.has(Castling::BQ));
 
         // Test set
         castling = Castling::NONE;
-        assert!(!castling.is_set(Castling::WK));
+        assert!(!castling.has(Castling::WK));
         castling.set(Castling::WK);
-        assert!(castling.is_set(Castling::WK));
+        assert!(castling.has(Castling::WK));
 
         // Test compound rights
         castling = Castling::NONE;
         castling.set(Castling::WHITE_CASTLING);
-        assert!(castling.is_set(Castling::WK));
-        assert!(castling.is_set(Castling::WQ));
-        assert!(!castling.is_set(Castling::BK));
-        assert!(!castling.is_set(Castling::BQ));
+        assert!(castling.has(Castling::WK));
+        assert!(castling.has(Castling::WQ));
+        assert!(!castling.has(Castling::BK));
+        assert!(!castling.has(Castling::BQ));
 
         castling = Castling::ALL;
         castling.remove(Castling::BLACK_CASTLING);
-        assert!(castling.is_set(Castling::WK));
-        assert!(castling.is_set(Castling::WQ));
-        assert!(!castling.is_set(Castling::BK));
-        assert!(!castling.is_set(Castling::BQ));
+        assert!(castling.has(Castling::WK));
+        assert!(castling.has(Castling::WQ));
+        assert!(!castling.has(Castling::BK));
+        assert!(!castling.has(Castling::BQ));
     }
 }

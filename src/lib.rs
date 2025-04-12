@@ -2,10 +2,8 @@
 ///
 /// A Rust chess engine focusing on modern techniques and high performance.
 ///
-/// This crate provides functionality for:
-/// - Bitboard-based chess board representation
-/// - Chess piece movement and attack generation
-/// - Utilities for chess engine development
+// Export board modules for chess position representation
+
 // Export core modules for chess primitives
 pub mod core;
 

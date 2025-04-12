@@ -1,5 +1,8 @@
 use macros::{EnumIter, FromPrimitive};
 
+use super::errors::ParseSquareError;
+use crate::utils::abs_diff;
+
 /******************************************\
 |==========================================|
 |                 Squares                  |
@@ -180,10 +183,6 @@ pub enum File {
 |==========================================|
 \******************************************/
 
-fn abs_diff(a: u8, b: u8) -> u8 {
-    if a > b { a - b } else { b - a }
-}
-
 impl Square {
     /// Returns the rank of this square
     pub fn rank(&self) -> Rank {
@@ -267,6 +266,52 @@ impl From<(File, Rank)> for Square {
 
 /******************************************\
 |==========================================|
+|                 Display                  |
+|==========================================|
+\******************************************/
+
+/// Display function for squares
+impl std::fmt::Display for Square {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", format!("{:?}", self).to_lowercase())
+    }
+}
+
+/******************************************\
+|==========================================|
+|              Parsing Strings             |
+|==========================================|
+\******************************************/
+
+/// Parses a square from algebraic notation (e.g., "e4").
+impl std::str::FromStr for Square {
+    type Err = ParseSquareError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() != 2 {
+            return Err(ParseSquareError::InvalidLength(s.len()));
+        }
+
+        let mut chars = s.chars();
+        let file_char = chars.next().unwrap(); // Safe due to length check
+        let rank_char = chars.next().unwrap(); // Safe due to length check
+
+        let file = match file_char {
+            'a'..='h' => File::from((file_char as u8 - b'a') as u8),
+            _ => return Err(ParseSquareError::InvalidFileChar(file_char)),
+        };
+
+        let rank = match rank_char {
+            '1'..='8' => Rank::from((rank_char as u8 - b'1') as u8),
+            _ => return Err(ParseSquareError::InvalidRankChar(rank_char)),
+        };
+
+        Ok((file, rank).into())
+    }
+}
+
+/******************************************\
+|==========================================|
 |                Unit Tests                |
 |==========================================|
 \******************************************/
@@ -321,5 +366,81 @@ mod tests {
                 assert_eq!(square.rank(), r);
             }
         }
+    }
+
+    #[test]
+    fn test_square_from_str_valid() {
+        assert_eq!("a1".parse::<Square>().unwrap(), Square::A1);
+        assert_eq!("h8".parse::<Square>().unwrap(), Square::H8);
+        assert_eq!("e4".parse::<Square>().unwrap(), Square::E4);
+        assert_eq!("c7".parse::<Square>().unwrap(), Square::C7);
+        assert_eq!("g2".parse::<Square>().unwrap(), Square::G2);
+        assert_eq!("b5".parse::<Square>().unwrap(), Square::B5);
+        assert_eq!("f3".parse::<Square>().unwrap(), Square::F3);
+        assert_eq!("d6".parse::<Square>().unwrap(), Square::D6);
+    }
+
+    #[test]
+    fn test_square_from_str_invalid() {
+        // Invalid Length
+        assert!(matches!(
+            "e".parse::<Square>(),
+            Err(ParseSquareError::InvalidLength(1))
+        ));
+        assert!(matches!(
+            "e4g".parse::<Square>(),
+            Err(ParseSquareError::InvalidLength(3))
+        ));
+        assert!(matches!(
+            "".parse::<Square>(),
+            Err(ParseSquareError::InvalidLength(0))
+        ));
+
+        // Invalid File
+        assert!(matches!(
+            "z4".parse::<Square>(),
+            Err(ParseSquareError::InvalidFileChar('z'))
+        ));
+        assert!(matches!(
+            "i1".parse::<Square>(),
+            Err(ParseSquareError::InvalidFileChar('i'))
+        ));
+        assert!(matches!(
+            "@5".parse::<Square>(),
+            Err(ParseSquareError::InvalidFileChar('@'))
+        ));
+        // Check case sensitivity (only lowercase files are valid)
+        assert!(matches!(
+            "A1".parse::<Square>(),
+            Err(ParseSquareError::InvalidFileChar('A'))
+        ));
+
+        // Invalid Rank
+        assert!(matches!(
+            "a9".parse::<Square>(),
+            Err(ParseSquareError::InvalidRankChar('9'))
+        ));
+        assert!(matches!(
+            "h0".parse::<Square>(),
+            Err(ParseSquareError::InvalidRankChar('0'))
+        ));
+        assert!(matches!(
+            "eA".parse::<Square>(),
+            Err(ParseSquareError::InvalidRankChar('A'))
+        ));
+        assert!(matches!(
+            "f ".parse::<Square>(),
+            Err(ParseSquareError::InvalidRankChar(' '))
+        ));
+
+        // Both Invalid (File error usually detected first)
+        assert!(matches!(
+            "z9".parse::<Square>(),
+            Err(ParseSquareError::InvalidFileChar('z'))
+        ));
+        assert!(matches!(
+            "1a".parse::<Square>(),
+            Err(ParseSquareError::InvalidFileChar('1'))
+        ));
     }
 }
