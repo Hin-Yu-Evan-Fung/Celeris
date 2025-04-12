@@ -1,3 +1,42 @@
+//! # Module: `magic_numbers`
+//!
+//! This module provides precomputed magic numbers for rook and bishop attacks.
+//! These magic numbers are used to efficiently calculate sliding piece attacks
+//! on the fly, without the need for iterative calculations.
+//!
+//! ## Overview
+//!
+//! Magic numbers are a technique used in chess engines to quickly determine
+//! the squares attacked by sliding pieces (rooks, bishops, and queens).
+//! Each square on the board has a unique magic number associated with it.
+//! By multiplying the magic number with a bitboard representing the occupancy
+//! of the board, and then right-shifting the result, we can obtain an index
+//! into a precomputed attack table. This index directly gives us the bitboard
+//! of squares attacked by the sliding piece from that square, given the current
+//! occupancy.
+//!
+//! ## Constants
+//!
+//! - `BISHOP_MAGICS`: An array of 64 magic numbers, one for each square on the board,
+//!   for calculating bishop attacks.
+//! - `ROOK_MAGICS`: An array of 64 magic numbers, one for each square on the board,
+//!   for calculating rook attacks.
+//!
+//! ## Usage
+//!
+//! These magic numbers are used in the `movegen` module, specifically in the
+//! `slider_attack` function, to efficiently calculate the attacks of sliding
+//! pieces. They are essential for the performance of the chess engine, as they
+//! allow for rapid move generation and evaluation.
+//!
+//! ## Implementation Details
+//!
+//! The magic numbers are carefully chosen to minimize collisions (i.e., different
+//! occupancies mapping to the same index) while keeping the size of the attack
+//! tables manageable. The process of finding these magic numbers is computationally
+//! intensive and is typically done offline. The `magic_gen` module contains the
+//! code used to generate these magic numbers.
+
 use crate::core::Square;
 
 /******************************************\

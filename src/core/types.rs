@@ -1,3 +1,40 @@
+//! # Module: `types`
+//!
+//! This module defines fundamental types used throughout the chess engine, including:
+//!
+//! - **`Colour`**: Represents the two colors in chess (White and Black).
+//! - **`Direction`**: Represents movement directions on the chessboard.
+//! - **`Castling`**: Represents castling rights for both players.
+//!
+//! ## Overview
+//!
+//! This module provides the basic building blocks for representing the state of a chess game.
+//! It defines the colors, directions, and castling rights that are essential for move generation,
+//! board evaluation, and game logic.
+//!
+//! ## Key Components
+//!
+//! - **`Colour`**: An enum with two variants, `White` and `Black`, representing the two players.
+//!   - Implements `From<u8>` for numeric conversion.
+//!   - Supports iteration with `Colour::iter()`.
+//!   - Length variable: `Colour::NUM = 2`.
+//! - **`Direction`**: An enum representing movement directions on the chessboard.
+//!   - Provides all common chess movement directions (N, S, E, W, NE, NW, SE, SW, etc.).
+//!   - Implements `From<i8>` for numeric conversion.
+//!   - Semantic directional naming (N = North, S = South, etc.).
+//!   - Can be applied to squares using the `+` operator, returning an `Option<Square>`.
+//!   - Supports conversion between squares to find the direction using `TryFrom`.
+//! - **`Castling`**: A struct representing castling rights for both players using bit flags.
+//!   - Each bit corresponds to a specific castling right (White Kingside, White Queenside, Black Kingside, Black Queenside).
+//!   - Implements bitwise operations for easy manipulation (AND, OR, XOR, NOT).
+//!   - Supports checking, adding, and removing castling rights.
+//!   - Compact representation using a single byte.
+//!   - Helper methods: `has()`, `set()`, and `remove()`.
+//!
+//! ## Usage
+//!
+//! These types are used throughout the chess engine to represent the state of the game,
+//! generate moves, and evaluate board positions. They are designed to be efficient and easy to use.
 use super::errors::SquareAddError;
 use super::{File, Square};
 use macros::{BitOps, EnumIter, FromPrimitive};
@@ -31,6 +68,10 @@ pub enum Colour {
     #[default]
     White, 
     Black
+}
+
+impl Colour {
+    pub const NUM: usize = 2;
 }
 
 /******************************************\
@@ -288,6 +329,9 @@ impl Castling {
     /// ### No Castling Rights
     pub const NONE: Castling = Castling(0);
 
+    /// ### Number of castling right combinations
+    pub const NUM: usize = 16;
+
     /// ### Check if a castling right is set
     pub fn has(self, right: Castling) -> bool {
         self & right != Castling::NONE
@@ -311,6 +355,30 @@ impl std::ops::Not for Castling {
     #[inline]
     fn not(self) -> Self::Output {
         Castling(!self.0 & 0x0F) // Only keep the lower 4 bits
+    }
+}
+
+impl std::fmt::Display for Castling {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0 == 0 {
+            return write!(f, "-");
+        }
+
+        let mut s = String::new();
+        if self.has(Castling::WK) {
+            s.push('K');
+        }
+        if self.has(Castling::WQ) {
+            s.push('Q');
+        }
+        if self.has(Castling::BK) {
+            s.push('k');
+        }
+        if self.has(Castling::BQ) {
+            s.push('q');
+        }
+
+        write!(f, "{}", s)
     }
 }
 

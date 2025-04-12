@@ -21,13 +21,8 @@ pub const EMPTY_FEN: &str = "8/8/8/8/8/8/8/8 w KQkq - 0 1";
 pub const START_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 /// FEN string for a complex position often used for testing ("Tricky Position").
 pub const TRICKY_FEN: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
-
-/******************************************\
-|==========================================|
-|             Fen Error Types              |
-|==========================================|
-\******************************************/
-// FenParseError enum is defined in src/core/errors.rs
+/// Fen string for a complex position often used for testing killer moves
+pub const KILLER_FEN: &str = "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQKBNR w KQkq e6 0 1";
 
 /******************************************\
 |==========================================|
@@ -93,12 +88,14 @@ impl Board {
         // Note: Board stores ply count (half_moves), not the FEN fullmove number directly.
         self.half_moves = self.parse_full_move(full_move_token)?;
 
-        // --- Final Check: Ensure no extra fields ---
+        // --- 7. Ensure no extra fields ---
         if parts.next().is_some() {
             return Err(FenParseError::InvalidNumberOfFields);
         }
 
-        // TODO: Update Zobrist keys (self.state.key, self.state.pawn_key) if using them.
+        // --- 8. Update Zobrist keys
+        self.state.key = self.calc_key();
+
         // TODO: Update derived data like attack masks, king squares etc. if needed.
 
         Ok(())
@@ -204,7 +201,7 @@ impl Board {
     /// ## Returns
     /// * `Ok((Rank, u8))`: A tuple containing the *next* `Rank` to process and the reset file index (0).
     /// * `Err(FenParseError)`: If the previous rank was incomplete (`file != 8`) or if there are too many '/' separators.
-    fn parse_seperator(
+    fn parse_separator(
         rank_iter: &mut impl DoubleEndedIterator<Item = Rank>,
         rank: Rank,
         file: u8,
@@ -346,7 +343,7 @@ impl Board {
             match char {
                 // Rank separator: Validate previous rank, move to next rank, reset file index.
                 '/' => {
-                    (rank, file) = Self::parse_seperator(&mut rank_iter, rank, file)?;
+                    (rank, file) = Self::parse_separator(&mut rank_iter, rank, file)?;
                 }
                 // Skip digit: Parse the digit, validate, and advance the file index.
                 skip if skip.is_digit(10) => {
@@ -457,12 +454,18 @@ impl Board {
             // No en passant target square.
             "-" => None,
             // Attempt to parse the string as a square coordinate.
-            _ => Some(
-                enpassant
+            _ => {
+                let square = enpassant
                     .parse::<Square>() // Assumes Square implements FromStr correctly.
-                    .map_err(|_| FenParseError::InvalidEnPassantSquare(enpassant.to_string()))?,
-                // TODO: Add validation? (e.g., must be rank 3 or 6)
-            ),
+                    .map_err(|_| FenParseError::InvalidEnPassantSquare(enpassant.to_string()))?;
+                // Bounds checks
+                if ![Rank::Rank3, Rank::Rank6].contains(&square.rank()) {
+                    return Err(FenParseError::InvalidEnPassantSquare(format!(
+                        "{square} is not a valid enpassant square"
+                    )));
+                }
+                Some(square)
+            }
         };
         Ok(())
     }

@@ -1,6 +1,42 @@
+//! # Module: `lookup`
+//!
+//! This module provides precomputed lookup tables and functions for efficient move generation in a chess engine.
+//! It includes tables for pawn, knight, king, bishop, rook, and queen attacks, as well as tables for lines,
+//! between squares, pin masks, check masks, castling rights, and distances.
+//!
+//! ## Overview
+//!
+//! The module is designed to optimize the performance of the chess engine by precomputing various
+//! lookup tables that are frequently used during move generation and board evaluation. These tables
+//! are initialized once at the start of the program and then used throughout the engine's operation.
+//!
+//! ## Key Components
+//!
+//! - **Attack Tables**: Precomputed attack patterns for each piece type.
+//!   - `PAWN_ATTACKS`: Attacks for pawns, indexed by color and square.
+//!   - `KNIGHT_ATTACKS`: Attacks for knights, indexed by square.
+//!   - `KING_ATTACKS`: Attacks for kings, indexed by square.
+//!   - `BISHOP_TABLE`: Attacks for bishops, using magic bitboards.
+//!   - `ROOK_TABLE`: Attacks for rooks, using magic bitboards.
+//! - **Lookup Tables**: Tables for various board relationships.
+//!   - `LINE_BB`: Bitboards representing lines between squares (inclusive).
+//!   - `BETWEEN_BB`: Bitboards representing squares between two squares (exclusive).
+//!   - `PIN_BB`: Bitboards representing potential pin rays.
+//!   - `CHECK_BB`: Bitboards representing squares that can resolve a check.
+//!   - `CASTLING_RIGHTS`: Castling rights that are removed if a piece moves to or from a square.
+//!   - `DIST`: Chebyshev distances between squares.
+//! - **Initialization**: Functions to initialize the tables.
+//!   - `init_all_tables`: Initializes all lookup tables.
+//!   - `init_pseudo_attacks`: Initializes attack tables for non-sliding pieces.
+//! - **Attack Functions**: Functions to retrieve attack information.
+//!   - `pawn_attack`: Gets the attack bitboard for a pawn.
+//!   - `leaper_attack`: Gets the attack bitboard for a knight or king.
+//!   - `slider_attack`: Gets the attack bitboard for a bishop, rook, or
+
 use crate::core::{Bitboard, Castling, Colour, Direction, File, PieceType, Rank, Square};
 // Make get_magic_tables pub(super) or pub(crate) if needed here, otherwise keep it private/pub(super) in magic.rs
 // Assuming get_magic_tables is pub(super) in magic.rs and accessible here.
+use super::init::*;
 use super::magic::{SliderAttackTable, get_magic_tables}; // Adjusted import visibility assumption
 use std::sync::LazyLock;
 
@@ -12,20 +48,18 @@ use std::sync::LazyLock;
 
 // Type aliases remain internal implementation details
 
-/// Colour index type
-type ColourIndex = usize;
 /// Attack table for a single piece type indexed by square
 type AttackTable = [Bitboard; Square::NUM];
 /// Attack table for pawns indexed by colour and square
 type PawnAttackTable = [[Bitboard; Square::NUM]; Colour::NUM];
 /// Table mapping square pairs to bitboards
-type SquarePairTable = [[Bitboard; Square::NUM]; Square::NUM];
+pub(super) type SquarePairTable = [[Bitboard; Square::NUM]; Square::NUM];
 /// Table mapping square pairs to distances
-type DistanceTable = [[u8; Square::NUM]; Square::NUM];
+pub(super) type DistanceTable = [[u8; Square::NUM]; Square::NUM];
 /// Castling rights lookup table
-type CastlingTable = [Castling; Square::NUM];
+pub(super) type CastlingTable = [Castling; Square::NUM];
 /// Function type for populating square pair tables
-type PopulateTableFn = dyn FnMut(&mut SquarePairTable, PieceType, Square, Square);
+pub(super) type PopulateTableFn = dyn FnMut(&mut SquarePairTable, PieceType, Square, Square);
 
 /******************************************\
 |==========================================|
@@ -138,50 +172,6 @@ pub fn init_all_tables() {
     LazyLock::force(&DIST);
 }
 
-// Internal helper functions remain documented with `//` or brief `///` for maintainability
-
-// Populates the LINE_BB table.
-fn populate_line_bb(table: &mut SquarePairTable, pt: PieceType, from: Square, to: Square) {
-    let from_bb: Bitboard = from.into();
-    let to_bb: Bitboard = to.into();
-    // Use the public slider_attack function which relies on the (potentially lazy) tables
-    let from_ray = slider_attack(pt, from, Bitboard::EMPTY);
-    let to_ray = slider_attack(pt, to, Bitboard::EMPTY);
-    table[from as usize][to as usize] = (from_ray & to_ray) | (from_bb | to_bb);
-}
-
-// Populates the BETWEEN_BB table.
-fn populate_between_bb(table: &mut SquarePairTable, pt: PieceType, from: Square, to: Square) {
-    // Use the public slider_attack function
-    let from_ray = slider_attack(pt, from, to.into());
-    let to_ray = slider_attack(pt, to, from.into());
-    table[from as usize][to as usize] = from_ray & to_ray;
-}
-
-// Populates the PIN_BB table.
-fn populate_pin_bb(table: &mut SquarePairTable, pt: PieceType, from: Square, to: Square) {
-    // Use the public slider_attack function
-    let from_ray = slider_attack(pt, from, to.into());
-    let to_ray = slider_attack(pt, to, from.into());
-    // Pin mask includes the line *between* the pinner and pinned piece, plus the pinner itself.
-    // Assuming 'from' is the pinner and 'to' is the pinned piece's square (or king).
-    // The resulting mask represents squares the pinned piece *could* move to along the pin line.
-    table[from as usize][to as usize] = (from_ray & to_ray) | Bitboard::from(from); // Include the 'from' square (pinner)
-}
-
-// Populates the CHECK_BB table.
-fn populate_check_bb(table: &mut SquarePairTable, pt: PieceType, from: Square, to: Square) {
-    // Use the public slider_attack function
-    let from_ray = slider_attack(pt, from, to.into()); // Ray from attacker towards king
-    let to_ray = slider_attack(pt, to, from.into()); // Ray from king towards attacker
-    let between = from_ray & to_ray; // Squares between attacker and king
-
-    // Check mask includes squares between attacker and king, plus the attacker's square.
-    // This represents squares where a piece can block the check or capture the attacker.
-    // Assuming 'from' is the attacker and 'to' is the king.
-    table[from as usize][to as usize] = between | Bitboard::from(from); // Include the 'from' square (attacker)
-}
-
 /// Initializes pseudo-attack tables for non-sliding pieces (Pawn, Knight, King).
 /// "Pseudo attacks" are potential moves ignoring blockers.
 fn init_pseudo_attacks(dirs: &[Direction]) -> AttackTable {
@@ -195,61 +185,6 @@ fn init_pseudo_attacks(dirs: &[Direction]) -> AttackTable {
         }
     }
     attacks
-}
-
-/// Generic helper to initialize square-pair lookup tables.
-fn init_lookup_table(populate_fn: &mut PopulateTableFn) -> SquarePairTable {
-    let mut table = [[Bitboard::EMPTY; Square::NUM]; Square::NUM];
-
-    // Need to ensure slider tables are initialized *before* calling slider_attack here.
-    // LazyLock handles this automatically if slider_attack is called.
-    LazyLock::force(&BISHOP_TABLE);
-    LazyLock::force(&ROOK_TABLE);
-
-    for pt in [PieceType::Bishop, PieceType::Rook] {
-        for from in Square::iter() {
-            // Iterate over all squares attacked by the slider from 'from' on an empty board
-            slider_attack(pt, from, Bitboard::EMPTY).for_each(|to| {
-                // Populate the table entry for the pair (from, to)
-                populate_fn(&mut table, pt, from, to);
-            });
-        }
-    }
-
-    table
-}
-
-/// Initializes the Chebyshev distance table.
-fn init_dist_table() -> [[u8; Square::NUM]; Square::NUM] {
-    let mut table = [[0u8; Square::NUM]; Square::NUM];
-
-    for sq1 in Square::iter() {
-        for sq2 in Square::iter() {
-            table[sq1 as usize][sq2 as usize] =
-                std::cmp::max(Square::rank_dist(sq1, sq2), Square::file_dist(sq1, sq2));
-        }
-    }
-
-    table
-}
-
-/// Initializes the castling rights removal table.
-fn init_castling_rights_table() -> [Castling; Square::NUM] {
-    use Square::*;
-
-    // Start with all rights potentially removable (will be ANDed with current rights)
-    let mut table = [Castling::ALL; Square::NUM]; // Initialize with no rights removed
-
-    // Define which rights are removed *if* a piece moves *from* or *to* these specific squares.
-    // We use bitwise NOT on the right to keep, effectively creating a mask to remove that right.
-    table[E1 as usize].remove(Castling::WHITE_CASTLING); // Moving King E1 removes WQ + WK
-    table[E8 as usize].remove(Castling::BLACK_CASTLING); // Moving King E8 removes BQ + BK
-    table[A1 as usize].remove(Castling::WQ); // Moving Rook A1 removes WQ
-    table[H1 as usize].remove(Castling::WK); // Moving Rook H1 removes WK
-    table[A8 as usize].remove(Castling::BQ); // Moving Rook A8 removes BQ
-    table[H8 as usize].remove(Castling::BK); // Moving Rook H8 removes BK
-
-    table
 }
 
 /******************************************\
@@ -631,7 +566,7 @@ pub fn castling_rights(sq: Square) -> Castling {
 #[inline]
 pub fn dist(sq1: Square, sq2: Square) -> u8 {
     // SAFETY: Table initialized, indices valid.
-    unsafe { *DIST.get_unchecked(sq1 as usize).get_unchecked(sq2 as usize) }
+    DIST[sq1 as usize][sq2 as usize]
 }
 
 // Tests remain unchanged, but ensure they call init_all_tables() first if needed.

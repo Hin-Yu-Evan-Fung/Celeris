@@ -19,13 +19,9 @@ pub fn derive_enum_iter(input: TokenStream) -> TokenStream {
         _ => panic!("Derive FromPrimitive and EnumIter can only be derived for enums"),
     };
 
-    // Get total number of variants
-    let n = variants.len();
-
     // Generate the implementation
     let expanded = quote! {
         impl #name {
-            pub const NUM: usize = #n;
             pub fn iter() -> impl DoubleEndedIterator<Item = Self> {
                 [
                     #(Self::#variants),*

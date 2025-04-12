@@ -1,13 +1,38 @@
+//! # Module: `board`
+//!
+//! This module defines the core data structures and functionalities for representing a chess board
+//! and managing its state. It includes the `Board` struct, which encapsulates the entire state of
+//! a chess game, and the `BoardState` struct, which stores the state of the board at a specific
+//! point in time.
+//!
+//! ## Overview
+//!
+//! The `board` module is a fundamental part of the chess engine, providing the basic building
+//! blocks for representing the game state, managing piece positions, handling move history, and
+//! enforcing game rules. It uses bitboards for efficient storage and manipulation of piece
+//! locations and provides methods for accessing and modifying the board state.
+//!
+//! ## Key Components
+//!
+//! - **`Board`**: A struct representing the complete state of a chess game.
+//!   - Contains bitboards for piece positions, occupied squares, and side to move.
+//!   - Manages move counters, castling rights, en passant square, and game history.
+//!   - Provides methods for accessing piece positions, occupied squares, and other board state information.
+//!   - Implements `Display` for printing the board to the console.
+//! - **`BoardState`**: A struct representing the state of the board at a specific point in time.
+//!   - Stores information about castling rights, en passant square, captured piece, and move counters.
+//!   - Includes Zobrist keys for position hashing and repetition detection.
+//!   - Contains bitboard masks for move generation and legality checks.
+//!
+//! ## Functionality
+//!
+//! - **Board Creation**: `Board::new()` creates an empty board, while `Board::default()` creates a board with the standard starting position.
+//! - **State Management**: `Board::store_state()` and `Board::restore_state()` manage the move history, allowing for undoing moves.
+//! - **Piece Access**: `Board::on()` retrieves the piece on a given square.
+//! - **Bitboard Access**: `Board::piecetype_bb()`, `Board::occupied_bb()`, `Board::all_occupied_bb()
+
 use crate::core::*;
 use fen::START_FEN;
-
-/******************************************\
-|==========================================|
-|                  Types                   |
-|==========================================|
-\******************************************/
-
-type Key = u64;
 
 /******************************************\
 |==========================================|
@@ -46,6 +71,24 @@ const MAX_DEPTH: usize = 256;
 /// - `enpassant_pin`: A boolean indicating if the pawn performing an en passant capture is pinned to the king, making the en passant illegal.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct BoardState {
+    // --- Board State Variables -- //
+    /// Number of times the current position (by `key`) has occurred in the game history.
+    repetitions: u8,
+    /// Counter for the fifty-move rule (plies since last pawn move or capture).
+    fifty_move: u8,
+    /// The piece that was captured on the move leading to this state. `Piece::None` if no capture.
+    captured: Option<Piece>, // Assuming Piece::None exists
+    /// The square where an en passant capture is possible, if any. `None` otherwise.
+    enpassant: Option<Square>,
+    /// Castling rights (`Castling`) available *before* the move leading to this state.
+    castle: Castling,
+    /// Zobrist key for the current position
+    key: Key,
+    /// Zobrist Key for the current position (Only for pawns)
+    pawn_key: Key,
+    /// Zobrist Key for the current position (Only for non-pawns)
+    non_pawn_key: Key,
+
     // --- Move generation masks ---
     /// Bitboard mask: squares that block check or capture the checking piece(s). If not in check, all squares (`!0`).
     check_mask: Bitboard,
@@ -61,21 +104,6 @@ pub struct BoardState {
     available: Bitboard,
     /// Flag indicating if the pawn that could capture en passant is pinned, making the move illegal.
     enpassant_pin: bool,
-
-    /// Number of times the current position (by `key`) has occurred in the game history.
-    repetitions: u8,
-    /// Counter for the fifty-move rule (plies since last pawn move or capture).
-    fifty_move: u8,
-    /// The square where an en passant capture is possible, if any. `None` otherwise.
-    enpassant: Option<Square>,
-    /// Castling rights (`Castling`) available *before* the move leading to this state.
-    castle: Castling,
-    /// Zobrist key for the current position (excluding pawn structure, castling, en passant, side to move). Used for repetition detection.
-    key: Key,
-    /// Zobrist key specifically representing the pawn structure.
-    pawn_key: Key,
-    /// The piece that was captured on the move leading to this state. `Piece::None` if no capture.
-    captured: Option<Piece>, // Assuming Piece::None exists
 }
 
 /******************************************\
@@ -104,6 +132,8 @@ pub struct BoardState {
 /// - `side_to_move`: The `Colour` (White or Black) whose turn it is to move.
 /// - `half_moves`: Counts the number of half-moves (plies) since the last capture or pawn advance.
 ///   Used for the fifty-move rule. It's incremented after each move and reset to 0 upon a capture or pawn move.
+/// - `state`: The current `BoardState` of the board. This includes en passant square, castling rights,
+///   captured piece, Zobrist keys, and move counters.
 /// - `history`: A `Vec<BoardState>` acting as a stack. Each time a move is made, the current `BoardState`
 ///   (containing castling rights, en passant square, captured piece, keys, etc., *before* the move)
 ///   is pushed onto this stack. This allows for efficient `unmake_move` operations and tracking game history
@@ -124,12 +154,12 @@ pub struct Board {
     /// `occupied[Colour::Black as usize]` holds all black pieces.
     occupied: [Bitboard; Colour::NUM],
 
-    /// Indicates which player's turn it is (White or Black).
-    side_to_move: Colour,
-
     /// Counts the number of half-moves (plies) since the last capture or pawn advance.
     /// Used for the fifty-move rule. Reset to 0 on capture or pawn move.
     half_moves: u16, // Renamed from fifty_move in BoardState for clarity, common practice
+
+    /// Indicates which player's turn it is (White or Black).
+    side_to_move: Colour,
 
     /// Current board state
     state: BoardState,
@@ -365,5 +395,50 @@ impl Board {
     }
 }
 
+impl std::fmt::Display for Board {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const SEPARATOR: &str = "\n     +---+---+---+---+---+---+---+---+";
+
+        writeln!(f, "{}", SEPARATOR)?;
+
+        for rank in Rank::iter().rev() {
+            write!(f, " {}   |", rank as u8 + 1)?;
+
+            for file in File::iter() {
+                let square = (file, rank).into();
+                let cell = match self.on(square) {
+                    Some(piece) => piece.to_string(),
+                    None => " ".to_string(),
+                };
+                write!(f, " {} |", cell)?;
+            }
+
+            writeln!(f, "{}", SEPARATOR)?;
+        }
+
+        writeln!(f)?;
+        writeln!(f, "       A   B   C   D   E   F   G   H")?;
+        writeln!(f)?;
+        writeln!(f, "Current Side: {:?}", self.side_to_move())?;
+        writeln!(f, "Castling: {}", self.state.castle)?;
+        writeln!(
+            f,
+            "En Passant Square: {}",
+            match self.state.enpassant {
+                Some(square) => square.to_string(),
+                None => "None".to_string(),
+            }
+        )?;
+        writeln!(f, "Half Move Clock: {}", self.state.fifty_move)?;
+        writeln!(f, "Full Move: {}", self.half_moves / 2 + 1)?;
+        writeln!(f, "Fen: {}", self.fen())?;
+
+        Ok(())
+    }
+}
+
 pub mod fen;
 pub mod movement;
+pub mod zobrist;
+
+use zobrist::Key;

@@ -1,3 +1,44 @@
+//! # Module: `magic_gen`
+//!
+//! Handles the generation of "magic bitboards" and associated lookup tables
+//! for efficient calculation of sliding piece attacks (bishops and rooks).
+//!
+//! ## Overview
+//!
+//! Magic bitboards provide a highly efficient method for determining sliding piece
+//! attack patterns by using precomputed tables indexed via a hashing scheme
+//! involving carefully chosen "magic" numbers. This avoids expensive iteration
+//! or complex calculations during move generation.
+//!
+//! This module contains the logic to:
+//! 1.  **Find Magic Numbers**: Search for suitable 64-bit "magic" numbers for each
+//!     square and piece type (bishop/rook). A valid magic number, combined with a
+//!     bit shift, maps all relevant occupancy permutations for a square to unique
+//!     indices within a compact attack table.
+//! 2.  **Populate Attack Tables**: Generate the actual attack bitboards for every
+//!     relevant occupancy permutation and store them in the lookup table at the
+//!     index determined by the magic number.
+//! 3.  **Seed Finding**: Includes functionality (`find_best_magic_seeds`) to help
+//!     discover optimal random seeds that lead to faster generation of valid magic
+//!     numbers, primarily used during development.
+//!
+//! ## Key Functions
+//!
+//! - `gen_slider_attacks`: The main function responsible for generating a complete
+//!   `SliderAttackTable` (containing both the attack lookup array and the `Magic`
+//!   structs needed for indexing) for a given piece type (Bishop or Rook). This is
+//!   typically called once during engine initialization (often via `LazyLock` in `movegen::lookup`).
+//! - `find_magics`: The core helper function that performs the search for a valid
+//!   magic number for a single square.
+//! - `populate_table`: Helper to generate reference attack patterns and occupancy masks.
+//! - `find_best_magic_seeds`: A utility function for searching for efficient seeds.
+//!
+//! ## Usage
+//!
+//! The primary output, `SliderAttackTable`, is used by the `movegen::lookup` module
+//! to provide the `slider_attack` function, enabling fast retrieval of attack sets
+//! for sliding pieces based on the current board occupancy.
+
 use crate::core::*;
 use crate::movegen::{Magic, SliderAttackTable, attacks_on_the_fly, init_magic_struct};
 use crate::utils::PRNG;
@@ -105,7 +146,7 @@ const ROOK_SEEDS: [u64; Rank::NUM] = [
     0x33481A03E05CFBED, // 103092 attempts to generate magic number
 ];
 
-/// # Generate Magics (~170ms)
+/// # Generate Magics (~240ms)
 /// - Initialize the magic numbers for the rook and bishop pieces.
 /// - This is used to generate the attacks for the pieces.
 /// - The magic numbers are used to hash the occupancy of the squares to a unique index.

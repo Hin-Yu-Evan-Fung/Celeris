@@ -1,3 +1,40 @@
+//! # Module: `bitboard`
+//!
+//! This module defines the `Bitboard` struct and its associated methods for representing and
+//! manipulating chess board states using bitwise operations. Bitboards are a highly efficient
+//! way to represent sets of squares on a chess board, allowing for fast calculations and
+//! operations.
+//!
+//! ## Overview
+//!
+//! A `Bitboard` is a 64-bit integer where each bit corresponds to a square on the chess board.
+//! This representation enables the use of bitwise operations to perform set operations on
+//! squares, such as union, intersection, and difference. It also allows for efficient
+//! checking of whether a square is occupied or not.
+//!
+//! ## Key Components
+//!
+//! - **`Bitboard`**: A struct representing a bitboard.
+//!   - Uses a `u64` to store the bitboard data.
+//!   - Implements bitwise operations (AND, OR, XOR, NOT, SHL, SHR) for efficient manipulation.
+//!   - Provides methods for setting, clearing, and toggling individual bits (squares).
+//!   - Includes methods for finding the least significant bit (LSB) and most significant bit (MSB).
+//!   - Supports iteration over set bits using `for_each()`.
+//!   - Offers methods for counting set bits (`count_bits()`) and checking if the bitboard is empty (`is_empty()`).
+//!   - Implements `Display` for printing the bitboard in a visual chess board format.
+//!   - Provides constants for common bitboard patterns (e.g., `EMPTY`, `A1`, `RANK_1`, `FILE_A`).
+//!   - Implements `From` for converting from `Square`, `Rank`, and `File` to `Bitboard`.
+//!   - Implements `shift()` for moving bits in chess directions.
+//!
+//! ## Functionality
+//!
+//! - **Bitwise Operations**: `Bitboard` supports all standard bitwise operations, allowing for
+//!   complex set manipulations.
+//! - **Square Manipulation**: Methods like `set()`, `clear()`, and `toggle()` allow for easy
+//!   modification of individual squares.
+//! - **Bit Examination**: `lsb()` and `msb()` provide a way to find the first and last set bits,
+//!   respectively. `pop_
+
 use std::fmt;
 
 use super::{Direction, File, Rank, Square};

@@ -1,3 +1,30 @@
+//! # Module: `piece`
+//!
+//! This module defines the core types for representing chess pieces and their types.
+//! It provides the `Piece` and `PieceType` enums, along with methods for manipulating and
+//! converting between these types.
+//!
+//! ## Overview
+//!
+//! This module is a fundamental part of the chess engine, providing the basic building blocks for
+//! representing the pieces on the board. It defines the 12 pieces (6 types, each with 2 colours),
+//! along with methods for converting between them and performing common operations.
+//!
+//! ## Key Components
+//!
+//! - **`Piece`**: An enum representing the 12 chess pieces (6 types, each with 2 colours).
+//!   - Each piece is identified by its type (Pawn, Knight, Bishop, Rook, Queen, King) and colour (White, Black).
+//!   - Implements `From<(Colour, PieceType)>` for creating pieces from colour and type.
+//!   - Provides methods to extract type and colour components (`piecetype()`, `colour()`).
+//!   - Implements `FromStr` for parsing pieces from algebraic notation (e.g., "P", "n").
+//!   - Supports iteration with `Piece::iter()`.
+//!   - Length variable: `Piece::NUM = 12`.
+//! - **`PieceType`**: An enum representing the 6 types of chess pieces.
+//!   - Pieces are ordered by their approximate value (Pawn → Knight → Bishop → Rook → Queen → King).
+//!   - Implements `From<u8>` for numeric conversion.
+//!   - Supports iteration with `PieceType::iter()`.
+//!   - Length variable: `PieceType::NUM = 6`.
+
 use super::errors::ParsePieceError;
 use crate::core::Colour;
 use macros::{EnumIter, FromPrimitive};
@@ -64,6 +91,10 @@ pub enum Piece {
     WhitePawn, WhiteKnight, WhiteBishop, WhiteRook, WhiteQueen, WhiteKing, BlackPawn = 8, BlackKnight, BlackBishop, BlackRook, BlackQueen, BlackKing,
 }
 
+impl Piece {
+    pub const NUM: usize = 16;
+}
+
 /******************************************\
 |==========================================|
 |                Piece Type                |
@@ -108,6 +139,10 @@ pub enum Piece {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, FromPrimitive)]
 pub enum PieceType {
    Pawn, Knight, Bishop, Rook, Queen, King,
+}
+
+impl PieceType {
+    pub const NUM: usize = 6;
 }
 
 /******************************************\

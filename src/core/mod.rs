@@ -10,6 +10,7 @@ pub mod types;
 
 // Re-export common types for easier access
 pub use bitboard::Bitboard;
+pub use board::fen;
 pub use board::{Board, BoardState};
 pub use piece::{Piece, PieceType};
 pub use square::{File, Rank, Square};

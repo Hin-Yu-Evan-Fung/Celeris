@@ -1,3 +1,41 @@
+//! # Module: `prng`
+//!
+//! This module provides a pseudo-random number generator (PRNG) based on the Xorshiro128+
+//! algorithm. It is designed for use in non-cryptographic applications, such as chess engines,
+//! where speed and statistical quality are important.
+//!
+//! ## Overview
+//!
+//! The PRNG in this module is a fast, high-quality generator that produces a sequence of
+//! pseudo-random numbers. It is based on the Xorshiro128+ algorithm, which is known for its
+//! speed and good statistical properties. The PRNG can be seeded with a 64-bit value, allowing
+//! for reproducible sequences of random numbers.
+//!
+//! ## Key Features
+//!
+//! - **Fast Execution**: The Xorshiro128+ algorithm is computationally efficient, making it
+//!   suitable for performance-critical applications.
+//! - **High-Quality Randomness**: The generated numbers have good statistical properties,
+//!   making them suitable for a wide range of applications.
+//! - **Deterministic Output**: When seeded with the same value, the PRNG will produce the
+//!   same sequence of random numbers. This is useful for testing and debugging.
+//! - **Sparse Random Numbers**: The module provides a method for generating sparse random
+//!   numbers, which have fewer bits set on average. This is useful for applications that
+//!   require random bit patterns with low density.
+//!
+//! ## Usage
+//!
+//! The `PRNG` struct is the main component of this module. It can be created with a specific
+//! seed or with a default seed. The `random_u64` method generates a random 64-bit unsigned
+//! integer, and the `random_sparse_u64` method generates a sparse random 64-bit unsigned
+//! integer.
+//!
+//! ## Implementation Details
+//!
+//! The PRNG is based on the Xorshiro256++ algorithm from [the PRNG page by Sebastiano Vigna](https://prng.di.unimi.it/xoshiro256plusplus.c).
+//! The internal state of the PRNG is stored in four 64-bit unsigned integers. The `random_u64`
+//! method updates the internal state and returns a new random number. The `random_sparse_u
+
 /// # Pseudo-Random Number Generator (PRNG)
 ///
 /// A fast, high-quality pseudo-random number generator based on the Xorshiro128+ algorithm.

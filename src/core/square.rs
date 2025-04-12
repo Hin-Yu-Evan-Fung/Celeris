@@ -1,3 +1,38 @@
+//! # Module: `square`
+//!
+//! This module defines the core types for representing squares, ranks, and files on a chessboard.
+//! It provides the `Square`, `Rank`, and `File` enums, along with methods for manipulating and
+//! converting between these types.
+//!
+//! ## Overview
+//!
+//! This module is a fundamental part of the chess engine, providing the basic building blocks for
+//! representing the board's geometry. It defines the 64 squares, the 8 ranks, and the 8 files,
+//! along with methods for converting between them and performing common operations.
+//!
+//! ## Key Components
+//!
+//! - **`Square`**: An enum representing the 64 squares on a chessboard.
+//!   - Each square is identified by its file (A-H) and rank (1-8).
+//!   - Implements `From<(File, Rank)>` for creating squares from file and rank.
+//!   - Provides methods to extract file and rank components (`file()`, `rank()`).
+//!   - Supports flipping across ranks or files (`flip_rank()`, `flip_file()`).
+//!   - Implements `FromStr` for parsing squares from algebraic notation (e.g., "e4").
+//!   - Supports iteration with `Square::iter()`.
+//!   - Length variable: `Square::NUM = 64`.
+//! - **`Rank`**: An enum representing the 8 ranks (rows) on a chessboard.
+//!   - Ranks are numbered from bottom to top, with Rank1 at the bottom and Rank8 at the top.
+//!   - Implements `PartialOrd` and `Ord` for natural rank ordering.
+//!   - Implements `From<u8>` for numeric conversion.
+//!   - Supports iteration with `Rank::iter()`.
+//!   - Length variable: `Rank::NUM = 8`.
+//! - **`File`**: An enum representing the 8 files (columns) on a chessboard.
+//!   - Files are lettered from left to right, with FileA at the left and FileH at the right.
+//!   - Implements `PartialOrd` and `Ord` for natural file ordering.
+//!   - Implements `From<u8>` for numeric conversion.
+//!   - Supports iteration with `File::iter()`.
+//!   
+
 use macros::{EnumIter, FromPrimitive};
 
 use super::errors::ParseSquareError;
@@ -109,6 +144,10 @@ pub enum Square {
     A8, B8, C8, D8, E8, F8, G8, H8,
 }
 
+impl Square {
+    pub const NUM: usize = 64;
+}
+
 /******************************************\
 |==========================================|
 |                  Ranks                   |
@@ -143,6 +182,10 @@ pub enum Rank {
     Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7, Rank8,
 }
 
+impl Rank {
+    pub const NUM: usize = 8;
+}
+
 /******************************************\
 |==========================================|
 |                  Files                   |
@@ -175,6 +218,10 @@ pub enum Rank {
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, EnumIter, FromPrimitive)]
 pub enum File {
     FileA, FileB, FileC, FileD, FileE, FileF, FileG, FileH,
+}
+
+impl File {
+    pub const NUM: usize = 8;
 }
 
 /******************************************\

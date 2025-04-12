@@ -1,3 +1,44 @@
+//! # Module: `magic`
+//!
+//! This module provides the implementation for magic bitboards, a technique used to efficiently
+//! calculate sliding piece attacks (bishops, rooks, and queens) in chess.
+//!
+//! ## Overview
+//!
+//! Magic bitboards are a method for quickly determining the squares attacked by a sliding piece
+//! from a given square, considering the current occupancy of the board. Each square has a unique
+//! magic number associated with it. By multiplying the magic number with a bitboard representing
+//! the occupancy of the board, and then right-shifting the result, we can obtain an index into a
+//! precomputed attack table. This index directly gives us the bitboard of squares attacked by the
+//! sliding piece from that square, given the current occupancy.
+//!
+//! ## Key Components
+//!
+//! - **`Magic`**: A struct that holds the magic number, mask, shift, and offset for a specific
+//!   square.
+//! - **`SliderAttackTable`**: A struct that holds the precomputed attack table and the magic
+//!   numbers for each square.
+//! - **`attacks_on_the_fly`**: A function that calculates the attacks of a sliding piece on the
+//!   fly, without using magic bitboards. This is used to populate the magic bitboard tables.
+//! - **`get_magic_tables`**: A function that generates the magic bitboard tables using existing
+//!   magic numbers.
+//! - **`get_edge_mask`**: A function that returns a bitboard representing the edges of the board,
+//!   used to exclude edge squares from the magic bitboard masks.
+//! - **`init_magic_struct`**: A function that initializes the `Magic` struct for a given square.
+//!
+//! ## Usage
+//!
+//! The magic bitboard tables are used in the `movegen` module, specifically in the `slider_attack`
+//! function, to efficiently calculate the attacks of sliding pieces. They are essential for the
+//! performance of the chess engine, as they allow for rapid move generation and evaluation.
+//!
+//! ## Implementation Details
+//!
+//! The magic numbers are carefully chosen to eliminate collisions (i.e., different occupancies
+//! mapping to the same index) while keeping the size of the attack tables manageable. The process
+//! of finding these magic numbers is computationally intensive and is typically done
+//! offline. The `magic_gen` module contains the code used to generate these magic numbers.
+
 use super::magic_numbers::{BISHOP_MAGICS, ROOK_MAGICS};
 use crate::core::*;
 
