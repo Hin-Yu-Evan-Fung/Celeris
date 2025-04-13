@@ -1,49 +1,101 @@
-//! # Module: `magic_gen`
-//!
-//! Handles the generation of "magic bitboards" and associated lookup tables
-//! for efficient calculation of sliding piece attacks (bishops and rooks).
-//!
-//! ## Overview
-//!
-//! Magic bitboards provide a highly efficient method for determining sliding piece
-//! attack patterns by using precomputed tables indexed via a hashing scheme
-//! involving carefully chosen "magic" numbers. This avoids expensive iteration
-//! or complex calculations during move generation.
-//!
-//! This module contains the logic to:
-//! 1.  **Find Magic Numbers**: Search for suitable 64-bit "magic" numbers for each
-//!     square and piece type (bishop/rook). A valid magic number, combined with a
-//!     bit shift, maps all relevant occupancy permutations for a square to unique
-//!     indices within a compact attack table.
-//! 2.  **Populate Attack Tables**: Generate the actual attack bitboards for every
-//!     relevant occupancy permutation and store them in the lookup table at the
-//!     index determined by the magic number.
-//! 3.  **Seed Finding**: Includes functionality (`find_best_magic_seeds`) to help
-//!     discover optimal random seeds that lead to faster generation of valid magic
-//!     numbers, primarily used during development.
-//!
-//! ## Key Functions
-//!
-//! - `gen_slider_attacks`: The main function responsible for generating a complete
-//!   `SliderAttackTable` (containing both the attack lookup array and the `Magic`
-//!   structs needed for indexing) for a given piece type (Bishop or Rook). This is
-//!   typically called once during engine initialization (often via `LazyLock` in `movegen::lookup`).
-//! - `find_magics`: The core helper function that performs the search for a valid
-//!   magic number for a single square.
-//! - `populate_table`: Helper to generate reference attack patterns and occupancy masks.
-//! - `find_best_magic_seeds`: A utility function for searching for efficient seeds.
-//!
-//! ## Usage
-//!
-//! The primary output, `SliderAttackTable`, is used by the `movegen::lookup` module
-//! to provide the `slider_attack` function, enabling fast retrieval of attack sets
-//! for sliding pieces based on the current board occupancy.
-
-use crate::core::*;
-use crate::movegen::{Magic, SliderAttackTable, attacks_on_the_fly, init_magic_struct};
 use crate::utils::PRNG;
-
+// use super::magic_numbers::*;
+use crate::core::*;
 const MAX_PERM: usize = 0x1000; // 2^16
+
+/******************************************\
+|==========================================|
+|             Magics Definition            |
+|==========================================|
+\******************************************/
+
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct Magic {
+    pub(crate) magic: u64,
+    pub(crate) mask: Bitboard,
+    pub(crate) shift: u8,
+    pub(crate) offset: usize,
+}
+
+impl Magic {
+    pub(crate) const EMPTY: Magic = Magic {
+        magic: 0,
+        mask: Bitboard::EMPTY,
+        shift: 0,
+        offset: 0,
+    };
+
+    pub(crate) const fn index(self, occ: Bitboard) -> usize {
+        ((occ.bitand(self.mask).0.wrapping_mul(self.magic)) >> self.shift) as usize + self.offset
+    }
+}
+
+/******************************************\
+|==========================================|
+|              Attack Tables               |
+|==========================================|
+\******************************************/
+
+/// # Attack Table
+///
+/// ## Elements
+/// - table - Hash table for bishop/rook moves
+/// - magic - Contains information about table key generation
+///
+/// ## Function
+/// - get_entry(sq, occ) - Gets the corresponding attack pattern for a given square and occupancy
+pub(crate) struct SliderAttackTable<const N: usize> {
+    pub(crate) table: Box<[Bitboard; N]>,
+    pub(crate) magic: [Magic; Square::NUM],
+}
+
+///
+impl<const N: usize> SliderAttackTable<N> {
+    /// ### Gets the corresponding attack pattern for a given square and occupancy
+    pub(crate) fn get_entry(&self, sq: Square, occ: Bitboard) -> Bitboard {
+        let magic = self.magic[sq as usize];
+        let index = magic.index(occ);
+        self.table[index as usize]
+    }
+}
+
+/******************************************\
+|==========================================|
+|            Attacks on the fly            |
+|==========================================|
+\******************************************/
+
+/// # Attacks on the fly
+/// - Calculate the attacks of a piece on the fly (Slow approach used to populate
+/// tables).
+/// - This is used for rook and bishop attacks.
+pub(crate) const fn attacks_on_the_fly(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
+    use Direction::*;
+    // Directions for rook and bishop
+    let dirs: [Direction; 4] = match pt {
+        PieceType::Rook => [N, E, W, S],
+        PieceType::Bishop => [NE, NW, SE, SW],
+        _ => unreachable!(),
+    };
+
+    let mut attacks = Bitboard::EMPTY;
+    let mut i = 0;
+    // Loop through the directions for the piece type
+    while i < dirs.len() {
+        let mut to = sq;
+        // Shift in the direction if the current square is empty and not occupied
+        while !occ.get(to) {
+            to = match to.add(dirs[i]) {
+                Ok(to) => to,
+                Err(_) => break,
+            };
+            attacks.bitor_assign(to.bb());
+        }
+        // The last square is either occupied or at the border
+        i += 1;
+    }
+    attacks
+}
 
 /// # Populate reference and occupancy tables
 fn populate_table(
@@ -151,7 +203,7 @@ const ROOK_SEEDS: [u64; Rank::NUM] = [
 /// - This is used to generate the attacks for the pieces.
 /// - The magic numbers are used to hash the occupancy of the squares to a unique index.
 /// - The occupancy is the set of squares that are occupied by pieces.
-pub fn gen_slider_attacks<const N: usize>(pt: PieceType) -> SliderAttackTable<N> {
+pub(crate) fn gen_slider_attacks<const N: usize>(pt: PieceType) -> SliderAttackTable<N> {
     let mut offset = 0;
     let mut total_attempt = 0;
     let mut reference = [Bitboard::EMPTY; MAX_PERM];
@@ -192,6 +244,48 @@ pub fn gen_slider_attacks<const N: usize>(pt: PieceType) -> SliderAttackTable<N>
     SliderAttackTable { table, magic }
 }
 
+// /******************************************\
+// |==========================================|
+// |            Helper Functions              |
+// |==========================================|
+// \******************************************/
+/// # Edge Mask
+/// - The edge mask is used to remove the edges of the board from the attack mask.
+/// - The edges of the board are not included in the attack lookup because it doesn't matter if there is a blocker there or not.
+/// - Except in the cases where the attacking piece is on the edge, if so the edge mask should not include the attack area.
+pub(crate) const fn get_edge_mask(sq: Square) -> Bitboard {
+    use File::*;
+    use Rank::*;
+
+    let rank_18bb: Bitboard = Rank1.bb().bitor(Rank8.bb());
+    let file_ahbb: Bitboard = FileA.bb().bitor(FileH.bb());
+
+    let sq_rank_bb = sq.rank().bb();
+    let sq_file_bb = sq.file().bb();
+
+    let rank_mask = rank_18bb.bitand(sq_rank_bb.not());
+
+    let file_mask = file_ahbb.bitand(sq_file_bb.not());
+
+    // Get the edges of the board
+    rank_mask.bitor(file_mask)
+}
+
+pub(crate) const fn init_magic_struct(pt: PieceType, sq: Square, offset: &mut usize) -> Magic {
+    let mask = attacks_on_the_fly(pt, sq, Bitboard::EMPTY).bitand(get_edge_mask(sq).not());
+
+    let mut m = Magic {
+        magic: 0,
+        mask: mask,
+        shift: 64 - mask.count_bits() as u8,
+        offset: *offset,
+    };
+
+    *offset += 1 << m.mask.count_bits();
+
+    m
+}
+
 /// # Find Best Magic Seeds
 pub fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
     let mut offset = 0;
@@ -213,7 +307,7 @@ pub fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
         let mut best_attempt = 0;
         let mut best_seed = 0;
         for file in File::iter() {
-            let sq = (file, rank).into();
+            let sq = Square::from_parts(file, rank);
             let m = &magic[sq as usize];
 
             let perm = 1 << m.mask.count_bits();
@@ -234,7 +328,7 @@ pub fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
             let seed = seeder.random_u64();
 
             for file in File::iter() {
-                let sq: Square = (file, rank).into();
+                let sq: Square = Square::from_parts(file, rank);
                 let m = &mut magic[sq as usize];
 
                 let mut trying = true;

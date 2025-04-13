@@ -2,8 +2,12 @@
 name = "sophos"
 version = "0.1.0"
 edition = "2024"
+build = "src/build.rs" # Tell Cargo to execute build.rs
 
 [dependencies]
+macros = { path = "./macros" }
+
+[build-dependencies]
 macros = { path = "./macros" }
 
 [lib]
@@ -24,6 +28,8 @@ incremental = false
 panic = "abort"
 # Enable overflow checks in debug mode
 overflow-checks = false
+# Enable debug mode
+debug = "full"
 
 [profile.bench]
 # Use the same optimizations as release

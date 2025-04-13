@@ -6,3 +6,5 @@
 pub mod core;
 pub mod movegen;
 pub mod utils;
+
+pub use core::*;

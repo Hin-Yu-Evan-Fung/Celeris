@@ -119,7 +119,7 @@ use macros::{AriOps, BitManiOps, BitOps};
 /// let empty = Bitboard::EMPTY;
 ///
 /// // Create a bitboard with a single square set
-/// let e4_bitboard = Bitboard::from(Square::E4);
+/// let e4_bitboard = Square::E4.bb();
 ///
 /// // Create a bitboard for a full rank
 /// let rank_2 = Bitboard::from(Rank::Rank2);
@@ -187,21 +187,39 @@ impl Bitboard {
 |==========================================|
 \******************************************/
 
-impl From<Square> for Bitboard {
-    fn from(square: Square) -> Self {
-        Bitboard::A1 << square as u8
+// impl From<Square> for Bitboard {
+//     fn from(square: Square) -> Self {
+//         Bitboard::A1 << square as u8
+//     }
+// }
+
+// impl From<Rank> for Bitboard {
+//     fn from(rank: Rank) -> Self {
+//         Bitboard::RANK_1 << (8 * rank as u8)
+//     }
+// }
+
+// impl From<File> for Bitboard {
+//     fn from(file: File) -> Self {
+//         Bitboard::FILE_A << file as u8
+//     }
+// }
+
+impl Square {
+    pub const fn bb(&self) -> Bitboard {
+        Bitboard(Bitboard::A1.0 << *self as u8)
     }
 }
 
-impl From<Rank> for Bitboard {
-    fn from(rank: Rank) -> Self {
-        Bitboard::RANK_1 << (8 * rank as u8)
+impl Rank {
+    pub const fn bb(&self) -> Bitboard {
+        Bitboard(Bitboard::RANK_1.0 << (8 * *self as u8))
     }
 }
 
-impl From<File> for Bitboard {
-    fn from(file: File) -> Self {
-        Bitboard::FILE_A << file as u8
+impl File {
+    pub const fn bb(&self) -> Bitboard {
+        Bitboard(Bitboard::FILE_A.0 << *self as u8)
     }
 }
 
@@ -265,14 +283,14 @@ impl Bitboard {
     ///
     /// ```rust,no_run
     ///
-    /// let e4_bitboard = Bitboard::from(Square::E4);
+    /// let e4_bitboard = Square::E4.bb();
     /// assert_eq!(e4_bitboard.lsb(), Some(Square::E4));
     /// ```
     #[inline]
-    pub fn lsb(&self) -> Option<Square> {
+    pub const fn lsb(&self) -> Option<Square> {
         match self.0 {
             0 => None,
-            bits => Some(Square::from(bits.trailing_zeros() as u8)),
+            bits => Some(unsafe { Square::from_unchecked(bits.trailing_zeros() as u8) }),
         }
     }
 
@@ -290,17 +308,17 @@ impl Bitboard {
     ///
     /// ```rust,no_run
     ///
-    /// let multi_square = Bitboard::from(Square::E4) | Bitboard::from(Square::G7);
+    /// let multi_square = Square::E4.bb() | Square::G7.bb();
     /// assert_eq!(multi_square.msb(), Some(Square::G7)); // G7 is higher than E4
     ///
     /// let empty = Bitboard::EMPTY;
     /// assert_eq!(empty.msb(), None);
     /// ```
     #[inline]
-    pub fn msb(&self) -> Option<Square> {
+    pub const fn msb(&self) -> Option<Square> {
         match self.0 {
             0 => None,
-            bits => Some(Square::from(63 - bits.leading_zeros() as u8)),
+            bits => Some(unsafe { Square::from_unchecked(63 - bits.leading_zeros() as u8) }),
         }
     }
 
@@ -319,13 +337,13 @@ impl Bitboard {
     /// ```rust,no_run
     /// use sophos::{Bitboard, Square};
     ///
-    /// let mut multi_square = Bitboard::from(Square::E4) | Bitboard::from(Square::D2);
+    /// let mut multi_square = Square::E4.bb() | Square::D2.bb();
     /// assert_eq!(multi_square.pop_lsb(), Some(Square::D2)); // D2 has lower index than E4
     /// assert_eq!(multi_square.pop_lsb(), Some(Square::E4));
     /// assert_eq!(multi_square.pop_lsb(), None); // Now empty
     /// ```
     #[inline]
-    pub fn pop_lsb(&mut self) -> Option<Square> {
+    pub const fn pop_lsb(&mut self) -> Option<Square> {
         match self.0 {
             0 => None,
             bits => {
@@ -350,13 +368,13 @@ impl Bitboard {
     /// ```rust,no_run
     /// use sophos::{Bitboard, Square};
     ///
-    /// let mut multi_square = Bitboard::from(Square::E4) | Bitboard::from(Square::G7);
+    /// let mut multi_square = Square::E4.bb() | Square::G7.bb();
     /// assert_eq!(multi_square.pop_msb(), Some(Square::G7)); // G7 has higher index than E4
     /// assert_eq!(multi_square.pop_msb(), Some(Square::E4));
     /// assert_eq!(multi_square.pop_msb(), None); // Now empty
     /// ```
     #[inline]
-    pub fn pop_msb(&mut self) -> Option<Square> {
+    pub const fn pop_msb(&mut self) -> Option<Square> {
         match self.0 {
             0 => None,
             bits => {
@@ -383,7 +401,7 @@ impl Bitboard {
     /// use sophos::{Bitboard, Square};
     ///
     /// let mut squares = Vec::new();
-    /// let bb = Bitboard::from(Square::E4) | Bitboard::from(Square::D5);
+    /// let bb = Square::E4.bb() | Square::D5.bb();
     ///
     /// bb.for_each(|square| {
     ///     squares.push(square);
@@ -417,14 +435,14 @@ impl Bitboard {
     /// ```rust,no_run
     /// use sophos::{Bitboard, Square};
     ///
-    /// let bb = Bitboard::from(Square::E4) | Bitboard::from(Square::D5);
+    /// let bb = Square::E4.bb() | Square::D5.bb();
     /// assert_eq!(bb.count_bits(), 2);
     ///
     /// let empty = Bitboard::EMPTY;
     /// assert_eq!(empty.count_bits(), 0);
     /// ```
     #[inline]
-    pub fn count_bits(&self) -> u32 {
+    pub const fn count_bits(&self) -> u32 {
         self.0.count_ones()
     }
 
@@ -440,14 +458,14 @@ impl Bitboard {
     /// ```rust,no_run
     /// use sophos::{Bitboard, Square};
     ///
-    /// let bb = Bitboard::from(Square::E4);
+    /// let bb = Square::E4.bb();
     /// assert!(!bb.is_empty());
     ///
     /// let empty = Bitboard::EMPTY;
     /// assert!(empty.is_empty());
     /// ```
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.0 == 0
     }
 
@@ -467,12 +485,12 @@ impl Bitboard {
     /// ```rust,no_run
     /// use sophos::{Bitboard, Square};
     ///
-    /// let bb = Bitboard::from(Square::E4);
+    /// let bb = Square::E4.bb();
     /// assert!(bb.get(Square::E4));
     /// assert!(!bb.get(Square::A1));
     /// ```
     #[inline]
-    pub fn get(&self, square: Square) -> bool {
+    pub const fn get(&self, square: Square) -> bool {
         (self.0 & (1u64 << (square as u8 as u64))) != 0
     }
 
@@ -492,7 +510,7 @@ impl Bitboard {
     /// assert!(bb.get(Square::E4));
     /// ```
     #[inline]
-    pub fn set(&mut self, square: Square) {
+    pub const fn set(&mut self, square: Square) {
         self.0 |= 1u64 << (square as u8 as u64);
     }
 
@@ -507,12 +525,12 @@ impl Bitboard {
     /// ```rust,no_run
     /// use sophos::{Bitboard, Square};
     ///
-    /// let mut bb = Bitboard::from(Square::E4);
+    /// let mut bb = Square::E4.bb();
     /// bb.clear(Square::E4);
     /// assert!(!bb.get(Square::E4));
     /// ```
     #[inline]
-    pub fn clear(&mut self, square: Square) {
+    pub const fn clear(&mut self, square: Square) {
         self.0 &= !(1u64 << (square as u8 as u64));
     }
 
@@ -537,7 +555,7 @@ impl Bitboard {
     /// assert!(!bb.get(Square::E4));
     /// ```
     #[inline]
-    pub fn toggle(&mut self, square: Square) {
+    pub const fn toggle(&mut self, square: Square) {
         self.0 ^= 1u64 << (square as u8 as u64);
     }
 
@@ -553,7 +571,7 @@ impl Bitboard {
     /// # Returns
     /// * `Bitboard` - The shifted bitboard. If the shift would move all bits off the board,
     ///                an empty bitboard is returned.
-    pub fn shift(&self, dir: Direction) -> Bitboard {
+    pub const fn shift(&self, dir: Direction) -> Bitboard {
         use Direction::*;
 
         let bb = *self;
@@ -561,31 +579,39 @@ impl Bitboard {
             return Bitboard::EMPTY;
         }
 
+        const NOT_RANK_1: Bitboard = Bitboard::RANK_1.not();
+        const NOT_RANK_8: Bitboard = Bitboard::RANK_8.not();
+        const NOT_RANK_12: Bitboard = Bitboard::RANK_12.not();
+        const NOT_RANK_78: Bitboard = Bitboard::RANK_78.not();
+        const NOT_FILE_A: Bitboard = Bitboard::FILE_A.not();
+        const NOT_FILE_H: Bitboard = Bitboard::FILE_H.not();
+        const NOT_FILE_AB: Bitboard = Bitboard::FILE_AB.not();
+        const NOT_FILE_GH: Bitboard = Bitboard::FILE_GH.not();
+
         // Apply the appropriate mask and shift for each direction
         match dir {
-            // North directions
-            N => (bb & !Self::RANK_8) << 8,
-            NN => (bb & !Self::RANK_78) << 16,
-            NE => (bb & !Self::RANK_8 & !Self::FILE_H) << 9,
-            NW => (bb & !Self::RANK_8 & !Self::FILE_A) << 7,
-            NNE => (bb & !Self::RANK_78 & !Self::FILE_H) << 17,
-            NNW => (bb & !Self::RANK_78 & !Self::FILE_A) << 15,
-            NEE => (bb & !Self::RANK_8 & !Self::FILE_GH) << 10,
-            NWW => (bb & !Self::RANK_8 & !Self::FILE_AB) << 6,
-
-            // South directions
-            S => (bb & !Self::RANK_1) >> 8,
-            SS => (bb & !Self::RANK_12) >> 16,
-            SE => (bb & !Self::RANK_1 & !Self::FILE_H) >> 7,
-            SW => (bb & !Self::RANK_1 & !Self::FILE_A) >> 9,
-            SSE => (bb & !Self::RANK_12 & !Self::FILE_H) >> 15,
-            SSW => (bb & !Self::RANK_12 & !Self::FILE_A) >> 17,
-            SEE => (bb & !Self::RANK_1 & !Self::FILE_GH) >> 6,
-            SWW => (bb & !Self::RANK_1 & !Self::FILE_AB) >> 10,
-
-            // Pure east/west
-            E => (bb & !Self::FILE_H) << 1,
-            W => (bb & !Self::FILE_A) >> 1,
+            // Knight-like moves
+            SSE => bb.bitand(NOT_RANK_12).bitand(NOT_FILE_H).shr(15),
+            SEE => bb.bitand(NOT_RANK_1).bitand(NOT_FILE_GH).shr(6),
+            SWW => bb.bitand(NOT_RANK_1).bitand(NOT_FILE_AB).shr(10),
+            SSW => bb.bitand(NOT_RANK_12).bitand(NOT_FILE_A).shr(17),
+            NNW => bb.bitand(NOT_RANK_78).bitand(NOT_FILE_A).shl(15),
+            NNE => bb.bitand(NOT_RANK_78).bitand(NOT_FILE_H).shl(17),
+            NWW => bb.bitand(NOT_RANK_8).bitand(NOT_FILE_AB).shl(6),
+            NEE => bb.bitand(NOT_RANK_8).bitand(NOT_FILE_GH).shl(10),
+            // King-like moves
+            N => bb.bitand(NOT_RANK_8).shl(8),
+            S => bb.bitand(NOT_RANK_1).shr(8),
+            E => bb.bitand(NOT_FILE_H).shl(1),
+            W => bb.bitand(NOT_FILE_A).shr(1),
+            // Diagonal directions
+            NE => bb.bitand(NOT_RANK_8).bitand(NOT_FILE_H).shl(9),
+            NW => bb.bitand(NOT_RANK_8).bitand(NOT_FILE_A).shl(7),
+            SE => bb.bitand(NOT_RANK_1).bitand(NOT_FILE_H).shr(7),
+            SW => bb.bitand(NOT_RANK_1).bitand(NOT_FILE_A).shr(9),
+            // Double moves
+            NN => bb.bitand(NOT_RANK_78).shl(16),
+            SS => bb.bitand(NOT_RANK_12).shr(16),
         }
     }
 }
@@ -606,7 +632,7 @@ impl fmt::Display for Bitboard {
             write!(f, " {}   |", rank as u8 + 1)?;
 
             for file in File::iter() {
-                let square = (file, rank).into();
+                let square = Square::from_parts(file, rank);
                 let cell = if self.get(square) { " 1 " } else { "   " };
                 write!(f, "{}|", cell)?;
             }
@@ -628,16 +654,16 @@ mod tests {
     #[test]
     fn test_lsb_msb() {
         // Test with single bits
-        let a1 = Bitboard::from(Square::A1);
+        let a1 = Square::A1.bb();
         assert_eq!(a1.lsb(), Some(Square::A1));
         assert_eq!(a1.msb(), Some(Square::A1));
 
-        let h8 = Bitboard::from(Square::H8);
+        let h8 = Square::H8.bb();
         assert_eq!(h8.lsb(), Some(Square::H8));
         assert_eq!(h8.msb(), Some(Square::H8));
 
         // Test with multiple bits
-        let bb = Bitboard::from(Square::A1) | Bitboard::from(Square::H8);
+        let bb = Square::A1.bb() | Square::H8.bb();
         assert_eq!(bb.lsb(), Some(Square::A1)); // A1 has lower index than H8
         assert_eq!(bb.msb(), Some(Square::H8)); // H8 has higher index than A1
 
@@ -650,7 +676,7 @@ mod tests {
     #[test]
     fn test_pop_lsb() {
         // Test popping from a bitboard with multiple bits
-        let mut bb = Bitboard::from(Square::E4) | Bitboard::from(Square::A1);
+        let mut bb = Square::E4.bb() | Square::A1.bb();
         assert_eq!(bb.pop_lsb(), Some(Square::A1)); // A1 has lowest index
         assert_eq!(bb.pop_lsb(), Some(Square::E4));
         assert_eq!(bb.pop_lsb(), None); // Now empty
@@ -662,7 +688,7 @@ mod tests {
     #[test]
     fn test_pop_msb() {
         // Test popping from a bitboard with multiple bits
-        let mut bb = Bitboard::from(Square::E4) | Bitboard::from(Square::H8);
+        let mut bb = Square::E4.bb() | Square::H8.bb();
         assert_eq!(bb.pop_msb(), Some(Square::H8)); // H8 has highest index
         assert_eq!(bb.pop_msb(), Some(Square::E4));
         assert_eq!(bb.pop_msb(), None); // Now empty
@@ -675,12 +701,11 @@ mod tests {
         assert_eq!(empty.count_bits(), 0);
 
         // Test single bit
-        let single = Bitboard::from(Square::E4);
+        let single = Square::E4.bb();
         assert_eq!(single.count_bits(), 1);
 
         // Test multiple bits
-        let multi =
-            Bitboard::from(Square::E4) | Bitboard::from(Square::D5) | Bitboard::from(Square::A1);
+        let multi = Square::E4.bb() | Square::D5.bb() | Square::A1.bb();
         assert_eq!(multi.count_bits(), 3);
 
         // Test all bits set (full board)
@@ -693,7 +718,7 @@ mod tests {
         let empty = Bitboard::EMPTY;
         assert!(empty.is_empty());
 
-        let non_empty = Bitboard::from(Square::E4);
+        let non_empty = Square::E4.bb();
         assert!(!non_empty.is_empty());
     }
 
@@ -718,7 +743,7 @@ mod tests {
 
     #[test]
     fn test_bitloop_for_each() {
-        let bb = Bitboard::from(Square::E4) | Bitboard::from(Square::D5);
+        let bb = Square::E4.bb() | Square::D5.bb();
 
         // Test bitloop
         let mut squares = Vec::new();
@@ -740,8 +765,8 @@ mod tests {
     #[test]
     fn test_bitboard_operations() {
         // Test bitwise operations
-        let a1 = Bitboard::from(Square::A1);
-        let h8 = Bitboard::from(Square::H8);
+        let a1 = Square::A1.bb();
+        let h8 = Square::H8.bb();
 
         // OR operation
         let combined = a1 | h8;
@@ -765,33 +790,33 @@ mod tests {
 
     #[test]
     fn test_shift_basic_directions() {
-        let bb = Bitboard::from(Square::E5);
+        let bb = Square::E5.bb();
 
         // Cardinal directions
-        assert_eq!(bb.shift(Direction::N), Bitboard::from(Square::E6));
-        assert_eq!(bb.shift(Direction::S), Bitboard::from(Square::E4));
-        assert_eq!(bb.shift(Direction::E), Bitboard::from(Square::F5));
-        assert_eq!(bb.shift(Direction::W), Bitboard::from(Square::D5));
+        assert_eq!(bb.shift(Direction::N), Square::E6.bb());
+        assert_eq!(bb.shift(Direction::S), Square::E4.bb());
+        assert_eq!(bb.shift(Direction::E), Square::F5.bb());
+        assert_eq!(bb.shift(Direction::W), Square::D5.bb());
 
         // Diagonal directions
-        assert_eq!(bb.shift(Direction::NE), Bitboard::from(Square::F6));
-        assert_eq!(bb.shift(Direction::NW), Bitboard::from(Square::D6));
-        assert_eq!(bb.shift(Direction::SE), Bitboard::from(Square::F4));
-        assert_eq!(bb.shift(Direction::SW), Bitboard::from(Square::D4));
+        assert_eq!(bb.shift(Direction::NE), Square::F6.bb());
+        assert_eq!(bb.shift(Direction::NW), Square::D6.bb());
+        assert_eq!(bb.shift(Direction::SE), Square::F4.bb());
+        assert_eq!(bb.shift(Direction::SW), Square::D4.bb());
 
         // Double moves
-        assert_eq!(bb.shift(Direction::NN), Bitboard::from(Square::E7));
-        assert_eq!(bb.shift(Direction::SS), Bitboard::from(Square::E3));
+        assert_eq!(bb.shift(Direction::NN), Square::E7.bb());
+        assert_eq!(bb.shift(Direction::SS), Square::E3.bb());
 
         // Knight-like moves
-        assert_eq!(bb.shift(Direction::NNE), Bitboard::from(Square::F7));
-        assert_eq!(bb.shift(Direction::NNW), Bitboard::from(Square::D7));
-        assert_eq!(bb.shift(Direction::NEE), Bitboard::from(Square::G6));
-        assert_eq!(bb.shift(Direction::NWW), Bitboard::from(Square::C6));
-        assert_eq!(bb.shift(Direction::SEE), Bitboard::from(Square::G4));
-        assert_eq!(bb.shift(Direction::SWW), Bitboard::from(Square::C4));
-        assert_eq!(bb.shift(Direction::SSE), Bitboard::from(Square::F3));
-        assert_eq!(bb.shift(Direction::SSW), Bitboard::from(Square::D3));
+        assert_eq!(bb.shift(Direction::NNE), Square::F7.bb());
+        assert_eq!(bb.shift(Direction::NNW), Square::D7.bb());
+        assert_eq!(bb.shift(Direction::NEE), Square::G6.bb());
+        assert_eq!(bb.shift(Direction::NWW), Square::C6.bb());
+        assert_eq!(bb.shift(Direction::SEE), Square::G4.bb());
+        assert_eq!(bb.shift(Direction::SWW), Square::C4.bb());
+        assert_eq!(bb.shift(Direction::SSE), Square::F3.bb());
+        assert_eq!(bb.shift(Direction::SSW), Square::D3.bb());
     }
 
     #[test]
@@ -799,40 +824,40 @@ mod tests {
         // Test edge wrapping prevention
 
         // H-file (right edge) tests
-        let h5 = Bitboard::from(Square::H5);
+        let h5 = Square::H5.bb();
         assert_eq!(h5.shift(Direction::E), Bitboard::EMPTY);
         assert_eq!(h5.shift(Direction::NE), Bitboard::EMPTY);
         assert_eq!(h5.shift(Direction::SE), Bitboard::EMPTY);
-        assert_eq!(h5.shift(Direction::W), Bitboard::from(Square::G5));
+        assert_eq!(h5.shift(Direction::W), Square::G5.bb());
 
         // A-file (left edge) tests
-        let a5 = Bitboard::from(Square::A5);
+        let a5 = Square::A5.bb();
         assert_eq!(a5.shift(Direction::W), Bitboard::EMPTY);
         assert_eq!(a5.shift(Direction::NW), Bitboard::EMPTY);
         assert_eq!(a5.shift(Direction::SW), Bitboard::EMPTY);
-        assert_eq!(a5.shift(Direction::E), Bitboard::from(Square::B5));
+        assert_eq!(a5.shift(Direction::E), Square::B5.bb());
 
         // Rank 8 (top edge) tests
-        let e8 = Bitboard::from(Square::E8);
+        let e8 = Square::E8.bb();
         assert_eq!(e8.shift(Direction::N), Bitboard::EMPTY);
         assert_eq!(e8.shift(Direction::NE), Bitboard::EMPTY);
         assert_eq!(e8.shift(Direction::NW), Bitboard::EMPTY);
-        assert_eq!(e8.shift(Direction::S), Bitboard::from(Square::E7));
+        assert_eq!(e8.shift(Direction::S), Square::E7.bb());
 
         // Rank 1 (bottom edge) tests
-        let e1 = Bitboard::from(Square::E1);
+        let e1 = Square::E1.bb();
         assert_eq!(e1.shift(Direction::S), Bitboard::EMPTY);
         assert_eq!(e1.shift(Direction::SE), Bitboard::EMPTY);
         assert_eq!(e1.shift(Direction::SW), Bitboard::EMPTY);
-        assert_eq!(e1.shift(Direction::N), Bitboard::from(Square::E2));
+        assert_eq!(e1.shift(Direction::N), Square::E2.bb());
 
         // G-file edge cases for double-east shifts
-        let g5 = Bitboard::from(Square::G5);
+        let g5 = Square::G5.bb();
         assert_eq!(g5.shift(Direction::NEE), Bitboard::EMPTY);
         assert_eq!(g5.shift(Direction::SEE), Bitboard::EMPTY);
 
         // B-file edge cases for double-west shifts
-        let b5 = Bitboard::from(Square::B5);
+        let b5 = Square::B5.bb();
         assert_eq!(b5.shift(Direction::NWW), Bitboard::EMPTY);
         assert_eq!(b5.shift(Direction::SWW), Bitboard::EMPTY);
     }
@@ -840,27 +865,21 @@ mod tests {
     #[test]
     fn test_shift_multiple_bits() {
         // Test with multiple bits set
-        let bb = Bitboard::from(Square::E4) | Bitboard::from(Square::D4);
+        let bb = Square::E4.bb() | Square::D4.bb();
 
         // Shift north
-        assert_eq!(
-            bb.shift(Direction::N),
-            Bitboard::from(Square::E5) | Bitboard::from(Square::D5)
-        );
+        assert_eq!(bb.shift(Direction::N), Square::E5.bb() | Square::D5.bb());
 
         // Shift east
-        assert_eq!(
-            bb.shift(Direction::E),
-            Bitboard::from(Square::F4) | Bitboard::from(Square::E4)
-        );
+        assert_eq!(bb.shift(Direction::E), Square::F4.bb() | Square::E4.bb());
 
         // Test with edge bits that would wrap
-        let edge_case = Bitboard::from(Square::H1) | Bitboard::from(Square::A1);
+        let edge_case = Square::H1.bb() | Square::A1.bb();
 
         // East shift should only move the A1 bit to B1
-        assert_eq!(edge_case.shift(Direction::E), Bitboard::from(Square::B1));
+        assert_eq!(edge_case.shift(Direction::E), Square::B1.bb());
 
         // West shift should only move the H1 bit to G1
-        assert_eq!(edge_case.shift(Direction::W), Bitboard::from(Square::G1));
+        assert_eq!(edge_case.shift(Direction::W), Square::G1.bb());
     }
 }

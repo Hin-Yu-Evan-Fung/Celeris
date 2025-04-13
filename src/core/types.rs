@@ -63,9 +63,9 @@ use macros::{BitOps, EnumIter, FromPrimitive};
 
 #[rustfmt::skip]
 #[repr(u8)]
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, EnumIter, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, FromPrimitive)]
 pub enum Colour {
-    #[default]
+    // #[default]
     White, 
     Black
 }
@@ -109,8 +109,8 @@ impl Colour {
 /// use sophos::{Square, Direction};
 /// 
 /// let e4 = Square::E4;
-/// let e5 = e4 + Direction::N;  // Some(Square::E5)
-/// let off_board = Square::H1 + Direction::E;  // None - would go off the board
+/// let e5 = e4.add(Direction::N;  // Some(Square::E5)
+/// let off_board = Square::H1.add(Direction::E;  // None - would go off the board
 /// ```
 /// 
 /// You can also convert between squares to find the direction using `TryFrom`:
@@ -118,8 +118,8 @@ impl Colour {
 /// ```rust,no_run
 /// use sophos::{Square, Direction};
 /// 
-/// let dir = Direction::try_from((Square::E4, Square::E5));  // Ok(Direction::N)
-/// let invalid = Direction::try_from((Square::E4, Square::G5));  // Err - not a valid direction
+/// let dir = Direction::try_from(Square::E4, Square::E5);  // Ok(Direction::N)
+/// let invalid = Direction::try_from(Square::E4, Square::G5);  // Err - not a valid direction
 /// ```
 /// 
 /// Only adjacent squares in the 8 principal directions are considered valid directions.
@@ -220,12 +220,10 @@ impl Default for Castling {
 \******************************************/
 
 // Allow converting from i8 to Square, with bounds checking
-impl TryFrom<i8> for Square {
-    type Error = &'static str;
-
-    fn try_from(value: i8) -> Result<Self, Self::Error> {
+impl Square {
+    pub const fn try_from(value: i16) -> Result<Self, &'static str> {
         if value >= 0 && value < 64 {
-            Ok(Square::from(value as u8))
+            Ok(unsafe { Square::from_unchecked(value as u8) })
         } else {
             Err("Square value out of bounds (0-63)")
         }
@@ -233,26 +231,24 @@ impl TryFrom<i8> for Square {
 }
 
 // Add a direction to a square, shifting it
-impl std::ops::Add<Direction> for Square {
-    type Output = Result<Self, SquareAddError>;
-
-    fn add(self, rhs: Direction) -> Self::Output {
+impl Square {
+    pub const fn add(self, rhs: Direction) -> Result<Self, SquareAddError> {
         // Get file and rank for bounds checking
-        let file = self.file();
+        let file = self.file() as u8;
 
         // Check bounds based on direction
         use Direction::*;
         let valid = match rhs {
             N | S | NN | SS => true,
-            E | NE | NNE | SE | SSE if file < File::FileH => true,
-            W | NW | NNW | SW | SSW if file > File::FileA => true,
-            NEE | SEE if file < File::FileG => true,
-            NWW | SWW if file > File::FileB => true,
+            E | NE | NNE | SE | SSE if file < File::FileH as u8 => true,
+            W | NW | NNW | SW | SSW if file > File::FileA as u8 => true,
+            NEE | SEE if file < File::FileG as u8 => true,
+            NWW | SWW if file > File::FileB as u8 => true,
             _ => false,
         };
 
         match valid {
-            true => match Square::try_from(self as i8 + rhs as i8) {
+            true => match Square::try_from(self as i16 + rhs as i16) {
                 Ok(sq) => Ok(sq),
                 Err(_) => return Err(SquareAddError::OutOfBounds),
             },
@@ -266,36 +262,72 @@ impl std::ops::Neg for Direction {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        (-(self as i8)).into()
+        unsafe { Self::from_unchecked(-(self as i8)) }
     }
 }
 
 // Convert two squares into a direction
-impl TryFrom<(Square, Square)> for Direction {
-    type Error = &'static str;
+impl Direction {
+    /// Tries to convert two squares into a direction.
+    ///
+    /// This function attempts to find a valid chess direction between two given squares.
+    /// It only considers the 8 principal directions (N, S, E, W, NE, NW, SE, SW).
+    ///
+    /// # Arguments
+    ///
+    /// * `from` - The starting square.
+    /// * `to` - The destination square.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Direction)` - The direction from `from` to `to`.
+    /// * `Err(&'static str)` - If the squares are the same or if there is no valid direction between them.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use sophos::{Square, Direction};
+    ///
+    /// let dir = Direction::try_from(Square::E4, Square::E5); // Ok(Direction::N)
+    /// let invalid = Direction::try_from(Square::E4, Square::G5); // Err - not a valid direction
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error in the following cases:
+    ///
+    /// * The `from` and `to` squares are the same.
+    /// * The `to` square is not reachable from the `from` square in a single move in any of the 8 principal directions.
+    /// * The move is not a valid chess direction.
+    ///
+    /// # Notes
+    ///
+    /// This function only considers the 8 principal directions (N, S, E, W, NE, NW, SE, SW).
+    /// It does not consider knight moves or other non-standard moves.
+    /// It also does not consider board wrapping.
 
-    fn try_from((from, to): (Square, Square)) -> Result<Self, Self::Error> {
-        if from == to {
+    pub const fn try_from(from: Square, to: Square) -> Result<Self, &'static str> {
+        if from as u8 == to as u8 {
             return Err("Squares are the same");
         }
 
         // Calculate rank and file distances
-        let rank_dist = (from.rank() as i8) - (to.rank() as i8);
-        let file_dist = (from.file() as i8) - (to.file() as i8);
+        let rank_dist = (to.rank() as i8) - (from.rank() as i8);
+        let file_dist = (to.file() as i8) - (from.file() as i8);
 
         // Determine the direction based on rank and file distances
         match (rank_dist, file_dist) {
             // Cardinal directions
-            (0, 1) => Ok(Direction::W),
-            (0, -1) => Ok(Direction::E),
-            (1, 0) => Ok(Direction::S),
-            (-1, 0) => Ok(Direction::N),
+            (0, i) if i < 0 => Ok(Direction::W),
+            (0, i) if i > 0 => Ok(Direction::E),
+            (i, 0) if i > 0 => Ok(Direction::N),
+            (i, 0) if i < 0 => Ok(Direction::S),
 
             // Diagonal directions
-            (1, 1) => Ok(Direction::SW),
-            (-1, -1) => Ok(Direction::NE),
-            (-1, 1) => Ok(Direction::NW),
-            (1, -1) => Ok(Direction::SE),
+            (i, j) if i == j && i < 0 => Ok(Direction::SW),
+            (i, j) if i == j && i > 0 => Ok(Direction::NE),
+            (i, j) if i == -j && i > 0 => Ok(Direction::NW),
+            (i, j) if i == -j && i < 0 => Ok(Direction::SE),
 
             // Non-standard or illegal moves
             _ => Err("No valid direction between these squares"),
@@ -333,18 +365,18 @@ impl Castling {
     pub const NUM: usize = 16;
 
     /// ### Check if a castling right is set
-    pub fn has(self, right: Castling) -> bool {
-        self & right != Castling::NONE
+    pub const fn has(self, right: Castling) -> bool {
+        self.bitand(right).0 != Castling::NONE.0
     }
 
     /// ### Set a castling right
-    pub fn set(&mut self, right: Castling) {
-        *self |= right;
+    pub const fn set(&mut self, right: Castling) {
+        self.bitor_assign(right);
     }
 
     /// ### Remove a castling right
-    pub fn remove(&mut self, right: Castling) {
-        *self &= !right;
+    pub const fn remove(&mut self, right: Castling) {
+        self.bitand_assign(right.not());
     }
 }
 
@@ -354,6 +386,14 @@ impl std::ops::Not for Castling {
 
     #[inline]
     fn not(self) -> Self::Output {
+        Castling(!self.0 & 0x0F) // Only keep the lower 4 bits
+    }
+}
+
+// Constant version of not operator !
+impl Castling {
+    #[inline]
+    pub const fn not(self) -> Self {
         Castling(!self.0 & 0x0F) // Only keep the lower 4 bits
     }
 }
@@ -388,146 +428,238 @@ mod tests {
     use crate::core::square::Square;
 
     #[test]
-    fn test_cardinal_directions() {
-        // Test all four cardinal directions (N, S, E, W)
+    fn test_adjacent_cardinal_directions() {
+        // Test adjacent cardinal directions (N, S, E, W)
+        // These should still work with the new logic.
         assert_eq!(
-            Direction::try_from((Square::E4, Square::E5)),
+            Direction::try_from(Square::E4, Square::E5),
             Ok(Direction::N)
         );
         assert_eq!(
-            Direction::try_from((Square::E4, Square::E3)),
+            Direction::try_from(Square::E4, Square::E3),
             Ok(Direction::S)
         );
         assert_eq!(
-            Direction::try_from((Square::E4, Square::F4)),
+            Direction::try_from(Square::E4, Square::F4),
             Ok(Direction::E)
         );
         assert_eq!(
-            Direction::try_from((Square::E4, Square::D4)),
+            Direction::try_from(Square::E4, Square::D4),
             Ok(Direction::W)
         );
     }
 
     #[test]
-    fn test_diagonal_directions() {
-        // Test all four diagonal directions (NE, NW, SE, SW)
+    fn test_adjacent_diagonal_directions() {
+        // Test adjacent diagonal directions (NE, NW, SE, SW)
+        // These should also still work.
         assert_eq!(
-            Direction::try_from((Square::E4, Square::F5)),
+            Direction::try_from(Square::E4, Square::F5),
             Ok(Direction::NE)
         );
         assert_eq!(
-            Direction::try_from((Square::E4, Square::D5)),
+            Direction::try_from(Square::E4, Square::D5),
             Ok(Direction::NW)
         );
         assert_eq!(
-            Direction::try_from((Square::E4, Square::F3)),
+            Direction::try_from(Square::E4, Square::F3),
             Ok(Direction::SE)
         );
         assert_eq!(
-            Direction::try_from((Square::E4, Square::D3)),
+            Direction::try_from(Square::E4, Square::D3),
             Ok(Direction::SW)
         );
     }
 
     #[test]
-    fn test_board_edges() {
-        // Test directions at the edges of the board
-        // Top edge
+    fn test_non_adjacent_directions() {
+        // Test non-adjacent squares on the same line
+        // Ranks
         assert_eq!(
-            Direction::try_from((Square::A8, Square::B8)),
+            Direction::try_from(Square::A4, Square::H4), // User's example
             Ok(Direction::E)
         );
-        // Bottom edge
         assert_eq!(
-            Direction::try_from((Square::H1, Square::G1)),
+            Direction::try_from(Square::H4, Square::A4),
             Ok(Direction::W)
         );
-        // Left edge
         assert_eq!(
-            Direction::try_from((Square::A4, Square::A5)),
+            Direction::try_from(Square::C1, Square::G1),
+            Ok(Direction::E)
+        );
+        assert_eq!(
+            Direction::try_from(Square::G8, Square::C8),
+            Ok(Direction::W)
+        );
+
+        // Files
+        assert_eq!(
+            Direction::try_from(Square::A1, Square::A8),
             Ok(Direction::N)
         );
-        // Right edge
         assert_eq!(
-            Direction::try_from((Square::H4, Square::H3)),
+            Direction::try_from(Square::A8, Square::A1),
             Ok(Direction::S)
         );
-        // Corners
         assert_eq!(
-            Direction::try_from((Square::A1, Square::B2)),
+            Direction::try_from(Square::H3, Square::H7),
+            Ok(Direction::N)
+        );
+        assert_eq!(
+            Direction::try_from(Square::D6, Square::D2),
+            Ok(Direction::S)
+        );
+
+        // Diagonals (A1-H8 type)
+        assert_eq!(
+            Direction::try_from(Square::A1, Square::H8),
             Ok(Direction::NE)
         );
         assert_eq!(
-            Direction::try_from((Square::H1, Square::G2)),
-            Ok(Direction::NW)
+            Direction::try_from(Square::H8, Square::A1),
+            Ok(Direction::SW)
         );
         assert_eq!(
-            Direction::try_from((Square::A8, Square::B7)),
+            Direction::try_from(Square::C3, Square::F6),
+            Ok(Direction::NE)
+        );
+        assert_eq!(
+            Direction::try_from(Square::F6, Square::C3),
+            Ok(Direction::SW)
+        );
+
+        // Diagonals (A8-H1 type)
+        assert_eq!(
+            Direction::try_from(Square::A8, Square::H1),
             Ok(Direction::SE)
         );
         assert_eq!(
-            Direction::try_from((Square::H8, Square::G7)),
-            Ok(Direction::SW)
+            Direction::try_from(Square::H1, Square::A8),
+            Ok(Direction::NW)
+        );
+        assert_eq!(
+            Direction::try_from(Square::B7, Square::E4),
+            Ok(Direction::SE)
+        );
+        assert_eq!(
+            Direction::try_from(Square::E4, Square::B7),
+            Ok(Direction::NW)
         );
     }
 
     #[test]
     fn test_invalid_directions() {
-        // Test same square (should be invalid)
-        assert!(Direction::try_from((Square::E4, Square::E4)).is_err());
+        // Test same square (should still be invalid)
+        assert!(Direction::try_from(Square::E4, Square::E4).is_err());
 
-        // Test non-directional moves (like knight moves)
-        assert!(Direction::try_from((Square::E4, Square::F6)).is_err());
-        assert!(Direction::try_from((Square::E4, Square::G5)).is_err());
+        // Test non-directional moves (like knight moves - should still be invalid)
+        assert!(Direction::try_from(Square::E4, Square::F6).is_err());
+        assert!(Direction::try_from(Square::E4, Square::G5).is_err());
+
+        // Test squares not on the same rank, file, or diagonal
+        assert!(Direction::try_from(Square::A1, Square::B3).is_err());
+        assert!(Direction::try_from(Square::H8, Square::F5).is_err());
     }
 
+    // test_board_edges remains valid as it tests adjacent squares
+    #[test]
+    fn test_board_edges() {
+        // Test directions at the edges of the board (adjacent)
+        // Top edge
+        assert_eq!(
+            Direction::try_from(Square::A8, Square::B8),
+            Ok(Direction::E)
+        );
+        // Bottom edge
+        assert_eq!(
+            Direction::try_from(Square::H1, Square::G1),
+            Ok(Direction::W)
+        );
+        // Left edge
+        assert_eq!(
+            Direction::try_from(Square::A4, Square::A5),
+            Ok(Direction::N)
+        );
+        // Right edge
+        assert_eq!(
+            Direction::try_from(Square::H4, Square::H3),
+            Ok(Direction::S)
+        );
+        // Corners
+        assert_eq!(
+            Direction::try_from(Square::A1, Square::B2),
+            Ok(Direction::NE)
+        );
+        assert_eq!(
+            Direction::try_from(Square::H1, Square::G2),
+            Ok(Direction::NW)
+        );
+        assert_eq!(
+            Direction::try_from(Square::A8, Square::B7),
+            Ok(Direction::SE)
+        );
+        assert_eq!(
+            Direction::try_from(Square::H8, Square::G7),
+            Ok(Direction::SW)
+        );
+    }
+
+    // test_board_wrapping_edge_cases remains valid as these are not on the same line
     #[test]
     fn test_board_wrapping_edge_cases() {
         // These moves look like valid directions by raw index difference,
-        // but are invalid because they wrap around the board
-
-        // Horizontal wrapping (H-file to A-file)
-        assert!(Direction::try_from((Square::H4, Square::A4)).is_err());
-        // Diagonal wrapping
-        assert!(Direction::try_from((Square::H4, Square::A5)).is_err());
-        assert!(Direction::try_from((Square::H4, Square::A3)).is_err());
+        // but are invalid because they wrap around the board OR are not on the same line
+        assert!(Direction::try_from(Square::H4, Square::A5).is_err()); // Not on same line
+        assert!(Direction::try_from(Square::H4, Square::A3).is_err()); // Not on same line
     }
 
     #[test]
     fn test_square_plus_direction() {
         // Test cardinal directions
-        assert_eq!(Square::E4 + Direction::N, Ok(Square::E5));
-        assert_eq!(Square::E4 + Direction::S, Ok(Square::E3));
-        assert_eq!(Square::E4 + Direction::E, Ok(Square::F4));
-        assert_eq!(Square::E4 + Direction::W, Ok(Square::D4));
+        assert_eq!(Square::E4.add(Direction::N), Ok(Square::E5));
+        assert_eq!(Square::E4.add(Direction::S), Ok(Square::E3));
+        assert_eq!(Square::E4.add(Direction::E), Ok(Square::F4));
+        assert_eq!(Square::E4.add(Direction::W), Ok(Square::D4));
 
         // Test diagonal directions
-        assert_eq!(Square::E4 + Direction::NE, Ok(Square::F5));
-        assert_eq!(Square::E4 + Direction::NW, Ok(Square::D5));
-        assert_eq!(Square::E4 + Direction::SE, Ok(Square::F3));
-        assert_eq!(Square::E4 + Direction::SW, Ok(Square::D3));
+        assert_eq!(Square::E4.add(Direction::NE), Ok(Square::F5));
+        assert_eq!(Square::E4.add(Direction::NW), Ok(Square::D5));
+        assert_eq!(Square::E4.add(Direction::SE), Ok(Square::F3));
+        assert_eq!(Square::E4.add(Direction::SW), Ok(Square::D3));
 
         // Test edge cases
-        assert_eq!(Square::H4 + Direction::E, Err(SquareAddError::OutOfBounds)); // Off board to the right
-        assert_eq!(Square::A4 + Direction::W, Err(SquareAddError::OutOfBounds)); // Off board to the left
-        assert_eq!(Square::E8 + Direction::N, Err(SquareAddError::OutOfBounds)); // Off board to the top
-        assert_eq!(Square::E1 + Direction::S, Err(SquareAddError::OutOfBounds)); // Off board to the bottom
+        assert_eq!(
+            Square::H4.add(Direction::E),
+            Err(SquareAddError::OutOfBounds)
+        ); // Off board to the right
+        assert_eq!(
+            Square::A4.add(Direction::W),
+            Err(SquareAddError::OutOfBounds)
+        ); // Off board to the left
+        assert_eq!(
+            Square::E8.add(Direction::N),
+            Err(SquareAddError::OutOfBounds)
+        ); // Off board to the top
+        assert_eq!(
+            Square::E1.add(Direction::S),
+            Err(SquareAddError::OutOfBounds)
+        ); // Off board to the bottom
 
         // Test knight moves
-        assert_eq!(Square::E4 + Direction::NNE, Ok(Square::F6));
-        assert_eq!(Square::E4 + Direction::NEE, Ok(Square::G5));
+        assert_eq!(Square::E4.add(Direction::NNE), Ok(Square::F6));
+        assert_eq!(Square::E4.add(Direction::NEE), Ok(Square::G5));
 
         // Test double moves
-        assert_eq!(Square::E4 + Direction::NN, Ok(Square::E6));
-        assert_eq!(Square::E4 + Direction::SS, Ok(Square::E2));
+        assert_eq!(Square::E4.add(Direction::NN), Ok(Square::E6));
+        assert_eq!(Square::E4.add(Direction::SS), Ok(Square::E2));
 
         // Test edge cases with knight moves
         assert_eq!(
-            Square::H7 + Direction::NEE,
+            Square::H7.add(Direction::NEE),
             Err(SquareAddError::OutOfBounds)
         ); // Would go off the board
         assert_eq!(
-            Square::A2 + Direction::SWW,
+            Square::A2.add(Direction::SWW),
             Err(SquareAddError::OutOfBounds)
         ); // Would go off the board
 
@@ -540,8 +672,8 @@ mod tests {
 
         for dir in directions {
             for sq in Square::iter() {
-                match sq + dir {
-                    Ok(new_sq) => assert_eq!(new_sq + -dir, Ok(sq)),
+                match sq.add(dir) {
+                    Ok(new_sq) => assert_eq!(new_sq.add(-dir), Ok(sq)),
                     Err(err) => assert_eq!(err, SquareAddError::OutOfBounds),
                 }
             }
@@ -549,15 +681,15 @@ mod tests {
     }
 
     #[test]
-    fn test_tryfrom_i8_for_square() {
+    fn test_tryfrom_i16_for_square() {
         // Valid conversions
-        assert_eq!(Square::try_from(0i8), Ok(Square::A1));
-        assert_eq!(Square::try_from(36i8), Ok(Square::E5));
-        assert_eq!(Square::try_from(63i8), Ok(Square::H8));
+        assert_eq!(Square::try_from(0i16), Ok(Square::A1));
+        assert_eq!(Square::try_from(36i16), Ok(Square::E5));
+        assert_eq!(Square::try_from(63i16), Ok(Square::H8));
 
         // Invalid conversions
-        assert!(Square::try_from(-1i8).is_err());
-        assert!(Square::try_from(64i8).is_err());
+        assert!(Square::try_from(-1i16).is_err());
+        assert!(Square::try_from(64i16).is_err());
     }
 
     #[test]

@@ -101,6 +101,30 @@ impl Board {
         Ok(())
     }
 
+    /// # Board constructor using a fen string
+    /// Creates a new `Board` instance from a FEN string.
+    ///
+    /// ## Arguments
+    /// * `fen`: A string slice (`&str`) representing the FEN notation.
+    ///
+    /// ## Returns
+    /// * `Ok(Board)`: If the FEN string was parsed and applied successfully.
+    /// * `Err(FenParseError)`: If the FEN string is invalid or malformed.
+    ///
+    /// ## Errors
+    /// Returns `FenParseError` if:
+    /// * The FEN string does not have exactly 6 fields.
+    /// * Any field contains invalid characters or formatting (e.g., invalid piece, rank format, castling char, etc.).
+    /// * Numeric values (clocks) are out of range or unparsable.
+    ///
+    /// ## FEN Format Reminder
+    /// `<Piece Placement> <Side to move> <Castling> <En passant> <Halfmove clock> <Fullmove counter>`
+    pub fn from_fen(fen: &str) -> Result<Self, FenParseError> {
+        let mut board = Board::new();
+        board.set(fen)?;
+        Ok(board)
+    }
+
     /// # Get FEN String
     ///
     /// Generates a FEN (Forsyth-Edwards Notation) string representing the current
@@ -123,7 +147,7 @@ impl Board {
         for rank in Rank::iter().rev() {
             let mut empty_count = 0;
             for file in File::iter() {
-                let square = Square::from((file, rank));
+                let square = Square::from_parts(file, rank);
                 match self.on(square) {
                     Some(piece) => {
                         if empty_count > 0 {
@@ -302,11 +326,11 @@ impl Board {
             .map_err(|_| FenParseError::InvalidPiecePlacementChar(piece))?;
 
         // Convert the file index (0-7) into a `File` enum variant (FileA-FileH).
-        // File::from(u8) should handle this conversion.
-        let current_file = File::from(file); // Assumes File::from(0..=7) is safe.
+        // File::from_unchecked(u8) should handle this conversion.
+        let current_file = unsafe { File::from_unchecked(file) }; // Assumes File::from_unchecked(0..=7) is safe.
 
         // Create the `Square` from the `File` and `Rank`.
-        let sq = Square::from((current_file, rank));
+        let sq = Square::from_parts(current_file, rank);
 
         // Add the parsed piece to the board at the calculated square.
         // This assumes `add_piece` handles updating internal board representations.
