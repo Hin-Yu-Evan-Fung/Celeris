@@ -40,6 +40,8 @@
 //! `promotion_piece_type()`, etc. The `Display` trait is implemented for basic algebraic
 //! notation output (e.g., "e2e4", "a7a8q").
 
+use macros::FromPrimitive;
+
 use crate::core::*;
 
 /// Represents the type of a chess move, encoded in the upper 4 bits of a `Move`.
@@ -51,7 +53,7 @@ use crate::core::*;
 /// - **Bit 3 (0x8):** Set for any promotion (Promo, PromoCapture variants).
 /// - **Bits 0-1 (0x3):** Used within promotion flags to indicate the piece type (N=0, B=1, R=2, Q=3).
 #[repr(u16)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, FromPrimitive)]
 pub enum MoveFlag {
     /// A standard move without capture or other special properties. Value: 0 (0b0000)
     QuietMove = 0b0000,
@@ -74,7 +76,6 @@ pub enum MoveFlag {
     RookPromo = 0b1010,
     /// Promotion to a Queen without capture. Value: 11 (0b1011)
     QueenPromo = 0b1011,
-
     /// Promotion to a Knight with capture. Value: 12 (0b1100)
     KnightPromoCapture = 0b1100,
     /// Promotion to a Bishop with capture. Value: 13 (0b1101)
@@ -130,38 +131,22 @@ impl MoveFlag {
             None
         }
     }
-}
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ParseMoveFlagError {
-    InvalidValue(u16),
-}
-
-impl TryFrom<u16> for MoveFlag {
-    type Error = ParseMoveFlagError;
-
-    /// Try and map raw flag values to MoveFlag variants
-    fn try_from(value: u16) -> Result<Self, Self::Error> {
-        match value {
-            0b0000 => Ok(MoveFlag::QuietMove),
-            0b0001 => Ok(MoveFlag::DoublePawnPush),
-            0b0010 => Ok(MoveFlag::KingCastle),
-            0b0011 => Ok(MoveFlag::QueenCastle),
-            0b0100 => Ok(MoveFlag::Capture),
-            0b0101 => Ok(MoveFlag::EPCapture),
-            0b1000 => Ok(MoveFlag::KnightPromo),
-            0b1001 => Ok(MoveFlag::BishopPromo),
-            0b1010 => Ok(MoveFlag::RookPromo),
-            0b1011 => Ok(MoveFlag::QueenPromo),
-            0b1100 => Ok(MoveFlag::KnightPromoCapture),
-            0b1101 => Ok(MoveFlag::BishopPromoCapture),
-            0b1110 => Ok(MoveFlag::RookPromoCapture),
-            0b1111 => Ok(MoveFlag::QueenPromoCapture),
-            _ => Err(ParseMoveFlagError::InvalidValue(value)),
+    pub fn promotion_flag(piece_type: PieceType, is_capture: bool) -> MoveFlag {
+        match (piece_type, is_capture) {
+            (PieceType::Knight, false) => MoveFlag::KnightPromo,
+            (PieceType::Bishop, false) => MoveFlag::BishopPromo,
+            (PieceType::Rook, false) => MoveFlag::RookPromo,
+            (PieceType::Queen, false) => MoveFlag::QueenPromo,
+            (PieceType::Knight, true) => MoveFlag::KnightPromoCapture,
+            (PieceType::Bishop, true) => MoveFlag::BishopPromoCapture,
+            (PieceType::Rook, true) => MoveFlag::RookPromoCapture,
+            (PieceType::Queen, true) => MoveFlag::QueenPromoCapture,
+            // Handle invalid promotion types (Pawn, King)
+            _ => panic!("Invalid promotion piece type: {:?}", piece_type),
         }
     }
 }
-
 /// # Move Representation
 
 /// Represents a chess move encoded into a 16-bit unsigned integer.
@@ -180,7 +165,9 @@ impl TryFrom<u16> for MoveFlag {
 /// Use the associated methods (`from()`, `to()`, `flag()`, `is_capture()`, etc.) to access
 /// the move's components and properties.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)] // Default makes Move(0) - often represents a null move
-pub struct Move(u16);
+pub struct Move {
+    data: u16,
+}
 
 impl Move {
     // --- Bit Manipulation Constants ---
@@ -195,6 +182,10 @@ impl Move {
     /// Mask to extract the flag value (4 bits).
     const FLAG_MASK: u16 = 0xF; // 0b00000000001111
 
+    // --- Default Moves ---
+    /// Null Move Placeholder
+    pub const NULL: Self = Self::new(Square::A1, Square::A1, MoveFlag::QuietMove);
+
     /// Creates a new move from its components.
     ///
     /// # Arguments
@@ -202,16 +193,16 @@ impl Move {
     /// * `to` - The destination square (`Square`).
     /// * `flag` - The `MoveFlag` specifying the type of move.
     #[inline(always)]
-    pub fn new(from: Square, to: Square, flag: MoveFlag) -> Self {
+    pub const fn new(from: Square, to: Square, flag: MoveFlag) -> Self {
         let from_u16 = from as u16;
         let to_u16 = to as u16;
         let flag_u16 = flag as u16;
 
-        Move(
-            (from_u16 << Self::FROM_SHIFT)
-                | (to_u16 << Self::TO_SHIFT)
-                | (flag_u16 << Self::FLAG_SHIFT), // Cast enum variant to u16
-        )
+        let data = (from_u16 << Self::FROM_SHIFT)
+            | (to_u16 << Self::TO_SHIFT)
+            | (flag_u16 << Self::FLAG_SHIFT);
+
+        Self { data }
     }
 
     /// # Creates a promotion move (quiet or capture).
@@ -227,25 +218,14 @@ impl Move {
     ///
     /// # Panics
     /// Panics if `piece_type` is not `Knight`, `Bishop`, `Rook`, or `Queen`.
+    #[inline(always)]
     pub fn new_promotion(
         from: Square,
         to: Square,
         piece_type: PieceType,
         is_capture: bool,
     ) -> Self {
-        let flag = match (piece_type, is_capture) {
-            (PieceType::Knight, false) => MoveFlag::KnightPromo,
-            (PieceType::Bishop, false) => MoveFlag::BishopPromo,
-            (PieceType::Rook, false) => MoveFlag::RookPromo,
-            (PieceType::Queen, false) => MoveFlag::QueenPromo,
-            (PieceType::Knight, true) => MoveFlag::KnightPromoCapture,
-            (PieceType::Bishop, true) => MoveFlag::BishopPromoCapture,
-            (PieceType::Rook, true) => MoveFlag::RookPromoCapture,
-            (PieceType::Queen, true) => MoveFlag::QueenPromoCapture,
-            // Handle invalid promotion types (Pawn, King)
-            _ => panic!("Invalid promotion piece type: {:?}", piece_type),
-        };
-        Self::new(from, to, flag)
+        Self::new(from, to, MoveFlag::promotion_flag(piece_type, is_capture))
     }
 
     // --- Accessors ---
@@ -254,24 +234,22 @@ impl Move {
     #[inline(always)]
     pub fn from(&self) -> Square {
         // Extract bits 0-5 and convert to Square
-        Square::from(((self.0 >> Self::FROM_SHIFT) & Self::SQUARE_MASK) as u8)
+        Square::from(((self.data >> Self::FROM_SHIFT) & Self::SQUARE_MASK) as u8)
     }
 
     /// Gets the 'to' square.
     #[inline(always)]
     pub fn to(&self) -> Square {
         // Extract bits 6-11 and convert to Square
-        Square::from(((self.0 >> Self::TO_SHIFT) & Self::SQUARE_MASK) as u8)
+        Square::from(((self.data >> Self::TO_SHIFT) & Self::SQUARE_MASK) as u8)
     }
 
     /// # Gets the `MoveFlag` specifying the type of this move.
     ///
-    /// Returns `None` if the raw flag bits extracted from the `u16` do not correspond
-    /// to a valid `MoveFlag` variant (e.g., if the bits represent the unused values 6 or 7).
-    /// This indicates a potential issue if it occurs, as generated moves should always have valid flags.
+    /// Returns `MoveFlag` variant in the moves
     #[inline(always)]
-    pub fn flag(&self) -> Option<MoveFlag> {
-        MoveFlag::try_from((self.0 >> Self::FLAG_SHIFT) & Self::FLAG_MASK).ok()
+    pub fn flag(&self) -> MoveFlag {
+        MoveFlag::from((self.data >> Self::FLAG_SHIFT) & Self::FLAG_MASK)
     }
 
     // --- Query Methods ---
@@ -280,14 +258,14 @@ impl Move {
     #[inline(always)]
     pub fn is_capture(&self) -> bool {
         // Get the flag (if valid) and check its capture property
-        self.flag().map_or(false, |flag| flag.is_capture())
+        self.flag().is_capture()
     }
 
     /// Checks if the move is any type of promotion
     #[inline(always)]
     pub fn is_promotion(&self) -> bool {
         // Get the flag (if valid) and check its promotion property
-        self.flag().map_or(false, |flag| flag.is_promotion())
+        self.flag().is_promotion()
     }
 
     /// Gets the type of piece this move promotes to, if it's a promotion move.
@@ -296,43 +274,49 @@ impl Move {
     #[inline(always)]
     pub fn promotion_piece_type(&self) -> Option<PieceType> {
         // Get the flag (if valid) and then get its promotion piece type
-        self.flag().and_then(|flag| flag.promotion_piece_type())
+        self.flag().promotion_piece_type()
     }
 
     /// Checks if the move is a quiet move
     #[inline(always)]
     pub fn is_quiet(&self) -> bool {
-        self.flag() == Some(MoveFlag::QuietMove)
+        self.flag() == MoveFlag::QuietMove
     }
 
     /// Checks if the move is a double push
     #[inline(always)]
     pub fn is_double_push(&self) -> bool {
-        self.flag() == Some(MoveFlag::DoublePawnPush)
+        self.flag() == MoveFlag::DoublePawnPush
     }
 
     /// Checks if the move is an enpassant capture
     #[inline(always)]
     pub fn is_ep_capture(&self) -> bool {
-        self.flag() == Some(MoveFlag::EPCapture)
+        self.flag() == MoveFlag::EPCapture
     }
 
     /// Checks if the move is a king side castle move
     #[inline(always)]
     pub fn is_king_castle(&self) -> bool {
-        self.flag() == Some(MoveFlag::KingCastle)
+        self.flag() == MoveFlag::KingCastle
     }
 
     /// Checks if the move is a queen side castle move
     #[inline(always)]
     pub fn is_queen_castle(&self) -> bool {
-        self.flag() == Some(MoveFlag::QueenCastle)
+        self.flag() == MoveFlag::QueenCastle
     }
 
     /// Checks if the move is a castle move
     #[inline(always)]
     pub fn is_castle(&self) -> bool {
         self.is_king_castle() || self.is_queen_castle()
+    }
+
+    /// Checks if the move is a null move
+    #[inline(always)]
+    pub fn is_null(&self) -> bool {
+        *self == Self::NULL
     }
 }
 
@@ -342,16 +326,20 @@ impl Move {
 /// It simply shows the 'from' square, 'to' square, and the promotion piece character if applicable.
 impl std::fmt::Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Check if it's a promotion move to append the piece character
-        match self.promotion_piece_type() {
-            // Get the lowercase character for the promotion piece
-            // Assumes PieceType Display implementation gives lowercase 'n', 'b', 'r', 'q'
-            // Or implement a specific mapping here:
-            Some(piece_type) => {
-                write!(f, "{}{}{}", self.from(), self.to(), piece_type.to_string())
+        if self.is_null() {
+            write!(f, "null")
+        } else {
+            // Check if it's a promotion move to append the piece character
+            match self.promotion_piece_type() {
+                // Get the lowercase character for the promotion piece
+                // Assumes PieceType Display implementation gives lowercase 'n', 'b', 'r', 'q'
+                // Or implement a specific mapping here:
+                Some(piece_type) => {
+                    write!(f, "{}{}{}", self.from(), self.to(), piece_type.to_string())
+                }
+                // Standard move format
+                _ => write!(f, "{}{}", self.from(), self.to()),
             }
-            // Standard move format
-            _ => write!(f, "{}{}", self.from(), self.to()),
         }
     }
 }
@@ -368,7 +356,7 @@ mod tests {
         let m = Move::new(E2, E4, MoveFlag::QuietMove);
         assert_eq!(m.from(), E2);
         assert_eq!(m.to(), E4);
-        assert_eq!(m.flag(), Some(MoveFlag::QuietMove));
+        assert_eq!(m.flag(), MoveFlag::QuietMove);
         assert!(m.is_quiet());
         assert!(!m.is_capture());
         assert!(!m.is_promotion());
@@ -380,7 +368,7 @@ mod tests {
         let m = Move::new(D4, C5, MoveFlag::Capture);
         assert_eq!(m.from(), D4);
         assert_eq!(m.to(), C5);
-        assert_eq!(m.flag(), Some(MoveFlag::Capture));
+        assert_eq!(m.flag(), MoveFlag::Capture);
         assert!(!m.is_quiet());
         assert!(m.is_capture());
         assert!(!m.is_promotion());
@@ -392,7 +380,7 @@ mod tests {
         let m = Move::new(E5, D6, MoveFlag::EPCapture);
         assert_eq!(m.from(), E5);
         assert_eq!(m.to(), D6);
-        assert_eq!(m.flag(), Some(MoveFlag::EPCapture));
+        assert_eq!(m.flag(), MoveFlag::EPCapture);
         assert!(!m.is_quiet());
         assert!(m.is_capture()); // EP is a capture
         assert!(m.is_ep_capture());
@@ -404,7 +392,7 @@ mod tests {
         let m = Move::new(A2, A4, MoveFlag::DoublePawnPush);
         assert_eq!(m.from(), A2);
         assert_eq!(m.to(), A4);
-        assert_eq!(m.flag(), Some(MoveFlag::DoublePawnPush));
+        assert_eq!(m.flag(), MoveFlag::DoublePawnPush);
         assert!(m.is_double_push());
         assert!(!m.is_capture());
         assert!(!m.is_promotion());
@@ -415,7 +403,7 @@ mod tests {
         let m_ks = Move::new(E1, G1, MoveFlag::KingCastle);
         assert_eq!(m_ks.from(), E1);
         assert_eq!(m_ks.to(), G1);
-        assert_eq!(m_ks.flag(), Some(MoveFlag::KingCastle));
+        assert_eq!(m_ks.flag(), MoveFlag::KingCastle);
         assert!(m_ks.is_king_castle());
         assert!(!m_ks.is_queen_castle());
         assert!(m_ks.is_castle());
@@ -424,7 +412,7 @@ mod tests {
         let m_qs = Move::new(E8, C8, MoveFlag::QueenCastle);
         assert_eq!(m_qs.from(), E8);
         assert_eq!(m_qs.to(), C8);
-        assert_eq!(m_qs.flag(), Some(MoveFlag::QueenCastle));
+        assert_eq!(m_qs.flag(), MoveFlag::QueenCastle);
         assert!(!m_qs.is_king_castle());
         assert!(m_qs.is_queen_castle());
         assert!(m_qs.is_castle());
@@ -436,21 +424,21 @@ mod tests {
         let m_qn = Move::new_promotion(A7, A8, PieceType::Knight, false);
         assert_eq!(m_qn.from(), A7);
         assert_eq!(m_qn.to(), A8);
-        assert_eq!(m_qn.flag(), Some(MoveFlag::KnightPromo));
+        assert_eq!(m_qn.flag(), MoveFlag::KnightPromo);
         assert!(m_qn.is_promotion());
         assert!(!m_qn.is_capture());
         assert_eq!(m_qn.promotion_piece_type(), Some(PieceType::Knight));
 
         let m_qb = Move::new_promotion(B7, B8, PieceType::Bishop, false);
-        assert_eq!(m_qb.flag(), Some(MoveFlag::BishopPromo));
+        assert_eq!(m_qb.flag(), MoveFlag::BishopPromo);
         assert_eq!(m_qb.promotion_piece_type(), Some(PieceType::Bishop));
 
         let m_qr = Move::new_promotion(C7, C8, PieceType::Rook, false);
-        assert_eq!(m_qr.flag(), Some(MoveFlag::RookPromo));
+        assert_eq!(m_qr.flag(), MoveFlag::RookPromo);
         assert_eq!(m_qr.promotion_piece_type(), Some(PieceType::Rook));
 
         let m_qq = Move::new_promotion(D7, D8, PieceType::Queen, false);
-        assert_eq!(m_qq.flag(), Some(MoveFlag::QueenPromo));
+        assert_eq!(m_qq.flag(), MoveFlag::QueenPromo);
         assert_eq!(m_qq.promotion_piece_type(), Some(PieceType::Queen));
     }
 
@@ -459,21 +447,21 @@ mod tests {
         let m_cn = Move::new_promotion(A7, B8, PieceType::Knight, true);
         assert_eq!(m_cn.from(), A7);
         assert_eq!(m_cn.to(), B8);
-        assert_eq!(m_cn.flag(), Some(MoveFlag::KnightPromoCapture));
+        assert_eq!(m_cn.flag(), MoveFlag::KnightPromoCapture);
         assert!(m_cn.is_promotion());
         assert!(m_cn.is_capture());
         assert_eq!(m_cn.promotion_piece_type(), Some(PieceType::Knight));
 
         let m_cb = Move::new_promotion(B7, C8, PieceType::Bishop, true);
-        assert_eq!(m_cb.flag(), Some(MoveFlag::BishopPromoCapture));
+        assert_eq!(m_cb.flag(), MoveFlag::BishopPromoCapture);
         assert_eq!(m_cb.promotion_piece_type(), Some(PieceType::Bishop));
 
         let m_cr = Move::new_promotion(C7, D8, PieceType::Rook, true);
-        assert_eq!(m_cr.flag(), Some(MoveFlag::RookPromoCapture));
+        assert_eq!(m_cr.flag(), MoveFlag::RookPromoCapture);
         assert_eq!(m_cr.promotion_piece_type(), Some(PieceType::Rook));
 
         let m_cq = Move::new_promotion(D7, E8, PieceType::Queen, true);
-        assert_eq!(m_cq.flag(), Some(MoveFlag::QueenPromoCapture));
+        assert_eq!(m_cq.flag(), MoveFlag::QueenPromoCapture);
         assert_eq!(m_cq.promotion_piece_type(), Some(PieceType::Queen));
     }
 
@@ -566,34 +554,6 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_flag_bits() {
-        // Manually construct u16 values with invalid flag bits (6 and 7)
-        // These require knowledge of the internal constants (or hardcoding shifts/masks)
-        const FLAG_SHIFT: u16 = 12;
-        const TO_SHIFT: u16 = 6;
-        const FROM_SHIFT: u16 = 0;
-
-        // Invalid flag 6 (0b0110)
-        let raw_move_invalid_flag_6 =
-            ((E2 as u16) << FROM_SHIFT) | ((E4 as u16) << TO_SHIFT) | (6u16 << FLAG_SHIFT);
-        let invalid_move_6 = Move(raw_move_invalid_flag_6);
-        assert_eq!(invalid_move_6.flag(), None); // Should correctly return None
-        // Even though bit 2 (capture) is set in 6, the flag is invalid, so is_capture is false
-        assert!(!invalid_move_6.is_capture());
-        assert!(!invalid_move_6.is_promotion());
-        assert!(!invalid_move_6.is_quiet()); // etc.
-
-        // Invalid flag 7 (0b0111)
-        let raw_move_invalid_flag_7 =
-            ((E2 as u16) << FROM_SHIFT) | ((E4 as u16) << TO_SHIFT) | (7u16 << FLAG_SHIFT);
-        let invalid_move_7 = Move(raw_move_invalid_flag_7);
-        assert_eq!(invalid_move_7.flag(), None);
-        // Even though bit 2 (capture) is set in 7, the flag is invalid, so is_capture is false
-        assert!(!invalid_move_7.is_capture());
-        assert!(!invalid_move_7.is_promotion());
-    }
-
-    #[test]
     fn test_display_format() {
         // Use Move::new for non-promotion moves as helper constructors aren't present
         assert_eq!(Move::new(E2, E4, MoveFlag::QuietMove).to_string(), "e2e4");
@@ -635,10 +595,10 @@ mod tests {
     #[test]
     fn test_default_move() {
         let default_move = Move::default();
-        assert_eq!(default_move.0, 0); // Raw value should be 0
+        assert_eq!(default_move.data, 0); // Raw value should be 0
         assert_eq!(default_move.from(), A1); // Square 0
         assert_eq!(default_move.to(), A1); // Square 0
-        assert_eq!(default_move.flag(), Some(MoveFlag::QuietMove)); // Flag 0
+        assert_eq!(default_move.flag(), MoveFlag::QuietMove); // Flag 0
         assert!(default_move.is_quiet());
     }
 }
