@@ -158,7 +158,7 @@ impl Piece {
     ///
     /// Returns the corresponding `PieceType` enum value.
     pub fn piecetype(&self) -> PieceType {
-        ((*self as u8) & 0b111).into()
+        unsafe { PieceType::from((*self as u8) & 0b111) }
     }
 
     /// # Get Piece Colour
@@ -167,18 +167,16 @@ impl Piece {
     ///
     /// Returns the corresponding `Colour` enum value.
     pub fn colour(&self) -> Colour {
-        ((*self as u8) >> 3).into()
+        unsafe { Colour::from((*self as u8) >> 3) }
     }
-}
 
-/// # Create Piece from Colour and Type
-///
-/// Allows creating a piece by combining a colour and a piece type.
-///
-/// This encodes the colour in bit 3 and the piece type in bits 0-2.
-impl From<(Colour, PieceType)> for Piece {
-    fn from((colour, piece_type): (Colour, PieceType)) -> Self {
-        ((colour as u8) << 3 | piece_type as u8).into()
+    /// # Create Piece from Colour and Type
+    ///
+    /// Allows creating a piece by combining a colour and a piece type.
+    ///
+    /// This encodes the colour in bit 4 and the piece type in bits 1-3.
+    pub fn from_parts(colour: Colour, piece_type: PieceType) -> Self {
+        unsafe { Piece::from((colour as u8) << 3 | piece_type as u8) }
     }
 }
 
@@ -227,7 +225,7 @@ impl std::str::FromStr for Piece {
             .position(|c| c == piece_char && c != ' ')
             .ok_or(ParsePieceError::InvalidChar(piece_char))? as u8;
 
-        Piece::try_from(index).map_err(|_| ParsePieceError::InvalidChar(piece_char))
+        Piece::safe_from(index).ok_or(ParsePieceError::InvalidChar(piece_char))
     }
 }
 
@@ -281,52 +279,52 @@ mod tests {
     fn test_create_piece_from_colour_and_type() {
         // Test creating pieces from colour and type
         assert_eq!(
-            Piece::from((Colour::White, PieceType::Pawn)),
+            Piece::from_parts(Colour::White, PieceType::Pawn),
             Piece::WhitePawn
         );
         assert_eq!(
-            Piece::from((Colour::White, PieceType::Knight)),
+            Piece::from_parts(Colour::White, PieceType::Knight),
             Piece::WhiteKnight
         );
         assert_eq!(
-            Piece::from((Colour::White, PieceType::Bishop)),
+            Piece::from_parts(Colour::White, PieceType::Bishop),
             Piece::WhiteBishop
         );
         assert_eq!(
-            Piece::from((Colour::White, PieceType::Rook)),
+            Piece::from_parts(Colour::White, PieceType::Rook),
             Piece::WhiteRook
         );
         assert_eq!(
-            Piece::from((Colour::White, PieceType::Queen)),
+            Piece::from_parts(Colour::White, PieceType::Queen),
             Piece::WhiteQueen
         );
         assert_eq!(
-            Piece::from((Colour::White, PieceType::King)),
+            Piece::from_parts(Colour::White, PieceType::King),
             Piece::WhiteKing
         );
 
         assert_eq!(
-            Piece::from((Colour::Black, PieceType::Pawn)),
+            Piece::from_parts(Colour::Black, PieceType::Pawn),
             Piece::BlackPawn
         );
         assert_eq!(
-            Piece::from((Colour::Black, PieceType::Knight)),
+            Piece::from_parts(Colour::Black, PieceType::Knight),
             Piece::BlackKnight
         );
         assert_eq!(
-            Piece::from((Colour::Black, PieceType::Bishop)),
+            Piece::from_parts(Colour::Black, PieceType::Bishop),
             Piece::BlackBishop
         );
         assert_eq!(
-            Piece::from((Colour::Black, PieceType::Rook)),
+            Piece::from_parts(Colour::Black, PieceType::Rook),
             Piece::BlackRook
         );
         assert_eq!(
-            Piece::from((Colour::Black, PieceType::Queen)),
+            Piece::from_parts(Colour::Black, PieceType::Queen),
             Piece::BlackQueen
         );
         assert_eq!(
-            Piece::from((Colour::Black, PieceType::King)),
+            Piece::from_parts(Colour::Black, PieceType::King),
             Piece::BlackKing
         );
     }
@@ -334,30 +332,30 @@ mod tests {
     #[test]
     fn test_piece_from_numeric_value() {
         // Test piece from numeric value
-        assert_eq!(Piece::from(0), Piece::WhitePawn);
-        assert_eq!(Piece::from(1), Piece::WhiteKnight);
-        assert_eq!(Piece::from(2), Piece::WhiteBishop);
-        assert_eq!(Piece::from(3), Piece::WhiteRook);
-        assert_eq!(Piece::from(4), Piece::WhiteQueen);
-        assert_eq!(Piece::from(5), Piece::WhiteKing);
+        assert_eq!(unsafe { Piece::from(0) }, Piece::WhitePawn);
+        assert_eq!(unsafe { Piece::from(1) }, Piece::WhiteKnight);
+        assert_eq!(unsafe { Piece::from(2) }, Piece::WhiteBishop);
+        assert_eq!(unsafe { Piece::from(3) }, Piece::WhiteRook);
+        assert_eq!(unsafe { Piece::from(4) }, Piece::WhiteQueen);
+        assert_eq!(unsafe { Piece::from(5) }, Piece::WhiteKing);
 
-        assert_eq!(Piece::from(8), Piece::BlackPawn);
-        assert_eq!(Piece::from(9), Piece::BlackKnight);
-        assert_eq!(Piece::from(10), Piece::BlackBishop);
-        assert_eq!(Piece::from(11), Piece::BlackRook);
-        assert_eq!(Piece::from(12), Piece::BlackQueen);
-        assert_eq!(Piece::from(13), Piece::BlackKing);
+        assert_eq!(unsafe { Piece::from(8) }, Piece::BlackPawn);
+        assert_eq!(unsafe { Piece::from(9) }, Piece::BlackKnight);
+        assert_eq!(unsafe { Piece::from(10) }, Piece::BlackBishop);
+        assert_eq!(unsafe { Piece::from(11) }, Piece::BlackRook);
+        assert_eq!(unsafe { Piece::from(12) }, Piece::BlackQueen);
+        assert_eq!(unsafe { Piece::from(13) }, Piece::BlackKing);
     }
 
     #[test]
     fn test_piece_type_from_numeric_value() {
         // Test piece type from numeric value
-        assert_eq!(PieceType::from(0), PieceType::Pawn);
-        assert_eq!(PieceType::from(1), PieceType::Knight);
-        assert_eq!(PieceType::from(2), PieceType::Bishop);
-        assert_eq!(PieceType::from(3), PieceType::Rook);
-        assert_eq!(PieceType::from(4), PieceType::Queen);
-        assert_eq!(PieceType::from(5), PieceType::King);
+        assert_eq!(unsafe { PieceType::from(0) }, PieceType::Pawn);
+        assert_eq!(unsafe { PieceType::from(1) }, PieceType::Knight);
+        assert_eq!(unsafe { PieceType::from(2) }, PieceType::Bishop);
+        assert_eq!(unsafe { PieceType::from(3) }, PieceType::Rook);
+        assert_eq!(unsafe { PieceType::from(4) }, PieceType::Queen);
+        assert_eq!(unsafe { PieceType::from(5) }, PieceType::King);
     }
 
     #[test]
@@ -366,7 +364,7 @@ mod tests {
         for piece in Piece::iter() {
             let colour = piece.colour();
             let piece_type = piece.piecetype();
-            let reconstructed = Piece::from((colour, piece_type));
+            let reconstructed = Piece::from_parts(colour, piece_type);
             assert_eq!(piece, reconstructed);
         }
     }

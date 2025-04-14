@@ -33,7 +33,7 @@
 //!   - `leaper_attack`: Gets the attack bitboard for a knight or king.
 //!   - `slider_attack`: Gets the attack bitboard for a bishop, rook, or
 
-use crate::core::{Bitboard, Castling, Colour, Direction, File, PieceType, Rank, Square};
+use crate::core::{Bitboard, Castling, Colour, Direction, PieceType, Square};
 // Make get_magic_tables pub(super) or pub(crate) if needed here, otherwise keep it private/pub(super) in magic.rs
 // Assuming get_magic_tables is pub(super) in magic.rs and accessible here.
 use super::init::*;

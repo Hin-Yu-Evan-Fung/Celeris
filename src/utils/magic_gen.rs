@@ -151,7 +151,7 @@ const ROOK_SEEDS: [u64; Rank::NUM] = [
 /// - This is used to generate the attacks for the pieces.
 /// - The magic numbers are used to hash the occupancy of the squares to a unique index.
 /// - The occupancy is the set of squares that are occupied by pieces.
-pub fn gen_slider_attacks<const N: usize>(pt: PieceType) -> SliderAttackTable<N> {
+pub(crate) fn gen_slider_attacks<const N: usize>(pt: PieceType) -> SliderAttackTable<N> {
     let mut offset = 0;
     let mut total_attempt = 0;
     let mut reference = [Bitboard::EMPTY; MAX_PERM];
@@ -213,7 +213,7 @@ pub fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
         let mut best_attempt = 0;
         let mut best_seed = 0;
         for file in File::iter() {
-            let sq = (file, rank).into();
+            let sq = Square::from_parts(file, rank);
             let m = &magic[sq as usize];
 
             let perm = 1 << m.mask.count_bits();
@@ -234,7 +234,7 @@ pub fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
             let seed = seeder.random_u64();
 
             for file in File::iter() {
-                let sq: Square = (file, rank).into();
+                let sq: Square = Square::from_parts(file, rank);
                 let m = &mut magic[sq as usize];
 
                 let mut trying = true;

@@ -6,4 +6,6 @@ use sophos::movegen::init_all_tables;
 fn main() {
     // Initialize the move generation tables
     init_all_tables();
+
+    let _ = Square::try_from(15 as i8);
 }

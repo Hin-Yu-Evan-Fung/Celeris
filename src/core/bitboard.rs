@@ -272,7 +272,7 @@ impl Bitboard {
     pub fn lsb(&self) -> Option<Square> {
         match self.0 {
             0 => None,
-            bits => Some(Square::from(bits.trailing_zeros() as u8)),
+            bits => Some(unsafe { Square::from(bits.trailing_zeros() as u8) }),
         }
     }
 
@@ -300,7 +300,7 @@ impl Bitboard {
     pub fn msb(&self) -> Option<Square> {
         match self.0 {
             0 => None,
-            bits => Some(Square::from(63 - bits.leading_zeros() as u8)),
+            bits => Some(unsafe { Square::from(63 - bits.leading_zeros() as u8) }),
         }
     }
 
@@ -606,7 +606,7 @@ impl fmt::Display for Bitboard {
             write!(f, " {}   |", rank as u8 + 1)?;
 
             for file in File::iter() {
-                let square = (file, rank).into();
+                let square = Square::from_parts(file, rank);
                 let cell = if self.get(square) { " 1 " } else { "   " };
                 write!(f, "{}|", cell)?;
             }

@@ -405,7 +405,7 @@ impl std::fmt::Display for Board {
             write!(f, " {}   |", rank as u8 + 1)?;
 
             for file in File::iter() {
-                let square = (file, rank).into();
+                let square = Square::from_parts(file, rank);
                 let cell = match self.on(square) {
                     Some(piece) => piece.to_string(),
                     None => " ".to_string(),

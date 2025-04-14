@@ -234,23 +234,23 @@ impl Square {
     /// Returns the rank of this square
     pub fn rank(&self) -> Rank {
         let rank_index = (*self as u8) >> 3;
-        Rank::from(rank_index)
+        unsafe { Rank::from(rank_index) }
     }
 
     /// Returns the file of this square
     pub fn file(&self) -> File {
         let file_index = (*self as u8) & 0b111;
-        File::from(file_index)
+        unsafe { File::from(file_index) }
     }
 
     /// Flips the rank of this square
     pub fn flip_rank(&self) -> Self {
-        Self::from((*self as u8) ^ Square::A8 as u8)
+        unsafe { Self::from((*self as u8) ^ Square::A8 as u8) }
     }
 
     /// Flips the file of this square
     pub fn flip_file(&self) -> Self {
-        Self::from((*self as u8) ^ Square::H1 as u8)
+        unsafe { Self::from((*self as u8) ^ Square::H1 as u8) }
     }
 
     /// # Calculate Rank Distance
@@ -302,12 +302,15 @@ impl Square {
         let v2 = sq2.file() as u8;
         abs_diff(v1, v2)
     }
-}
 
-impl From<(File, Rank)> for Square {
-    fn from((file, rank): (File, Rank)) -> Self {
+    /// ### Converts Square from File and Rank
+    ///
+    /// Allows creating a square by combining a file and a rank
+    ///
+    /// This encodes the rank in bit 4-6 and the piece type in bits 1-3.
+    pub fn from_parts(file: File, rank: Rank) -> Self {
         let index = ((rank as u8) << 3) + (file as u8);
-        Self::from(index)
+        unsafe { Self::from(index) }
     }
 }
 
@@ -344,16 +347,16 @@ impl std::str::FromStr for Square {
         let rank_char = chars.next().unwrap(); // Safe due to length check
 
         let file = match file_char {
-            'a'..='h' => File::from((file_char as u8 - b'a') as u8),
+            'a'..='h' => unsafe { File::from((file_char as u8 - b'a') as u8) },
             _ => return Err(ParseSquareError::InvalidFileChar(file_char)),
         };
 
         let rank = match rank_char {
-            '1'..='8' => Rank::from((rank_char as u8 - b'1') as u8),
+            '1'..='8' => unsafe { Rank::from((rank_char as u8 - b'1') as u8) },
             _ => return Err(ParseSquareError::InvalidRankChar(rank_char)),
         };
 
-        Ok((file, rank).into())
+        Ok(Square::from_parts(file, rank))
     }
 }
 
@@ -369,14 +372,14 @@ mod tests {
 
     #[test]
     fn test_square_from_tuple() {
-        assert_eq!(Square::from((File::FileA, Rank::Rank1)), Square::A1);
-        assert_eq!(Square::from((File::FileE, Rank::Rank4)), Square::E4);
-        assert_eq!(Square::from((File::FileH, Rank::Rank8)), Square::H8);
+        assert_eq!(Square::from_parts(File::FileA, Rank::Rank1), Square::A1);
+        assert_eq!(Square::from_parts(File::FileE, Rank::Rank4), Square::E4);
+        assert_eq!(Square::from_parts(File::FileH, Rank::Rank8), Square::H8);
     }
 
     #[test]
     fn test_square_into() {
-        let square: Square = (File::FileD, Rank::Rank5).into();
+        let square: Square = Square::from_parts(File::FileD, Rank::Rank5);
         assert_eq!(square, Square::D5);
     }
 
@@ -406,9 +409,9 @@ mod tests {
         // Test all squares by creating them from file and rank and then extracting file and rank back
         for file in 0..8 {
             for rank in 0..8 {
-                let f = File::from(file);
-                let r = Rank::from(rank);
-                let square = Square::from((f, r));
+                let f = unsafe { File::from(file) };
+                let r = unsafe { Rank::from(rank) };
+                let square = Square::from_parts(f, r);
                 assert_eq!(square.file(), f);
                 assert_eq!(square.rank(), r);
             }

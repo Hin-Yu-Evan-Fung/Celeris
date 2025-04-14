@@ -234,14 +234,14 @@ impl Move {
     #[inline(always)]
     pub fn from(&self) -> Square {
         // Extract bits 0-5 and convert to Square
-        Square::from(((self.data >> Self::FROM_SHIFT) & Self::SQUARE_MASK) as u8)
+        unsafe { Square::from(((self.data >> Self::FROM_SHIFT) & Self::SQUARE_MASK) as u8) }
     }
 
     /// Gets the 'to' square.
     #[inline(always)]
     pub fn to(&self) -> Square {
         // Extract bits 6-11 and convert to Square
-        Square::from(((self.data >> Self::TO_SHIFT) & Self::SQUARE_MASK) as u8)
+        unsafe { Square::from(((self.data >> Self::TO_SHIFT) & Self::SQUARE_MASK) as u8) }
     }
 
     /// # Gets the `MoveFlag` specifying the type of this move.
@@ -249,7 +249,7 @@ impl Move {
     /// Returns `MoveFlag` variant in the moves
     #[inline(always)]
     pub fn flag(&self) -> MoveFlag {
-        MoveFlag::from((self.data >> Self::FLAG_SHIFT) & Self::FLAG_MASK)
+        unsafe { MoveFlag::from((self.data >> Self::FLAG_SHIFT) & Self::FLAG_MASK) }
     }
 
     // --- Query Methods ---
