@@ -225,7 +225,7 @@ impl TryFrom<i8> for Square {
 
     fn try_from(value: i8) -> Result<Self, Self::Error> {
         if value >= 0 && value < 64 {
-            Ok(unsafe { Square::from(value as u8) })
+            Ok(unsafe { Square::from_unchecked(value as u8) })
         } else {
             Err("Square value out of bounds (0-63)")
         }
@@ -266,7 +266,7 @@ impl std::ops::Neg for Direction {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        unsafe { Self::from(-(self as i8)) }
+        unsafe { Self::from_unchecked(-(self as i8)) }
     }
 }
 

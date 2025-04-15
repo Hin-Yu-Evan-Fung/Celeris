@@ -238,7 +238,7 @@ pub fn derive_from_primitive(input: TokenStream) -> TokenStream {
             ///
             /// Panics in debug builds if `value` is not a valid discriminant.
             #[inline]
-            pub(crate) unsafe fn from(value: #repr_type) -> Self {
+            pub(crate) unsafe fn from_unchecked(value: #repr_type) -> Self {
                 // Check validity ONLY in debug builds. This compiles away in release.
                 debug_assert!(
                     #check_expression,
@@ -266,7 +266,7 @@ pub fn derive_from_primitive(input: TokenStream) -> TokenStream {
             /// * `Some(Self)` if `value` is a valid discriminant for this enum.
             /// * `None` if `value` does not correspond to any variant.
             #[inline]
-            pub fn safe_from(value: #repr_type) -> Option<Self> {
+            pub fn from(value: #repr_type) -> Option<Self> {
                 match value {
                     // Expand the generated match arms: e.g., `0 => Some(Self::VariantA), ...`
                     #(#from_arms),*,

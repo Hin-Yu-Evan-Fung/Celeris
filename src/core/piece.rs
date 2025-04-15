@@ -74,7 +74,7 @@ use macros::{EnumIter, FromPrimitive};
 /// ```rust,no_run
 /// 
 /// // Create piece from colour and type
-/// let white_queen = Piece::from((Colour::White, PieceType::Queen));
+/// let white_queen = Piece::from_unchecked((Colour::White, PieceType::Queen));
 /// 
 /// // Extract piece components
 /// let piece_type = white_queen.piece_type();  // PieceType::Queen
@@ -82,7 +82,7 @@ use macros::{EnumIter, FromPrimitive};
 /// 
 /// // Convert between numeric value and piece
 /// let numeric_value = white_queen as u8;      // 4
-/// let piece = Piece::from(numeric_value);     // Piece::WhiteQueen
+/// let piece = Piece::from_unchecked(numeric_value);     // Piece::WhiteQueen
 /// ```
 #[rustfmt::skip]
 #[repr(u8)]
@@ -120,14 +120,14 @@ impl Piece {
 /// ```rust,no_run
 /// 
 /// // Creating a piece from colour and type
-/// let black_bishop = Piece::from((Colour::Black, PieceType::Bishop));
+/// let black_bishop = Piece::from_unchecked((Colour::Black, PieceType::Bishop));
 /// 
 /// // Extracting type from a piece
 /// let piece_type = black_bishop.piece_type();  // PieceType::Bishop
 /// 
 /// // Converting between numeric value and piece type
 /// let numeric_value = piece_type as u8;       // 2
-/// let piece_type = PieceType::from(numeric_value); // PieceType::Bishop
+/// let piece_type = PieceType::from_unchecked(numeric_value); // PieceType::Bishop
 /// 
 /// // Iterate over all piece types
 /// for pt in PieceType::iter() {
@@ -158,7 +158,7 @@ impl Piece {
     ///
     /// Returns the corresponding `PieceType` enum value.
     pub fn piecetype(&self) -> PieceType {
-        unsafe { PieceType::from((*self as u8) & 0b111) }
+        unsafe { PieceType::from_unchecked((*self as u8) & 0b111) }
     }
 
     /// # Get Piece Colour
@@ -167,7 +167,7 @@ impl Piece {
     ///
     /// Returns the corresponding `Colour` enum value.
     pub fn colour(&self) -> Colour {
-        unsafe { Colour::from((*self as u8) >> 3) }
+        unsafe { Colour::from_unchecked((*self as u8) >> 3) }
     }
 
     /// # Create Piece from Colour and Type
@@ -176,7 +176,7 @@ impl Piece {
     ///
     /// This encodes the colour in bit 4 and the piece type in bits 1-3.
     pub fn from_parts(colour: Colour, piece_type: PieceType) -> Self {
-        unsafe { Piece::from((colour as u8) << 3 | piece_type as u8) }
+        unsafe { Piece::from_unchecked((colour as u8) << 3 | piece_type as u8) }
     }
 }
 
@@ -225,7 +225,7 @@ impl std::str::FromStr for Piece {
             .position(|c| c == piece_char && c != ' ')
             .ok_or(ParsePieceError::InvalidChar(piece_char))? as u8;
 
-        Piece::safe_from(index).ok_or(ParsePieceError::InvalidChar(piece_char))
+        Piece::from(index).ok_or(ParsePieceError::InvalidChar(piece_char))
     }
 }
 
@@ -332,30 +332,30 @@ mod tests {
     #[test]
     fn test_piece_from_numeric_value() {
         // Test piece from numeric value
-        assert_eq!(unsafe { Piece::from(0) }, Piece::WhitePawn);
-        assert_eq!(unsafe { Piece::from(1) }, Piece::WhiteKnight);
-        assert_eq!(unsafe { Piece::from(2) }, Piece::WhiteBishop);
-        assert_eq!(unsafe { Piece::from(3) }, Piece::WhiteRook);
-        assert_eq!(unsafe { Piece::from(4) }, Piece::WhiteQueen);
-        assert_eq!(unsafe { Piece::from(5) }, Piece::WhiteKing);
+        assert_eq!(unsafe { Piece::from_unchecked(0) }, Piece::WhitePawn);
+        assert_eq!(unsafe { Piece::from_unchecked(1) }, Piece::WhiteKnight);
+        assert_eq!(unsafe { Piece::from_unchecked(2) }, Piece::WhiteBishop);
+        assert_eq!(unsafe { Piece::from_unchecked(3) }, Piece::WhiteRook);
+        assert_eq!(unsafe { Piece::from_unchecked(4) }, Piece::WhiteQueen);
+        assert_eq!(unsafe { Piece::from_unchecked(5) }, Piece::WhiteKing);
 
-        assert_eq!(unsafe { Piece::from(8) }, Piece::BlackPawn);
-        assert_eq!(unsafe { Piece::from(9) }, Piece::BlackKnight);
-        assert_eq!(unsafe { Piece::from(10) }, Piece::BlackBishop);
-        assert_eq!(unsafe { Piece::from(11) }, Piece::BlackRook);
-        assert_eq!(unsafe { Piece::from(12) }, Piece::BlackQueen);
-        assert_eq!(unsafe { Piece::from(13) }, Piece::BlackKing);
+        assert_eq!(unsafe { Piece::from_unchecked(8) }, Piece::BlackPawn);
+        assert_eq!(unsafe { Piece::from_unchecked(9) }, Piece::BlackKnight);
+        assert_eq!(unsafe { Piece::from_unchecked(10) }, Piece::BlackBishop);
+        assert_eq!(unsafe { Piece::from_unchecked(11) }, Piece::BlackRook);
+        assert_eq!(unsafe { Piece::from_unchecked(12) }, Piece::BlackQueen);
+        assert_eq!(unsafe { Piece::from_unchecked(13) }, Piece::BlackKing);
     }
 
     #[test]
     fn test_piece_type_from_numeric_value() {
         // Test piece type from numeric value
-        assert_eq!(unsafe { PieceType::from(0) }, PieceType::Pawn);
-        assert_eq!(unsafe { PieceType::from(1) }, PieceType::Knight);
-        assert_eq!(unsafe { PieceType::from(2) }, PieceType::Bishop);
-        assert_eq!(unsafe { PieceType::from(3) }, PieceType::Rook);
-        assert_eq!(unsafe { PieceType::from(4) }, PieceType::Queen);
-        assert_eq!(unsafe { PieceType::from(5) }, PieceType::King);
+        assert_eq!(unsafe { PieceType::from_unchecked(0) }, PieceType::Pawn);
+        assert_eq!(unsafe { PieceType::from_unchecked(1) }, PieceType::Knight);
+        assert_eq!(unsafe { PieceType::from_unchecked(2) }, PieceType::Bishop);
+        assert_eq!(unsafe { PieceType::from_unchecked(3) }, PieceType::Rook);
+        assert_eq!(unsafe { PieceType::from_unchecked(4) }, PieceType::Queen);
+        assert_eq!(unsafe { PieceType::from_unchecked(5) }, PieceType::King);
     }
 
     #[test]

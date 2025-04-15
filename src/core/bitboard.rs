@@ -272,7 +272,7 @@ impl Bitboard {
     pub fn lsb(&self) -> Option<Square> {
         match self.0 {
             0 => None,
-            bits => Some(unsafe { Square::from(bits.trailing_zeros() as u8) }),
+            bits => Some(unsafe { Square::from_unchecked(bits.trailing_zeros() as u8) }),
         }
     }
 
@@ -300,7 +300,7 @@ impl Bitboard {
     pub fn msb(&self) -> Option<Square> {
         match self.0 {
             0 => None,
-            bits => Some(unsafe { Square::from(63 - bits.leading_zeros() as u8) }),
+            bits => Some(unsafe { Square::from_unchecked(63 - bits.leading_zeros() as u8) }),
         }
     }
 

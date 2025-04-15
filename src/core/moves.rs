@@ -25,7 +25,7 @@
 //!
 //! | Bits   | Range | Purpose                     | Extracted By |
 //! |--------|-------|-----------------------------|--------------|
-//! | 0-5    | 0-63  | 'From' square index (`Square`) | `Move::from()` |
+//! | 0-5    | 0-63  | 'From' square index (`Square`) | `Move::from_unchecked()` |
 //! | 6-11   | 0-63  | 'To' square index (`Square`)   | `Move::to()`   |
 //! | 12-15  | 0-15  | Flags (`MoveFlag` value)    | `Move::flag()` |
 //!
@@ -234,14 +234,16 @@ impl Move {
     #[inline(always)]
     pub fn from(&self) -> Square {
         // Extract bits 0-5 and convert to Square
-        unsafe { Square::from(((self.data >> Self::FROM_SHIFT) & Self::SQUARE_MASK) as u8) }
+        unsafe {
+            Square::from_unchecked(((self.data >> Self::FROM_SHIFT) & Self::SQUARE_MASK) as u8)
+        }
     }
 
     /// Gets the 'to' square.
     #[inline(always)]
     pub fn to(&self) -> Square {
         // Extract bits 6-11 and convert to Square
-        unsafe { Square::from(((self.data >> Self::TO_SHIFT) & Self::SQUARE_MASK) as u8) }
+        unsafe { Square::from_unchecked(((self.data >> Self::TO_SHIFT) & Self::SQUARE_MASK) as u8) }
     }
 
     /// # Gets the `MoveFlag` specifying the type of this move.
@@ -249,7 +251,7 @@ impl Move {
     /// Returns `MoveFlag` variant in the moves
     #[inline(always)]
     pub fn flag(&self) -> MoveFlag {
-        unsafe { MoveFlag::from((self.data >> Self::FLAG_SHIFT) & Self::FLAG_MASK) }
+        unsafe { MoveFlag::from_unchecked((self.data >> Self::FLAG_SHIFT) & Self::FLAG_MASK) }
     }
 
     // --- Query Methods ---
