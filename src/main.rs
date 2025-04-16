@@ -1,9 +1,6 @@
-use sophos::core::Board;
-use sophos::core::fen::*;
-use sophos::core::*;
-use sophos::movegen::init_all_tables;
+use std::env::current_exe;
 
-fn main() {
-    // Initialize the move generation tables
-    init_all_tables();
-}
+use sophos::core::*;
+use sophos::movegen::lookup::*;
+
+fn main() {}

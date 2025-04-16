@@ -48,12 +48,9 @@
 
 mod init;
 pub mod lookup;
-pub(crate) mod magic;
-mod magic_numbers;
+mod magic;
 
 pub use lookup::{
-    between_bb, castling_rights, check_bb, init_all_tables, leaper_attack, line_bb, pawn_attack,
-    pin_bb, slider_attack,
+    between_bb, castling_rights, check_bb, leaper_attack, line_bb, pawn_attack, pin_bb,
+    slider_attack,
 };
-
-pub(crate) use magic::{Magic, SliderAttackTable, attacks_on_the_fly, init_magic_struct};

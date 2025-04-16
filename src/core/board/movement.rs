@@ -55,7 +55,7 @@ impl Board {
         // Put piece in the board
         self.board[to as usize] = Some(piece);
 
-        let from_to_bb = Bitboard::from(from) | Bitboard::from(to);
+        let from_to_bb = from.bb() | to.bb();
         // Update piece bitboards
         self.pieces[piece.piecetype() as usize] ^= from_to_bb;
         // Update occupied bitboards

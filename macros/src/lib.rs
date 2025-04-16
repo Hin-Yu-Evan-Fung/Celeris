@@ -238,12 +238,11 @@ pub fn derive_from_primitive(input: TokenStream) -> TokenStream {
             ///
             /// Panics in debug builds if `value` is not a valid discriminant.
             #[inline]
-            pub(crate) unsafe fn from_unchecked(value: #repr_type) -> Self {
+            pub(crate) const unsafe fn from_unchecked(value: #repr_type) -> Self {
                 // Check validity ONLY in debug builds. This compiles away in release.
                 debug_assert!(
                     #check_expression,
-                    "Invalid value {} for {}::from conversion from primitive type {}",
-                    value, stringify!(#name), stringify!(#repr_type)
+                    "Invalid value conversion from primitive type"
                 );
 
                 // SAFETY: Relies entirely on the caller upholding the safety contract
@@ -428,6 +427,13 @@ fn bit_ops_impl(
                     Self(#op_action)
                 }
             }
+
+            impl #name {
+                #[inline]
+                pub const fn #method_ident(self, rhs: #rhs_type_token) -> Self {
+                    Self(#op_action)
+                }
+            }
         };
 
         // Generate the impl block for the assignment operator (e.g., impl BitAndAssign for Name)
@@ -436,6 +442,13 @@ fn bit_ops_impl(
                 #[inline]
                 fn #method_assign_ident(&mut self, rhs: #rhs_type_token) {
                     // Modify self in place
+                    #op_assign_action;
+                }
+            }
+
+            impl #name {
+                #[inline]
+                pub const fn #method_assign_ident(&mut self, rhs: #rhs_type_token) {
                     #op_assign_action;
                 }
             }
@@ -547,11 +560,20 @@ pub fn derive_bit_mani_ops(input: TokenStream) -> TokenStream {
 
     // Generate the implementation for `Not` separately
     let not_impl = quote! {
+
         impl std::ops::Not for #name {
             type Output = Self;
-
             #[inline]
-            fn not(self) -> Self::Output {
+            fn not(self) -> Self {
+                // Apply NOT to the inner field and wrap in Self
+                Self(!self.0)
+            }
+        }
+
+
+        impl #name {
+            #[inline]
+            pub const fn not(self) -> Self {
                 // Apply NOT to the inner field and wrap in Self
                 Self(!self.0)
             }

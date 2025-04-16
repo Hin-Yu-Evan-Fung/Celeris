@@ -32,101 +32,211 @@
 use super::lookup::*;
 use crate::core::*;
 
-// Populates the LINE_BB table.
-pub(super) fn populate_line_bb(
-    table: &mut SquarePairTable,
-    pt: PieceType,
-    from: Square,
-    to: Square,
-) {
-    let from_bb: Bitboard = from.into();
-    let to_bb: Bitboard = to.into();
+// Returns the line crossing 2 squares
+const fn line_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
+    let from_bb: Bitboard = from.bb();
+    let to_bb: Bitboard = to.bb();
     // Use the public slider_attack function which relies on the (potentially lazy) tables
+
     let from_ray = slider_attack(pt, from, Bitboard::EMPTY);
     let to_ray = slider_attack(pt, to, Bitboard::EMPTY);
-    // Line mask is the intersection of the two rays, plus the squares themselves.
-    // If the squares are not on the same line, the result is an empty bitboard.
-    // If the squares are the same, the result is an empty bitboard.
-    table[from as usize][to as usize] = (from_ray & to_ray) | (from_bb | to_bb);
+
+    from_ray.bitand(to_ray).bitor(from_bb).bitor(to_bb)
 }
 
-// Populates the BETWEEN_BB table.
-pub(super) fn populate_between_bb(
-    table: &mut SquarePairTable,
-    pt: PieceType,
-    from: Square,
-    to: Square,
-) {
-    // Use the public slider_attack function
-    let from_ray = slider_attack(pt, from, to.into());
-    let to_ray = slider_attack(pt, to, from.into());
-    // Between mask is the line between the squares, excluding the squares themselves.
-    // If the squares are not on the same line, the result is an empty bitboard.
-    // If the squares are adjacent, the result is an empty bitboard.
-    // If the squares are the same, the result is an empty bitboard.
-    table[from as usize][to as usize] = from_ray & to_ray;
+// Populate line bb table for Diagonal or Vertical lines (Depending on Piece Type)
+const fn populate_line_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
+    let mut bb = slider_attack(pt, from, Bitboard::EMPTY);
+    while !bb.is_empty() {
+        let to = bb.pop_lsb().unwrap();
+        // Populate the table entry for the pair (from, to)
+        table[from as usize][to as usize] = line_bb(pt, from, to);
+    }
 }
 
-// Populates the PIN_BB table.
-pub(super) fn populate_pin_bb(
-    table: &mut SquarePairTable,
-    pt: PieceType,
-    from: Square,
-    to: Square,
-) {
-    // Use the public slider_attack function
-    let from_ray = slider_attack(pt, from, to.into());
-    let to_ray = slider_attack(pt, to, from.into());
-    // Pin mask includes the line *between* the pinner and pinned piece, plus the pinner itself.
-    // Assuming 'from' is the pinner and 'to' is the pinned piece's square (or king).
-    // The resulting mask represents squares the pinned piece *could* move to along the pin line.
-    table[from as usize][to as usize] = (from_ray & to_ray) | Bitboard::from(from); // Include the 'from' square (pinner)
-}
-
-// Populates the CHECK_BB table.
-pub(super) fn populate_check_bb(
-    table: &mut SquarePairTable,
-    pt: PieceType,
-    from: Square,
-    to: Square,
-) {
-    // Use the public slider_attack function
-    let from_ray = slider_attack(pt, from, to.into()); // Ray from attacker towards king
-    let to_ray = slider_attack(pt, to, from.into()); // Ray from king towards attacker
-    let between = from_ray & to_ray; // Squares between attacker and king
-
-    // Check mask includes squares between attacker and king, plus the attacker's square.
-    // This represents squares where a piece can block the check or capture the attacker.
-    // Assuming 'from' is the attacker and 'to' is the king.
-    table[from as usize][to as usize] = between | Bitboard::from(from); // Include the 'from' square (attacker)
-}
-
-/// Generic helper to initialize square-pair lookup tables.
-pub(super) fn init_lookup_table(populate_fn: &mut PopulateTableFn) -> SquarePairTable {
+/// Initialise line bb table
+pub(super) const fn init_line_bb_table() -> SquarePairTable {
     let mut table = [[Bitboard::EMPTY; Square::NUM]; Square::NUM];
 
-    for pt in [PieceType::Bishop, PieceType::Rook] {
-        for from in Square::iter() {
-            // Iterate over all squares attacked by the slider from 'from' on an empty board
-            slider_attack(pt, from, Bitboard::EMPTY).for_each(|to| {
-                // Populate the table entry for the pair (from, to)
-                populate_fn(&mut table, pt, from, to);
-            });
-        }
+    let mut i = 0;
+    while i < Square::NUM {
+        let from = unsafe { Square::from_unchecked(i as u8) };
+
+        populate_line_bb(&mut table, PieceType::Bishop, from);
+        populate_line_bb(&mut table, PieceType::Rook, from);
+
+        i += 1;
     }
 
     table
 }
 
+// Returns the line segment between 2 squares
+// Between mask is the line between the squares, excluding the squares themselves.
+// If the squares are not on the same line, the result is an empty bitboard.
+// If the squares are adjacent, the result is an empty bitboard.
+// If the squares are the same, the result is an empty bitboard.
+const fn between_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
+    let from_ray = slider_attack(pt, from, to.bb());
+    let to_ray = slider_attack(pt, to, from.bb());
+
+    from_ray.bitand(to_ray)
+}
+
+// Populate between bb table for Diagonal or Vertical lines (Depending on Piece Type)
+const fn populate_between_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
+    let mut bb = slider_attack(pt, from, Bitboard::EMPTY);
+    while !bb.is_empty() {
+        let to = bb.pop_lsb().unwrap();
+        // Populate the table entry for the pair (from, to)
+        table[from as usize][to as usize] = between_bb(pt, from, to);
+    }
+}
+
+/// Initialise between bb table
+pub(super) const fn init_between_bb_table() -> SquarePairTable {
+    let mut table = [[Bitboard::EMPTY; Square::NUM]; Square::NUM];
+
+    let mut i = 0;
+    while i < Square::NUM {
+        let from = unsafe { Square::from_unchecked(i as u8) };
+
+        populate_between_bb(&mut table, PieceType::Bishop, from);
+        populate_between_bb(&mut table, PieceType::Rook, from);
+
+        i += 1;
+    }
+
+    table
+}
+
+// Returns pin bb between 2 squares
+// Pin mask includes the line *between* the pinner and pinned piece, plus the pinner itself.
+// Assuming 'from' is the pinner and 'to' is the pinned piece's square (or king).
+// The resulting mask represents squares the pinned piece *could* move to along the pin line.
+const fn pin_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
+    // Use the public slider_attack function
+    let from_ray = slider_attack(pt, from, to.bb());
+    let to_ray = slider_attack(pt, to, from.bb());
+
+    from_ray.bitand(to_ray).bitor(to.bb()) // Include the 'to' square (pinner)
+}
+
+// Populate pin bb table for Diagonal or Vertical lines (Depending on Piece Type)
+const fn populate_pin_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
+    let mut bb = slider_attack(pt, from, Bitboard::EMPTY);
+    while !bb.is_empty() {
+        let to = bb.pop_lsb().unwrap();
+        // Populate the table entry for the pair (from, to)
+        table[from as usize][to as usize] = pin_bb(pt, from, to);
+    }
+}
+
+/// Initialise pin bb table
+pub(super) const fn init_pin_bb_table() -> SquarePairTable {
+    let mut table = [[Bitboard::EMPTY; Square::NUM]; Square::NUM];
+
+    let mut i = 0;
+    while i < Square::NUM {
+        let from = unsafe { Square::from_unchecked(i as u8) };
+
+        populate_pin_bb(&mut table, PieceType::Bishop, from);
+        populate_pin_bb(&mut table, PieceType::Rook, from);
+
+        i += 1;
+    }
+
+    table
+}
+
+// Returns check bb between 2 squares
+// Check mask includes squares between attacker and king, plus the attacker's square.
+// This represents squares where a piece can block the check or capture the attacker.
+// Assuming 'from' is the attacker and 'to' is the king.
+const fn check_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
+    // Use the public slider_attack function
+    let from_ray = slider_attack(pt, from, to.bb());
+    let to_ray = slider_attack(pt, to, from.bb());
+
+    let dir = match Direction::try_from(to, from) {
+        Ok(dir) => dir,
+        Err(_) => unreachable!(),
+    };
+
+    let bb = match from.add(dir) {
+        Ok(sq) => sq.bb(),
+        Err(_) => Bitboard::EMPTY,
+    };
+
+    from_ray.bitand(to_ray).bitor(from.bb()).bitor(bb) // Include the 'from' square (checkner)
+}
+
+// Populate check bb table for Diagonal or Vertical lines (Depending on Piece Type)
+const fn populate_check_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
+    let mut bb = slider_attack(pt, from, Bitboard::EMPTY);
+    while !bb.is_empty() {
+        let to = bb.pop_lsb().unwrap();
+        // Populate the table entry for the pair (from, to)
+        table[from as usize][to as usize] = check_bb(pt, from, to);
+    }
+}
+
+/// Initialise check bb table
+pub(super) const fn init_check_bb_table() -> SquarePairTable {
+    let mut table = [[Bitboard::EMPTY; Square::NUM]; Square::NUM];
+
+    let mut i = 0;
+    while i < Square::NUM {
+        let from = unsafe { Square::from_unchecked(i as u8) };
+
+        populate_check_bb(&mut table, PieceType::Bishop, from);
+        populate_check_bb(&mut table, PieceType::Rook, from);
+
+        i += 1;
+    }
+
+    table
+}
+
+// // Populates the CHECK_BB table.
+// pub(super) fn populate_check_bb(
+//     table: &mut SquarePairTable,
+//     pt: PieceType,
+//     from: Square,
+//     to: Square,
+// ) {
+//     // Use the public slider_attack function
+//     let from_ray = slider_attack(pt, from, to.bb()); // Ray from attacker towards king
+//     let to_ray = slider_attack(pt, to, from.bb()); // Ray from king towards attacker
+//     let between = from_ray & to_ray; // Squares between attacker and king
+
+//     table[from as usize][to as usize] = between | from.bb(); // Include the 'from' square (attacker)
+// }
+
 /// Initializes the Chebyshev distance table.
-pub(super) fn init_dist_table() -> [[u8; Square::NUM]; Square::NUM] {
+pub(super) const fn init_dist_table() -> [[u8; Square::NUM]; Square::NUM] {
     let mut table = [[0u8; Square::NUM]; Square::NUM];
 
-    for sq1 in Square::iter() {
-        for sq2 in Square::iter() {
-            table[sq1 as usize][sq2 as usize] =
-                std::cmp::max(Square::rank_dist(sq1, sq2), Square::file_dist(sq1, sq2));
+    let mut i = 0;
+    while i < Square::NUM {
+        let mut j = 0;
+        while j < Square::NUM {
+            let sq1 = unsafe { Square::from_unchecked(i as u8) };
+            let sq2 = unsafe { Square::from_unchecked(j as u8) };
+
+            let rank_dist = Square::rank_dist(sq1, sq2);
+            let file_dist = Square::file_dist(sq1, sq2);
+
+            if rank_dist > file_dist {
+                table[i][j] = rank_dist;
+            } else {
+                table[i][j] = file_dist;
+            }
+
+            j += 1;
         }
+
+        i += 1;
     }
 
     table
@@ -136,7 +246,7 @@ pub(super) fn init_dist_table() -> [[u8; Square::NUM]; Square::NUM] {
 /// The value `table[sq]` is a mask that should be ANDed with the
 /// board's current castling rights when a piece moves *to* or *from* `sq`.
 /// It effectively removes the rights associated with that square's role (king or rook start square).
-pub(super) fn init_castling_rights_table() -> [Castling; Square::NUM] {
+pub(super) const fn init_castling_rights_table() -> [Castling; Square::NUM] {
     use Square::*;
 
     // Start with a mask that keeps all rights.
@@ -157,4 +267,28 @@ pub(super) fn init_castling_rights_table() -> [Castling; Square::NUM] {
     table[H8 as usize].remove(Castling::BK);
 
     table
+}
+
+// Removed init_all_tables() function as it's no longer needed for const tables.
+
+/// Initializes pseudo-attack tables for non-sliding pieces (Pawn, Knight, King).
+/// "Pseudo attacks" are potential moves ignoring blockers.
+pub(super) const fn init_pseudo_attacks(dirs: &[Direction]) -> AttackTable {
+    let mut attacks = [Bitboard::EMPTY; Square::NUM];
+
+    let mut i = 0;
+
+    while i < Square::NUM {
+        let sq_bb = unsafe { Square::from_unchecked(i as u8).bb() };
+
+        let mut j = 0;
+        while j < dirs.len() {
+            attacks[i].bitor_assign(Bitboard::shift(&sq_bb, dirs[j]));
+            j += 1;
+        }
+
+        i += 1;
+    }
+
+    attacks
 }

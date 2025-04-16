@@ -232,24 +232,24 @@ impl File {
 
 impl Square {
     /// Returns the rank of this square
-    pub fn rank(&self) -> Rank {
+    pub const fn rank(&self) -> Rank {
         let rank_index = (*self as u8) >> 3;
         unsafe { Rank::from_unchecked(rank_index) }
     }
 
     /// Returns the file of this square
-    pub fn file(&self) -> File {
+    pub const fn file(&self) -> File {
         let file_index = (*self as u8) & 0b111;
         unsafe { File::from_unchecked(file_index) }
     }
 
     /// Flips the rank of this square
-    pub fn flip_rank(&self) -> Self {
+    pub const fn flip_rank(&self) -> Self {
         unsafe { Self::from_unchecked((*self as u8) ^ Square::A8 as u8) }
     }
 
     /// Flips the file of this square
-    pub fn flip_file(&self) -> Self {
+    pub const fn flip_file(&self) -> Self {
         unsafe { Self::from_unchecked((*self as u8) ^ Square::H1 as u8) }
     }
 
@@ -272,7 +272,7 @@ impl Square {
     /// let a8 = Square::A8; // Rank 8
     /// let rank_distance = Square::rank_dist(a1, a8); // 7
     /// ```
-    pub fn rank_dist(sq1: Square, sq2: Square) -> u8 {
+    pub const fn rank_dist(sq1: Square, sq2: Square) -> u8 {
         let v1 = sq1.rank() as u8;
         let v2 = sq2.rank() as u8;
         abs_diff(v1, v2)
@@ -297,7 +297,7 @@ impl Square {
     /// let h1 = Square::H1; // File H
     /// let file_distance = Square::file_dist(a1, h1); // 7
     /// ```
-    pub fn file_dist(sq1: Square, sq2: Square) -> u8 {
+    pub const fn file_dist(sq1: Square, sq2: Square) -> u8 {
         let v1 = sq1.file() as u8;
         let v2 = sq2.file() as u8;
         abs_diff(v1, v2)

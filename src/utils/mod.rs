@@ -22,7 +22,6 @@
 ///
 /// The `utils` module is designed to be efficient and reusable. It uses techniques such as
 /// bitwise operations and lookup tables to optimize performance.
-pub mod magic_gen;
 pub(crate) mod misc;
 pub(crate) mod prng;
 
