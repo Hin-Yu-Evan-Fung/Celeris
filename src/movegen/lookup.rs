@@ -194,7 +194,7 @@ pub const fn leaper_attack(pt: PieceType, sq: Square) -> Bitboard {
     match pt {
         PieceType::Knight => KNIGHT_ATTACKS[sq as usize],
         PieceType::King => KING_ATTACKS[sq as usize],
-        _ => unreachable!("Only Knight and King are supported by leaper_attack"),
+        _ => unreachable!(),
     }
 }
 

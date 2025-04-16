@@ -86,7 +86,7 @@ impl PRNG {
     /// ```rust,no_run
     /// let mut prng = PRNG::new(0x123456789ABCDEF);
     /// ```
-    pub fn new(seed: u64) -> Self {
+    pub const fn new(seed: u64) -> Self {
         let s0 = seed;
         let s1 = seed.wrapping_mul(2);
         let s2 = seed.wrapping_div(5);
@@ -111,7 +111,7 @@ impl PRNG {
     /// let random_value = prng.random_u64();
     /// ```
     #[inline]
-    pub fn random_u64(&mut self) -> u64 {
+    pub const fn random_u64(&mut self) -> u64 {
         let t = self.s.1 << 17;
         self.s.2 ^= self.s.0;
         self.s.3 ^= self.s.1;
@@ -139,7 +139,7 @@ impl PRNG {
     /// let sparse_value = prng.random_sparse_u64();
     /// ```
     #[inline]
-    pub fn random_sparse_u64(&mut self) -> u64 {
+    pub const fn random_sparse_u64(&mut self) -> u64 {
         self.random_u64() & self.random_u64() & self.random_u64()
     }
 }

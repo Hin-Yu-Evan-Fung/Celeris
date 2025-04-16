@@ -308,7 +308,7 @@ impl Square {
     /// Allows creating a square by combining a file and a rank
     ///
     /// This encodes the rank in bit 4-6 and the piece type in bits 1-3.
-    pub fn from_parts(file: File, rank: Rank) -> Self {
+    pub const fn from_parts(file: File, rank: Rank) -> Self {
         let index = ((rank as u8) << 3) + (file as u8);
         unsafe { Self::from_unchecked(index) }
     }

@@ -101,6 +101,30 @@ impl Board {
         Ok(())
     }
 
+    /// # Board constructor using a fen string
+    /// Creates a new `Board` instance from a FEN string.
+    ///
+    /// ## Arguments
+    /// * `fen`: A string slice (`&str`) representing the FEN notation.
+    ///
+    /// ## Returns
+    /// * `Ok(Board)`: If the FEN string was parsed and applied successfully.
+    /// * `Err(FenParseError)`: If the FEN string is invalid or malformed.
+    ///
+    /// ## Errors
+    /// Returns `FenParseError` if:
+    /// * The FEN string does not have exactly 6 fields.
+    /// * Any field contains invalid characters or formatting (e.g., invalid piece, rank format, castling char, etc.).
+    /// * Numeric values (clocks) are out of range or unparsable.
+    ///
+    /// ## FEN Format Reminder
+    /// `<Piece Placement> <Side to move> <Castling> <En passant> <Halfmove clock> <Fullmove counter>`
+    pub fn from_fen(fen: &str) -> Result<Self, FenParseError> {
+        let mut board = Board::new();
+        board.set(fen)?;
+        Ok(board)
+    }
+
     /// # Get FEN String
     ///
     /// Generates a FEN (Forsyth-Edwards Notation) string representing the current

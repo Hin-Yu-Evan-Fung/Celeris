@@ -98,7 +98,7 @@ impl MoveFlag {
     ///
     /// This checks if the capture bit (0b0100) is set in the flag's value.
     #[inline(always)]
-    pub fn is_capture(self) -> bool {
+    pub const fn is_capture(self) -> bool {
         (self as u16 & Self::CAPTURE_FLAG_MASK) != 0
     }
 
@@ -106,7 +106,7 @@ impl MoveFlag {
     ///
     /// This checks if the promotion bit (0b1000) is set in the flag's value.
     #[inline(always)]
-    pub fn is_promotion(self) -> bool {
+    pub const fn is_promotion(self) -> bool {
         (self as u16 & Self::PROMOTION_FLAG_MASK) != 0
     }
 
@@ -115,7 +115,7 @@ impl MoveFlag {
     /// Returns `None` if the flag is not a promotion flag. Otherwise, extracts the
     /// piece type (Knight, Bishop, Rook, Queen) from the lower 2 bits of the flag value.
     #[inline(always)]
-    pub fn promotion_piece_type(self) -> Option<PieceType> {
+    pub const fn promotion_piece_type(self) -> Option<PieceType> {
         if self.is_promotion() {
             // Extract the piece type index from the lower 2 bits (0b0011)
             let promo_index = (self as u16 & Self::PROMOTION_PIECE_MASK) as usize;
@@ -132,7 +132,7 @@ impl MoveFlag {
         }
     }
 
-    pub fn promotion_flag(piece_type: PieceType, is_capture: bool) -> MoveFlag {
+    pub const fn promotion_flag(piece_type: PieceType, is_capture: bool) -> MoveFlag {
         match (piece_type, is_capture) {
             (PieceType::Knight, false) => MoveFlag::KnightPromo,
             (PieceType::Bishop, false) => MoveFlag::BishopPromo,
@@ -142,8 +142,7 @@ impl MoveFlag {
             (PieceType::Bishop, true) => MoveFlag::BishopPromoCapture,
             (PieceType::Rook, true) => MoveFlag::RookPromoCapture,
             (PieceType::Queen, true) => MoveFlag::QueenPromoCapture,
-            // Handle invalid promotion types (Pawn, King)
-            _ => panic!("Invalid promotion piece type: {:?}", piece_type),
+            _ => panic!("Invalid promotion piece type!"),
         }
     }
 }
@@ -183,8 +182,10 @@ impl Move {
     const FLAG_MASK: u16 = 0xF; // 0b00000000001111
 
     // --- Default Moves ---
+    /// None Move Placeholder
+    pub const NONE: Self = Self::new(Square::A1, Square::A1, MoveFlag::QuietMove);
     /// Null Move Placeholder
-    pub const NULL: Self = Self::new(Square::A1, Square::A1, MoveFlag::QuietMove);
+    pub const NULL: Self = Self::new(Square::B1, Square::B1, MoveFlag::QuietMove);
 
     /// Creates a new move from its components.
     ///
@@ -232,7 +233,7 @@ impl Move {
 
     /// Gets the 'from' square.
     #[inline(always)]
-    pub fn from(&self) -> Square {
+    pub const fn from(&self) -> Square {
         // Extract bits 0-5 and convert to Square
         unsafe {
             Square::from_unchecked(((self.data >> Self::FROM_SHIFT) & Self::SQUARE_MASK) as u8)
@@ -241,7 +242,7 @@ impl Move {
 
     /// Gets the 'to' square.
     #[inline(always)]
-    pub fn to(&self) -> Square {
+    pub const fn to(&self) -> Square {
         // Extract bits 6-11 and convert to Square
         unsafe { Square::from_unchecked(((self.data >> Self::TO_SHIFT) & Self::SQUARE_MASK) as u8) }
     }
@@ -250,7 +251,7 @@ impl Move {
     ///
     /// Returns `MoveFlag` variant in the moves
     #[inline(always)]
-    pub fn flag(&self) -> MoveFlag {
+    pub const fn flag(&self) -> MoveFlag {
         unsafe { MoveFlag::from_unchecked((self.data >> Self::FLAG_SHIFT) & Self::FLAG_MASK) }
     }
 
@@ -258,14 +259,14 @@ impl Move {
 
     /// Checks if the move is any type of capture
     #[inline(always)]
-    pub fn is_capture(&self) -> bool {
+    pub const fn is_capture(&self) -> bool {
         // Get the flag (if valid) and check its capture property
         self.flag().is_capture()
     }
 
     /// Checks if the move is any type of promotion
     #[inline(always)]
-    pub fn is_promotion(&self) -> bool {
+    pub const fn is_promotion(&self) -> bool {
         // Get the flag (if valid) and check its promotion property
         self.flag().is_promotion()
     }
@@ -274,51 +275,62 @@ impl Move {
     ///
     /// Returns `None` if the move is not a promotion.
     #[inline(always)]
-    pub fn promotion_piece_type(&self) -> Option<PieceType> {
+    pub const fn promotion_piece_type(&self) -> Option<PieceType> {
         // Get the flag (if valid) and then get its promotion piece type
         self.flag().promotion_piece_type()
     }
 
     /// Checks if the move is a quiet move
     #[inline(always)]
-    pub fn is_quiet(&self) -> bool {
-        self.flag() == MoveFlag::QuietMove
+    pub const fn is_quiet(&self) -> bool {
+        self.flag() as u8 == MoveFlag::QuietMove as u8
     }
 
     /// Checks if the move is a double push
     #[inline(always)]
-    pub fn is_double_push(&self) -> bool {
-        self.flag() == MoveFlag::DoublePawnPush
+    pub const fn is_double_push(&self) -> bool {
+        self.flag() as u8 == MoveFlag::DoublePawnPush as u8
     }
 
     /// Checks if the move is an enpassant capture
     #[inline(always)]
-    pub fn is_ep_capture(&self) -> bool {
-        self.flag() == MoveFlag::EPCapture
+    pub const fn is_ep_capture(&self) -> bool {
+        self.flag() as u8 == MoveFlag::EPCapture as u8
     }
 
     /// Checks if the move is a king side castle move
     #[inline(always)]
-    pub fn is_king_castle(&self) -> bool {
-        self.flag() == MoveFlag::KingCastle
+    pub const fn is_king_castle(&self) -> bool {
+        self.flag() as u8 == MoveFlag::KingCastle as u8
     }
 
     /// Checks if the move is a queen side castle move
     #[inline(always)]
-    pub fn is_queen_castle(&self) -> bool {
-        self.flag() == MoveFlag::QueenCastle
+    pub const fn is_queen_castle(&self) -> bool {
+        self.flag() as u8 == MoveFlag::QueenCastle as u8
     }
 
     /// Checks if the move is a castle move
     #[inline(always)]
-    pub fn is_castle(&self) -> bool {
+    pub const fn is_castle(&self) -> bool {
         self.is_king_castle() || self.is_queen_castle()
     }
 
     /// Checks if the move is a null move
     #[inline(always)]
-    pub fn is_null(&self) -> bool {
-        *self == Self::NULL
+    pub const fn is_null(&self) -> bool {
+        self.data == Self::NULL.data
+    }
+
+    /// Checks if the move is a none move
+    #[inline(always)]
+    pub const fn is_none(&self) -> bool {
+        self.data == Self::NONE.data
+    }
+
+    #[inline(always)]
+    pub const fn is_valid(&self) -> bool {
+        !self.is_none() && !self.is_null()
     }
 }
 
@@ -468,14 +480,14 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Invalid promotion piece type: Pawn")]
+    #[should_panic(expected = "Invalid promotion piece type!")]
     fn test_invalid_promotion_panic_pawn() {
         // Test that promoting to a Pawn panics
         Move::new_promotion(A7, A8, PieceType::Pawn, false);
     }
 
     #[test]
-    #[should_panic(expected = "Invalid promotion piece type: King")]
+    #[should_panic(expected = "Invalid promotion piece type!")]
     fn test_invalid_promotion_panic_king() {
         // Test that promoting to a King panics
         Move::new_promotion(A7, A8, PieceType::King, false);

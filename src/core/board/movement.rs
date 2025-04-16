@@ -61,4 +61,6 @@ impl Board {
         // Update occupied bitboards
         self.occupied[piece.colour() as usize] ^= from_to_bb;
     }
+
+    
 }

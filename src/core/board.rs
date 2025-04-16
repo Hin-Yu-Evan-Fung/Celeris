@@ -54,6 +54,8 @@ const MAX_DEPTH: usize = 256;
 /// This is used to restore the board to a previous state after a move has been made (unmake move)
 /// and to check for game rules like repetitions. It also caches information useful for move generation.
 ///
+/// Caches the variables that cannot be rolled back in a predictable pattern, for example, the previously captured piece has to be stored or else it will be lost to history
+///
 /// ## Fields
 /// - `enpassant`: The en passant square, if any, available on this turn. `None` if no en passant capture is possible.
 /// - `castle`: The castling rights (`Castling`) available *before* the move that led to this state.
@@ -69,7 +71,7 @@ const MAX_DEPTH: usize = 256;
 /// - `king_attacks`: A bitboard representing the squares attacked by the friendly king.
 /// - `available`: A bitboard representing all squares not occupied by the side to move (potential destinations, excluding captures).
 /// - `enpassant_pin`: A boolean indicating if the pawn performing an en passant capture is pinned to the king, making the en passant illegal.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct BoardState {
     // --- Board State Variables -- //
     /// Number of times the current position (by `key`) has occurred in the game history.
@@ -82,12 +84,10 @@ pub struct BoardState {
     enpassant: Option<Square>,
     /// Castling rights (`Castling`) available *before* the move leading to this state.
     castle: Castling,
-    /// Zobrist key for the current position
+    /// Zobrist keys for the current position
     key: Key,
     /// Zobrist Key for the current position (Only for pawns)
     pawn_key: Key,
-    /// Zobrist Key for the current position (Only for non-pawns)
-    non_pawn_key: Key,
 
     // --- Move generation masks ---
     /// Bitboard mask: squares that block check or capture the checking piece(s). If not in check, all squares (`!0`).
@@ -98,10 +98,6 @@ pub struct BoardState {
     hv_pin: Bitboard,
     /// Bitboard mask: squares the king cannot move to (attacked or occupied by friendly pieces).
     king_ban: Bitboard,
-    /// Bitboard mask: squares attacked by the friendly king.
-    king_attacks: Bitboard,
-    /// Bitboard mask: all squares not occupied by the side to move (potential destinations, excluding captures).
-    available: Bitboard,
     /// Flag indicating if the pawn that could capture en passant is pinned, making the move illegal.
     enpassant_pin: bool,
 }
@@ -163,10 +159,9 @@ pub struct Board {
 
     /// Current board state
     state: BoardState,
-
-    /// A stack-like structure storing previous board states (`BoardState`).
-    /// Used to undo moves (`unmake_move`) and track game history (e.g., for repetition checks).
-    history: Vec<BoardState>,
+    // /// A stack-like structure storing previous board states (`BoardState`).
+    // /// Used to undo moves (`unmake_move`) and track game history (e.g., for repetition checks).
+    // history: [BoardState; MAX_DEPTH],
 }
 
 /******************************************\
@@ -187,7 +182,7 @@ impl Board {
             side_to_move: Colour::White,
             half_moves: 0,
             state: BoardState::default(),
-            history: Vec::with_capacity(MAX_DEPTH),
+            // history: [BoardState::default(); MAX_DEPTH],
         }
     }
 
@@ -200,41 +195,43 @@ impl Board {
         board
     }
 
-    /// # Restore State
-    ///
-    /// - Restores the board to the previous state
-    /// - Pops the last board state from the history stack
-    /// - Updates the board state
-    ///
-    /// ## Panics
-    ///
-    /// - Panics if the history stack is empty
-    ///
-    /// ## Arguments
-    ///
-    /// * `self` - The board to restore the state of
-    fn store_state(&mut self) {
-        // Store the current board state in the history stack
-        self.history.push(self.state);
-    }
+    // /// # Restore State
+    // ///
+    // /// - Restores the board to the previous state
+    // /// - Pops the last board state from the history stack
+    // /// - Updates the board state
+    // ///
+    // /// ## Panics
+    // ///
+    // /// - Panics if the history stack is empty
+    // ///
+    // /// ## Arguments
+    // ///
+    // /// * `self` - The board to restore the state of
+    // fn store_state(&mut self) {
+    //     // Store the current board state in the history stack
+    //     self.history[self.half_moves as usize] = self.state;
+    //     self.half_moves += 1;
+    // }
 
-    /// # Restore State
-    ///
-    /// - Restores the board to the previous state
-    /// - Pops the last board state from the history stack
-    /// - Updates the board state
-    ///
-    /// ## Panics
-    ///
-    /// - Panics if the history stack is empty
-    ///
-    /// ## Arguments
-    ///
-    /// * `self` - The board to restore the state of
-    fn restore_state(&mut self) {
-        // Pop the last board state from the history stack
-        self.state = self.history.pop().unwrap()
-    }
+    // /// # Restore State
+    // ///
+    // /// - Restores the board to the previous state
+    // /// - Pops the last board state from the history stack
+    // /// - Updates the board state
+    // ///
+    // /// ## Panics
+    // ///
+    // /// - Panics if the history stack is empty
+    // ///
+    // /// ## Arguments
+    // ///
+    // /// * `self` - The board to restore the state of
+    // fn restore_state(&mut self) {
+    //     // Pop the last board state from the history stack
+    //     self.state = self.history[self.half_moves as usize];
+    //     self.half_moves -= 1;
+    // }
 
     /// # Get Piece on Square
     ///
@@ -254,7 +251,7 @@ impl Board {
     /// assert_eq!(board.on(Square::A2), Some(Piece::WhitePawn));
     /// assert_eq!(board.on(Square::A3), None);
     /// ```
-    pub fn on(&self, square: Square) -> Option<Piece> {
+    pub const fn on(&self, square: Square) -> Option<Piece> {
         self.board[square as usize]
     }
 
@@ -281,7 +278,7 @@ impl Board {
     ///     Square::A1, Square::H1, Square::A8, Square::H8,
     /// ]));
     ///
-    pub fn piecetype_bb(&self, piecetype: PieceType) -> Bitboard {
+    pub const fn piecetype_bb(&self, piecetype: PieceType) -> Bitboard {
         self.pieces[piecetype as usize]
     }
 
@@ -309,13 +306,32 @@ impl Board {
     ///     Square::A7, Square::B7, Square::C7, Square::D7, Square::E7, Square::F7, Square::G7, Square::H7,
     /// ]));
     ///
-    pub fn occupied_bb(&self, colour: Colour) -> Bitboard {
+    pub const fn occupied_bb(&self, colour: Colour) -> Bitboard {
         self.occupied[colour as usize]
     }
 
-    /// # Get Total Occupation
-    pub fn all_occupied_bb(&self) -> Bitboard {
-        self.occupied_bb(Colour::White) | self.occupied_bb(Colour::Black)
+    /// # Get Total Occupied Bitboard
+    ///
+    /// ## Returns
+    ///
+    /// * `Bitboard` - The bitboard of the occupied squares
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use sophos::core::*;
+    /// let board = Board::default();
+    /// assert_eq!(board.occupied_bb(Colour::White), Bitboard::from([
+    ///     Square::A1, Square::B1, Square::C1, Square::D1, Square::E1, Square::F1, Square::G1, Square::H1,
+    ///     Square::A2, Square::B2, Square::C2, Square::D2, Square::E2, Square::F2, Square::G2, Square::H2,
+    /// ] | Bitboard::from([
+    ///     Square::A8, Square::B8, Square::C8, Square::D8, Square::E8, Square::F8, Square::G8, Square::H8,
+    ///     Square::A7, Square::B7, Square::C7, Square::D7, Square::E7, Square::F7, Square::G7, Square::H7,
+    /// ]));
+    /// ```
+    pub const fn all_occupied_bb(&self) -> Bitboard {
+        self.occupied_bb(Colour::White)
+            .bitor(self.occupied_bb(Colour::Black))
     }
 
     /// # Get Piece Bitboard
@@ -339,8 +355,9 @@ impl Board {
     ///     Square::A8, Square::H8,
     /// ]));
     ///
-    pub fn piece_bb(&self, piece: Piece) -> Bitboard {
-        self.piecetype_bb(piece.piecetype()) & self.occupied_bb(piece.colour())
+    pub const fn piece_bb(&self, piece: Piece) -> Bitboard {
+        self.piecetype_bb(piece.piecetype())
+            .bitand(self.occupied_bb(piece.colour()))
     }
 
     /// # Get Side To Move
@@ -356,7 +373,7 @@ impl Board {
     /// let board = Board::default();
     /// assert_eq!(board.side_to_move(), Colour::White);
     /// ```
-    pub fn side_to_move(&self) -> Colour {
+    pub const fn side_to_move(&self) -> Colour {
         self.side_to_move
     }
 
@@ -373,7 +390,7 @@ impl Board {
     /// let board = Board::default();
     /// assert_eq!(board.half_moves(), 0);
     /// ```
-    pub fn half_moves(&self) -> u16 {
+    pub const fn half_moves(&self) -> u16 {
         self.half_moves
     }
 
@@ -390,8 +407,8 @@ impl Board {
     /// let board = Board::default();
     /// assert_eq!(board.state.castle, Castling::ALL);
     /// ```
-    pub(crate) fn state(&self) -> BoardState {
-        self.state
+    pub(crate) const fn state(&self) -> &BoardState {
+        &self.state
     }
 }
 

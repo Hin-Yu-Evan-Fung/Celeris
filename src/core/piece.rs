@@ -157,7 +157,7 @@ impl Piece {
     /// Extracts the piece type from a piece by masking out the colour bit.
     ///
     /// Returns the corresponding `PieceType` enum value.
-    pub fn piecetype(&self) -> PieceType {
+    pub const fn piecetype(&self) -> PieceType {
         unsafe { PieceType::from_unchecked((*self as u8) & 0b111) }
     }
 
@@ -166,7 +166,7 @@ impl Piece {
     /// Extracts the colour from a piece by checking the colour bit.
     ///
     /// Returns the corresponding `Colour` enum value.
-    pub fn colour(&self) -> Colour {
+    pub const fn colour(&self) -> Colour {
         unsafe { Colour::from_unchecked((*self as u8) >> 3) }
     }
 
@@ -175,7 +175,7 @@ impl Piece {
     /// Allows creating a piece by combining a colour and a piece type.
     ///
     /// This encodes the colour in bit 4 and the piece type in bits 1-3.
-    pub fn from_parts(colour: Colour, piece_type: PieceType) -> Self {
+    pub const fn from_parts(colour: Colour, piece_type: PieceType) -> Self {
         unsafe { Piece::from_unchecked((colour as u8) << 3 | piece_type as u8) }
     }
 }
