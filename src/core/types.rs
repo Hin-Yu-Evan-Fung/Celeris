@@ -70,10 +70,6 @@ pub enum Colour {
     Black
 }
 
-impl Colour {
-    pub const NUM: usize = 2;
-}
-
 /******************************************\
 |==========================================|
 |                 Direction                |
@@ -219,6 +215,28 @@ impl Default for Castling {
 |==========================================|
 \******************************************/
 
+impl Colour {
+    pub const NUM: usize = 2;
+    /// Return forward direction for square
+    pub const fn forward(&self) -> Direction {
+        match self {
+            Colour::White => Direction::N,
+            Colour::Black => Direction::S,
+        }
+    }
+}
+
+impl std::ops::Not for Colour {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Colour::White => Colour::Black,
+            Colour::Black => Colour::White,
+        }
+    }
+}
+
 // Allow converting from i8 to Square, with bounds checking
 impl Square {
     pub const fn try_from(value: i16) -> Result<Self, &'static str> {
@@ -228,10 +246,7 @@ impl Square {
             Err("Square value out of bounds (0-63)")
         }
     }
-}
 
-// Add a direction to a square, shifting it
-impl Square {
     pub const fn add(self, rhs: Direction) -> Result<Self, SquareAddError> {
         // Get file and rank for bounds checking
         let file = self.file() as u8;
@@ -378,6 +393,17 @@ impl Castling {
     pub const fn remove(&mut self, right: Castling) {
         self.bitand_assign(right.not());
     }
+    /// ### Constant version of not operator !
+    #[inline]
+    pub const fn not(self) -> Self {
+        Castling(!self.0 & 0x0F) // Only keep the lower 4 bits
+    }
+
+    /// ### Mask the castling rights
+    #[inline]
+    pub const fn mask(&mut self, mask: Castling) {
+        self.0 &= mask.0;
+    }
 }
 
 // Override the Not implementation to only affect the lower 4 bits
@@ -386,14 +412,6 @@ impl std::ops::Not for Castling {
 
     #[inline]
     fn not(self) -> Self::Output {
-        Castling(!self.0 & 0x0F) // Only keep the lower 4 bits
-    }
-}
-
-// Constant version of not operator !
-impl Castling {
-    #[inline]
-    pub const fn not(self) -> Self {
         Castling(!self.0 & 0x0F) // Only keep the lower 4 bits
     }
 }

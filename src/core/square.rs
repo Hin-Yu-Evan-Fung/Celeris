@@ -36,6 +36,7 @@
 use macros::{EnumIter, FromPrimitive};
 
 use super::errors::ParseSquareError;
+use super::types::Colour;
 use crate::utils::abs_diff;
 
 /******************************************\
@@ -251,6 +252,13 @@ impl Square {
     /// Flips the file of this square
     pub const fn flip_file(&self) -> Self {
         unsafe { Self::from_unchecked((*self as u8) ^ Square::H1 as u8) }
+    }
+
+    pub const fn relative(&self, col: Colour) -> Self {
+        match col {
+            Colour::White => *self,
+            Colour::Black => self.flip_rank(),
+        }
     }
 
     /// # Calculate Rank Distance

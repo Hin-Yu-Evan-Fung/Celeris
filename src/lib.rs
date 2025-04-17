@@ -2,7 +2,7 @@
 //!
 //! A Rust chess engine focusing on modern techniques and high performance.
 
-// Export core modules for chess primitives
+pub mod board;
 pub mod core;
 pub mod movegen;
 pub mod utils;

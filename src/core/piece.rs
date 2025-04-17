@@ -157,7 +157,7 @@ impl Piece {
     /// Extracts the piece type from a piece by masking out the colour bit.
     ///
     /// Returns the corresponding `PieceType` enum value.
-    pub const fn piecetype(&self) -> PieceType {
+    pub const fn pt(&self) -> PieceType {
         unsafe { PieceType::from_unchecked((*self as u8) & 0b111) }
     }
 
@@ -242,19 +242,19 @@ mod tests {
     #[test]
     fn test_piece_type_extraction() {
         // Test extracting piece type from pieces
-        assert_eq!(Piece::WhitePawn.piecetype(), PieceType::Pawn);
-        assert_eq!(Piece::WhiteKnight.piecetype(), PieceType::Knight);
-        assert_eq!(Piece::WhiteBishop.piecetype(), PieceType::Bishop);
-        assert_eq!(Piece::WhiteRook.piecetype(), PieceType::Rook);
-        assert_eq!(Piece::WhiteQueen.piecetype(), PieceType::Queen);
-        assert_eq!(Piece::WhiteKing.piecetype(), PieceType::King);
+        assert_eq!(Piece::WhitePawn.pt(), PieceType::Pawn);
+        assert_eq!(Piece::WhiteKnight.pt(), PieceType::Knight);
+        assert_eq!(Piece::WhiteBishop.pt(), PieceType::Bishop);
+        assert_eq!(Piece::WhiteRook.pt(), PieceType::Rook);
+        assert_eq!(Piece::WhiteQueen.pt(), PieceType::Queen);
+        assert_eq!(Piece::WhiteKing.pt(), PieceType::King);
 
-        assert_eq!(Piece::BlackPawn.piecetype(), PieceType::Pawn);
-        assert_eq!(Piece::BlackKnight.piecetype(), PieceType::Knight);
-        assert_eq!(Piece::BlackBishop.piecetype(), PieceType::Bishop);
-        assert_eq!(Piece::BlackRook.piecetype(), PieceType::Rook);
-        assert_eq!(Piece::BlackQueen.piecetype(), PieceType::Queen);
-        assert_eq!(Piece::BlackKing.piecetype(), PieceType::King);
+        assert_eq!(Piece::BlackPawn.pt(), PieceType::Pawn);
+        assert_eq!(Piece::BlackKnight.pt(), PieceType::Knight);
+        assert_eq!(Piece::BlackBishop.pt(), PieceType::Bishop);
+        assert_eq!(Piece::BlackRook.pt(), PieceType::Rook);
+        assert_eq!(Piece::BlackQueen.pt(), PieceType::Queen);
+        assert_eq!(Piece::BlackKing.pt(), PieceType::King);
     }
 
     #[test]
@@ -363,7 +363,7 @@ mod tests {
         // Test roundtrip: piece -> (colour, type) -> piece
         for piece in Piece::iter() {
             let colour = piece.colour();
-            let piece_type = piece.piecetype();
+            let piece_type = piece.pt();
             let reconstructed = Piece::from_parts(colour, piece_type);
             assert_eq!(piece, reconstructed);
         }

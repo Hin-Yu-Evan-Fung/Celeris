@@ -112,23 +112,21 @@ impl MoveFlag {
 
     /// Gets the promotion piece type if this flag represents a promotion.
     ///
+    /// ### **Warning**: Behaviour is not defined when the move itself is not a PROMOTION
+    ///
     /// Returns `None` if the flag is not a promotion flag. Otherwise, extracts the
     /// piece type (Knight, Bishop, Rook, Queen) from the lower 2 bits of the flag value.
     #[inline(always)]
-    pub const fn promotion_piece_type(self) -> Option<PieceType> {
-        if self.is_promotion() {
-            // Extract the piece type index from the lower 2 bits (0b0011)
-            let promo_index = (self as u16 & Self::PROMOTION_PIECE_MASK) as usize;
-            // Map index to PieceType
-            match promo_index {
-                0 => Some(PieceType::Knight), // 0bxx00
-                1 => Some(PieceType::Bishop), // 0bxx01
-                2 => Some(PieceType::Rook),   // 0bxx10
-                3 => Some(PieceType::Queen),  // 0bxx11
-                _ => unreachable!(),          // Should not happen with valid flags
-            }
-        } else {
-            None
+    pub const fn promotion_piece_type(self) -> PieceType {
+        // Extract the piece type index from the lower 2 bits (0b0011)
+        let promo_index = (self as u16 & Self::PROMOTION_PIECE_MASK) as usize;
+        // Map index to PieceType
+        match promo_index {
+            0 => PieceType::Knight, // 0bxx00
+            1 => PieceType::Bishop, // 0bxx01
+            2 => PieceType::Rook,   // 0bxx10
+            3 => PieceType::Queen,  // 0bxx11
+            _ => unreachable!(),    // Should not happen with valid flags
         }
     }
 
@@ -275,7 +273,7 @@ impl Move {
     ///
     /// Returns `None` if the move is not a promotion.
     #[inline(always)]
-    pub const fn promotion_piece_type(&self) -> Option<PieceType> {
+    pub const fn promotion_pt(&self) -> PieceType {
         // Get the flag (if valid) and then get its promotion piece type
         self.flag().promotion_piece_type()
     }
@@ -344,15 +342,20 @@ impl std::fmt::Display for Move {
             write!(f, "null")
         } else {
             // Check if it's a promotion move to append the piece character
-            match self.promotion_piece_type() {
+            if self.is_promotion() {
                 // Get the lowercase character for the promotion piece
                 // Assumes PieceType Display implementation gives lowercase 'n', 'b', 'r', 'q'
                 // Or implement a specific mapping here:
-                Some(piece_type) => {
-                    write!(f, "{}{}{}", self.from(), self.to(), piece_type.to_string())
-                }
+                write!(
+                    f,
+                    "{}{}{}",
+                    self.from(),
+                    self.to(),
+                    self.promotion_pt().to_string()
+                )
+            } else {
                 // Standard move format
-                _ => write!(f, "{}{}", self.from(), self.to()),
+                write!(f, "{}{}", self.from(), self.to())
             }
         }
     }
@@ -441,19 +444,19 @@ mod tests {
         assert_eq!(m_qn.flag(), MoveFlag::KnightPromo);
         assert!(m_qn.is_promotion());
         assert!(!m_qn.is_capture());
-        assert_eq!(m_qn.promotion_piece_type(), Some(PieceType::Knight));
+        assert_eq!(m_qn.promotion_pt(), PieceType::Knight);
 
         let m_qb = Move::new_promotion(B7, B8, PieceType::Bishop, false);
         assert_eq!(m_qb.flag(), MoveFlag::BishopPromo);
-        assert_eq!(m_qb.promotion_piece_type(), Some(PieceType::Bishop));
+        assert_eq!(m_qb.promotion_pt(), PieceType::Bishop);
 
         let m_qr = Move::new_promotion(C7, C8, PieceType::Rook, false);
         assert_eq!(m_qr.flag(), MoveFlag::RookPromo);
-        assert_eq!(m_qr.promotion_piece_type(), Some(PieceType::Rook));
+        assert_eq!(m_qr.promotion_pt(), PieceType::Rook);
 
         let m_qq = Move::new_promotion(D7, D8, PieceType::Queen, false);
         assert_eq!(m_qq.flag(), MoveFlag::QueenPromo);
-        assert_eq!(m_qq.promotion_piece_type(), Some(PieceType::Queen));
+        assert_eq!(m_qq.promotion_pt(), PieceType::Queen);
     }
 
     #[test]
@@ -464,19 +467,19 @@ mod tests {
         assert_eq!(m_cn.flag(), MoveFlag::KnightPromoCapture);
         assert!(m_cn.is_promotion());
         assert!(m_cn.is_capture());
-        assert_eq!(m_cn.promotion_piece_type(), Some(PieceType::Knight));
+        assert_eq!(m_cn.promotion_pt(), PieceType::Knight);
 
         let m_cb = Move::new_promotion(B7, C8, PieceType::Bishop, true);
         assert_eq!(m_cb.flag(), MoveFlag::BishopPromoCapture);
-        assert_eq!(m_cb.promotion_piece_type(), Some(PieceType::Bishop));
+        assert_eq!(m_cb.promotion_pt(), PieceType::Bishop);
 
         let m_cr = Move::new_promotion(C7, D8, PieceType::Rook, true);
         assert_eq!(m_cr.flag(), MoveFlag::RookPromoCapture);
-        assert_eq!(m_cr.promotion_piece_type(), Some(PieceType::Rook));
+        assert_eq!(m_cr.promotion_pt(), PieceType::Rook);
 
         let m_cq = Move::new_promotion(D7, E8, PieceType::Queen, true);
         assert_eq!(m_cq.flag(), MoveFlag::QueenPromoCapture);
-        assert_eq!(m_cq.promotion_piece_type(), Some(PieceType::Queen));
+        assert_eq!(m_cq.promotion_pt(), PieceType::Queen);
     }
 
     #[test]
@@ -536,14 +539,8 @@ mod tests {
         assert!(!dpp.is_promotion());
 
         // promotion_piece_type
-        assert_eq!(quiet.promotion_piece_type(), None);
-        assert_eq!(capture.promotion_piece_type(), None);
-        assert_eq!(ep.promotion_piece_type(), None);
-        assert_eq!(promo_cap.promotion_piece_type(), Some(PieceType::Queen));
-        assert_eq!(promo_quiet.promotion_piece_type(), Some(PieceType::Rook));
-        assert_eq!(ks_castle.promotion_piece_type(), None);
-        assert_eq!(qs_castle.promotion_piece_type(), None);
-        assert_eq!(dpp.promotion_piece_type(), None);
+        assert_eq!(promo_cap.promotion_pt(), PieceType::Queen);
+        assert_eq!(promo_quiet.promotion_pt(), PieceType::Rook);
 
         // is_ep_capture
         assert!(!quiet.is_ep_capture());

@@ -30,6 +30,11 @@
 //! - **State Management**: `Board::store_state()` and `Board::restore_state()` manage the move history, allowing for undoing moves.
 //! - **Piece Access**: `Board::on()` retrieves the piece on a given square.
 //! - **Bitboard Access**: `Board::piecetype_bb()`, `Board::occupied_bb()`, `Board::all_occupied_bb()
+pub mod fen;
+pub mod movement;
+pub mod zobrist;
+
+use zobrist::Key;
 
 use crate::core::*;
 use fen::START_FEN;
@@ -71,7 +76,7 @@ const MAX_DEPTH: usize = 256;
 /// - `king_attacks`: A bitboard representing the squares attacked by the friendly king.
 /// - `available`: A bitboard representing all squares not occupied by the side to move (potential destinations, excluding captures).
 /// - `enpassant_pin`: A boolean indicating if the pawn performing an en passant capture is pinned to the king, making the en passant illegal.
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct BoardState {
     // --- Board State Variables -- //
     /// Number of times the current position (by `key`) has occurred in the game history.
@@ -161,7 +166,7 @@ pub struct Board {
     state: BoardState,
     // /// A stack-like structure storing previous board states (`BoardState`).
     // /// Used to undo moves (`unmake_move`) and track game history (e.g., for repetition checks).
-    // history: [BoardState; MAX_DEPTH],
+    history: Vec<BoardState>,
 }
 
 /******************************************\
@@ -182,56 +187,56 @@ impl Board {
             side_to_move: Colour::White,
             half_moves: 0,
             state: BoardState::default(),
-            // history: [BoardState::default(); MAX_DEPTH],
+            history: Vec::with_capacity(MAX_DEPTH),
         }
     }
 
     /// # Default Board
     ///
     /// - Creates a new board with the starting position
+    #[inline]
     pub fn default() -> Board {
         let mut board = Board::new();
         board.set(START_FEN).unwrap();
         board
     }
 
-    // /// # Restore State
-    // ///
-    // /// - Restores the board to the previous state
-    // /// - Pops the last board state from the history stack
-    // /// - Updates the board state
-    // ///
-    // /// ## Panics
-    // ///
-    // /// - Panics if the history stack is empty
-    // ///
-    // /// ## Arguments
-    // ///
-    // /// * `self` - The board to restore the state of
-    // fn store_state(&mut self) {
-    //     // Store the current board state in the history stack
-    //     self.history[self.half_moves as usize] = self.state;
-    //     self.half_moves += 1;
-    // }
+    /// # Store State
+    /// - Stores the current board state in the history stack
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use sophos::core::*;
+    /// let mut board = Board::default();
+    /// board.store_state();
+    /// assert_eq!(board.history.len(), 1);
+    /// ```
+    ///
+    #[inline]
+    fn store_state(&mut self) {
+        // Store the current board state in the history stack
+        self.history.push(self.state);
+    }
 
-    // /// # Restore State
-    // ///
-    // /// - Restores the board to the previous state
-    // /// - Pops the last board state from the history stack
-    // /// - Updates the board state
-    // ///
-    // /// ## Panics
-    // ///
-    // /// - Panics if the history stack is empty
-    // ///
-    // /// ## Arguments
-    // ///
-    // /// * `self` - The board to restore the state of
-    // fn restore_state(&mut self) {
-    //     // Pop the last board state from the history stack
-    //     self.state = self.history[self.half_moves as usize];
-    //     self.half_moves -= 1;
-    // }
+    /// # Restore State
+    ///
+    /// - Restores the board to the previous state
+    /// - Pops the last board state from the history stack
+    /// - Updates the board state
+    ///
+    /// ## Panics
+    ///
+    /// - Panics if the history stack is empty
+    ///
+    /// ## Arguments
+    ///
+    /// * `self` - The board to restore the state of
+    #[inline]
+    fn restore_state(&mut self) {
+        // Pop the last board state from the history stack
+        self.state = self.history.pop().unwrap()
+    }
 
     /// # Get Piece on Square
     ///
@@ -251,6 +256,7 @@ impl Board {
     /// assert_eq!(board.on(Square::A2), Some(Piece::WhitePawn));
     /// assert_eq!(board.on(Square::A3), None);
     /// ```
+    #[inline]
     pub const fn on(&self, square: Square) -> Option<Piece> {
         self.board[square as usize]
     }
@@ -277,7 +283,7 @@ impl Board {
     /// assert_eq!(board.piecetype_bb(PieceType::Rook), Bitboard::from([
     ///     Square::A1, Square::H1, Square::A8, Square::H8,
     /// ]));
-    ///
+    #[inline]
     pub const fn piecetype_bb(&self, piecetype: PieceType) -> Bitboard {
         self.pieces[piecetype as usize]
     }
@@ -305,7 +311,7 @@ impl Board {
     ///     Square::A8, Square::B8, Square::C8, Square::D8, Square::E8, Square::F8, Square::G8, Square::H8,
     ///     Square::A7, Square::B7, Square::C7, Square::D7, Square::E7, Square::F7, Square::G7, Square::H7,
     /// ]));
-    ///
+    #[inline]
     pub const fn occupied_bb(&self, colour: Colour) -> Bitboard {
         self.occupied[colour as usize]
     }
@@ -329,6 +335,7 @@ impl Board {
     ///     Square::A7, Square::B7, Square::C7, Square::D7, Square::E7, Square::F7, Square::G7, Square::H7,
     /// ]));
     /// ```
+    #[inline]
     pub const fn all_occupied_bb(&self) -> Bitboard {
         self.occupied_bb(Colour::White)
             .bitor(self.occupied_bb(Colour::Black))
@@ -354,9 +361,9 @@ impl Board {
     /// assert_eq!(board.piece_bb(Piece::BlackRook), Bitboard::from([
     ///     Square::A8, Square::H8,
     /// ]));
-    ///
+    #[inline]
     pub const fn piece_bb(&self, piece: Piece) -> Bitboard {
-        self.piecetype_bb(piece.piecetype())
+        self.piecetype_bb(piece.pt())
             .bitand(self.occupied_bb(piece.colour()))
     }
 
@@ -373,6 +380,7 @@ impl Board {
     /// let board = Board::default();
     /// assert_eq!(board.side_to_move(), Colour::White);
     /// ```
+    #[inline]
     pub const fn side_to_move(&self) -> Colour {
         self.side_to_move
     }
@@ -390,6 +398,7 @@ impl Board {
     /// let board = Board::default();
     /// assert_eq!(board.half_moves(), 0);
     /// ```
+    #[inline]
     pub const fn half_moves(&self) -> u16 {
         self.half_moves
     }
@@ -407,6 +416,7 @@ impl Board {
     /// let board = Board::default();
     /// assert_eq!(board.state.castle, Castling::ALL);
     /// ```
+    #[inline]
     pub(crate) const fn state(&self) -> &BoardState {
         &self.state
     }
@@ -453,9 +463,3 @@ impl std::fmt::Display for Board {
         Ok(())
     }
 }
-
-pub mod fen;
-pub mod movement;
-pub mod zobrist;
-
-use zobrist::Key;

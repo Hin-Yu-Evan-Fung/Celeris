@@ -44,6 +44,7 @@
 
 use macros::BitOps;
 
+use super::Board;
 use crate::core::*;
 use crate::utils::PRNG;
 
@@ -136,6 +137,19 @@ impl Key {
         // XOR self with the precomputed key indicating Black to move.
         // Uses the global ZOBRIST table via the side_key helper.
         self.0 ^= side_key().0; // Access inner u64 for XOR
+    }
+
+    /// Toggles (XORs) the key corresponding to the enpassant square into this `Key`.
+    ///
+    /// This is used for incrementally updating a board's Zobrist key when the
+    /// enpassant square changes (typically after a move is made). XORing with the
+    /// `enpassant_key(file)` effectively flips the part of the hash that indicates whether
+    /// it's Black's turn.
+    #[inline]
+    pub const fn toggle_ep(&mut self, file: File) {
+        // XOR self with the precomputed key indicating Black to move.
+        // Uses the global ZOBRIST table via the side_key helper.
+        self.0 ^= ep_key(file).0; // Access inner u64 for XOR
     }
 }
 
@@ -387,7 +401,7 @@ impl Board {
 
             // Check if there is a piece AND if that piece is a pawn
             if let Some(piece) = self.on(sq) {
-                if piece.piecetype() as u8 == PieceType::Pawn as u8 {
+                if piece.pt() as u8 == PieceType::Pawn as u8 {
                     key.toggle_piece(piece, sq);
                 }
             }
@@ -402,7 +416,7 @@ impl Board {
 mod tests {
     // Note: Test documentation is usually less critical than library code documentation.
     // Existing tests seem clear in their intent.
-    use super::fen::*;
+    use super::super::fen::*;
     use super::*;
 
     #[test]
@@ -702,7 +716,7 @@ mod tests {
         let mut expected_key = Key(0);
         for sq in Square::iter() {
             if let Some(p) = board_start.on(sq) {
-                if p.piecetype() == PieceType::Pawn {
+                if p.pt() == PieceType::Pawn {
                     expected_key.toggle_piece(p, sq);
                 }
             }
@@ -718,7 +732,7 @@ mod tests {
         let mut expected_fewer_key = Key(0);
         for sq in Square::iter() {
             if let Some(p) = board_fewer.on(sq) {
-                if p.piecetype() == PieceType::Pawn {
+                if p.pt() == PieceType::Pawn {
                     expected_fewer_key.toggle_piece(p, sq);
                 }
             }
