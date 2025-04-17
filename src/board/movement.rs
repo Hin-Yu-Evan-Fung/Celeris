@@ -449,12 +449,12 @@ impl Board {
         let to = move_.to();
         let us = self.side_to_move; // Side who made the move being undone
         let flag = move_.flag();
+        let captured = self.state.captured; // Get the captured piece *before* restoring state
 
         // Restore the entire previous state (key, counters, ep, castle, captured piece)
         // This must happen *before* moving pieces back, especially to retrieve `state.captured`.
         // restore_state() itself uses .unwrap() which is appropriate here - if history is empty, it's a fatal logic error.
         self.restore_state();
-        let captured = self.state.captured; // Get the captured piece *after* restoring state
 
         // Reverse the piece movements based on the move flag
         match flag {
@@ -707,7 +707,7 @@ mod tests {
         test_make_undo(
             fen_before_promo_cap,
             Move::new_promotion(Square::B7, Square::A8, PieceType::Knight, true), // b7xa8=N
-            "N1bqkbnr/p1pppppp/8/8/8/8/1PPPPPPP/RNBQKBNR b KQkq - 0 6", // White Knight on a8
+            "N1bqkbnr/p1pppppp/8/8/8/8/1PPPPPPP/RNBQKBNR b KQk - 0 6", // White Knight on a8
         );
     }
 

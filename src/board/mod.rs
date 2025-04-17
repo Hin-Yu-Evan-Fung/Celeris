@@ -80,7 +80,7 @@ const MAX_DEPTH: usize = 256;
 pub struct BoardState {
     // --- Board State Variables -- //
     /// Number of times the current position (by `key`) has occurred in the game history.
-    repetitions: u8,
+    repetitions: i8,
     /// Counter for the fifty-move rule (plies since last pawn move or capture).
     fifty_move: u8,
     /// The piece that was captured on the move leading to this state. `Piece::None` if no capture.

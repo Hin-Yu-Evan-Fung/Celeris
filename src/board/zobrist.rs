@@ -178,9 +178,9 @@ pub struct ZobristTable {
 
     /// Stores keys corresponding to combinations of castling rights.
     /// Indexed directly by the `Castling` bitmask value (0-15).
-    /// `castling[castling_rights.bits() as usize]`.
-    /// For example, `castling[Castling::WK.bits() as usize]` holds the key for White kingside rights.
-    /// `castling[Castling::ALL.bits() as usize]` holds the key for all four rights (WK | WQ | BK | BQ).
+    /// `castling[castling_rights.0 as usize]`.
+    /// For example, `castling[Castling::WK.0 as usize]` holds the key for White kingside rights.
+    /// `castling[Castling::ALL.0 as usize]` holds the key for all four rights (WK | WQ | BK | BQ).
     pub castling: [Key; Castling::NUM], // Castling::NUM = 16
 
     /// Stores keys corresponding to the *file* of a potential en passant target square.
