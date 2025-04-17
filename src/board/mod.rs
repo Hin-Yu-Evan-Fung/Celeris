@@ -235,7 +235,10 @@ impl Board {
     #[inline]
     fn restore_state(&mut self) {
         // Pop the last board state from the history stack
-        self.state = self.history.pop().unwrap()
+        self.state = self
+            .history
+            .pop()
+            .expect("Empty history stack! Make sure you have made a move before undoing it!");
     }
 
     /// # Get Piece on Square

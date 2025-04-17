@@ -37,10 +37,11 @@ impl Board {
     ///
     /// # Panics
     ///
-    /// Panics if `self.board[square]` is `None`.
+    /// Panics with `.expect` if `self.board[square]` is `None`.
     pub fn remove_piece(&mut self, square: Square) {
         // Get the piece to remove
-        let piece = self.board[square as usize].unwrap();
+        let piece =
+            self.board[square as usize].expect("Attempted to remove piece from empty square");
         // Remove piece from the board
         self.board[square as usize] = None;
         // Update piece bitboards
@@ -64,10 +65,10 @@ impl Board {
     ///
     /// # Panics
     ///
-    /// Panics if `self.board[from]` is `None`.
+    /// Panics with `.expect` if `self.board[from]` is `None`.
     pub fn move_piece(&mut self, from: Square, to: Square) {
         // Get the piece to move
-        let piece = self.board[from as usize].unwrap();
+        let piece = self.board[from as usize].expect("Attempted to move piece from empty square");
         // Remove piece from the board
         self.board[from as usize] = None;
         // Put piece in the board
@@ -88,14 +89,21 @@ impl Board {
     /// # Arguments
     ///
     /// * `from` - The starting `Square` of the double pawn push.
+    ///
+    /// # Panics
+    ///
+    /// Panics with `.expect` if the calculated en passant square is invalid or `None`.
     fn set_ep(&mut self, from: Square) {
         let us = self.side_to_move;
         // Set Enpassant Square
         self.state.enpassant = from.add(us.forward()).ok();
         // Toggle enpassant key (There must be an enpassant square after a double push)
-        self.state
-            .key
-            .toggle_ep(self.state.enpassant.unwrap().file());
+        self.state.key.toggle_ep(
+            self.state
+                .enpassant
+                .expect("En passant square should exist after double push")
+                .file(),
+        );
     }
 
     /// Calculates the starting square of the rook involved in castling.
@@ -226,8 +234,8 @@ impl Board {
     ///
     /// # Panics
     ///
-    /// Can panic if the `move_` is fundamentally invalid for the current board state
-    /// (e.g., attempting to move a piece from an empty square, illegal en passant).
+    /// Can panic with `.expect` if the `move_` is fundamentally invalid for the current board state
+    /// (e.g., attempting to move a piece from an empty square, illegal en passant, capture flag on empty square).
     pub fn make_move(&mut self, move_: Move) {
         // Cache the current state (becomes the previous state after this function)
         self.store_state();
@@ -239,7 +247,7 @@ impl Board {
         let to = move_.to();
         let us = self.side_to_move;
         let them = !us;
-        let piece = self.on(from).unwrap(); // Piece being moved
+        let piece = self.on(from).expect("make_move: 'from' square is empty"); // Piece being moved
         let flag = move_.flag();
 
         // Increment fifty-move counter by default. It will be reset below if applicable.
@@ -302,7 +310,9 @@ impl Board {
                 // Reset fifty move counter for captures
                 self.state.fifty_move = 0;
                 // Store captured piece (must exist at 'to' square)
-                let captured_piece = self.on(to).unwrap();
+                let captured_piece = self
+                    .on(to)
+                    .expect("make_move: Capture flag set, but 'to' square is empty");
                 self.state.captured = Some(captured_piece);
                 // Remove the captured piece from board/bitboards
                 self.remove_piece(to);
@@ -323,7 +333,7 @@ impl Board {
                 // Calculate the square of the pawn being captured en passant
                 let cap_sq = to
                     .add(-us.forward())
-                    .expect("EP capture target square must be valid");
+                    .expect("make_move: Invalid EP target square calculation");
                 let captured_pawn = Piece::from_parts(them, PieceType::Pawn);
                 // Store the captured pawn type (always a pawn of the opposite color)
                 self.state.captured = Some(captured_pawn);
@@ -369,7 +379,9 @@ impl Board {
                 // Reset fifty move counter for captures (and pawn moves)
                 self.state.fifty_move = 0;
                 // Store captured piece (must exist at 'to' square)
-                let captured_piece = self.on(to).unwrap();
+                let captured_piece = self
+                    .on(to)
+                    .expect("make_move: PromoCapture flag set, but 'to' square is empty");
                 self.state.captured = Some(captured_piece);
                 // Remove the captured piece
                 self.remove_piece(to);
@@ -423,8 +435,8 @@ impl Board {
     ///
     /// # Panics
     ///
-    /// Can panic if the state history is empty or if internal logic errors occur (e.g., trying to unwrap `None`
-    /// where a captured piece was expected based on the move flag).
+    /// Can panic with `.expect` if the state history is empty (`restore_state` panics) or if internal logic errors occur
+    /// (e.g., trying to operate on `None` where a captured piece was expected based on the move flag and restored state).
     pub fn undo_move(&mut self, move_: Move) {
         // Toggle side to move back to the state *before* the move was made
         self.side_to_move = !self.side_to_move;
@@ -440,6 +452,7 @@ impl Board {
 
         // Restore the entire previous state (key, counters, ep, castle, captured piece)
         // This must happen *before* moving pieces back, especially to retrieve `state.captured`.
+        // restore_state() itself uses .unwrap() which is appropriate here - if history is empty, it's a fatal logic error.
         self.restore_state();
         let captured = self.state.captured; // Get the captured piece *after* restoring state
 
@@ -457,7 +470,12 @@ impl Board {
                 // Move the attacking piece back
                 self.move_piece(to, from);
                 // Add the captured piece (retrieved from restored state) back to the 'to' square
-                self.add_piece(captured.unwrap(), to);
+                self.add_piece(
+                    captured.expect(
+                        "undo_move: Capture flag set, but restored state has no captured piece",
+                    ),
+                    to,
+                );
                 // Castling rights restored by restore_state()
             }
             // Handle Enpassant
@@ -465,9 +483,16 @@ impl Board {
                 // Move the attacking pawn back
                 self.move_piece(to, from);
                 // Calculate the square where the EP captured pawn was
-                let cap_sq = to.add(-us.forward()).unwrap();
+                let cap_sq = to
+                    .add(-us.forward())
+                    .expect("undo_move: Invalid EP target square calculation");
                 // Add the captured pawn (always Pawn of opposite color) back
-                self.add_piece(captured.unwrap(), cap_sq);
+                self.add_piece(
+                    captured.expect(
+                        "undo_move: EPCapture flag set, but restored state has no captured piece",
+                    ),
+                    cap_sq,
+                );
                 // En passant square restored by restore_state()
             }
             // Handle Castling
@@ -498,19 +523,24 @@ impl Board {
                 // Remove the promoted piece from the 'to' square
                 self.remove_piece(to);
                 // Add the captured piece (from restored state) back to the 'to' square
-                self.add_piece(captured.unwrap(), to);
+                self.add_piece(captured.expect("undo_move: PromoCapture flag set, but restored state has no captured piece"), to);
                 // Add the original pawn back to the 'from' square
                 self.add_piece(Piece::from_parts(us, PieceType::Pawn), from);
                 // Castling rights restored by restore_state()
             }
         }
         // Note: No Zobrist key toggling is needed here, as restore_state() reset the key entirely.
+        // Note: The .unwrap() in restore_state() itself remains, as popping from an empty history
+        // is considered a fatal logic error in the engine's operation (calling undo without a prior make).
     }
 }
 
 #[cfg(test)]
 mod tests {
     // ... tests remain the same ...
+    // Note: The .unwrap() calls within the test setup functions (like board_from_fen)
+    // are generally acceptable, as a panic there indicates a problem with the test itself.
+    // The .expect() calls added above are primarily for the core board logic.
     use super::*; // Import Board and its methods
     use crate::board::fen::*; // Import FEN constants and Board::from_fen
     use crate::core::*; // Import Piece, Square, Move, MoveFlag, etc.
