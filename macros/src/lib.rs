@@ -137,7 +137,7 @@ fn get_enum_repr_type(ast: &DeriveInput) -> syn::Type {
 ///     - **It is `unsafe` because providing a `value` that does not correspond to a valid
 ///       enum discriminant results in Undefined Behavior in release builds.**
 ///     - Includes a `debug_assert!` to check validity in debug builds only.
-///     - Marked `pub(crate)` to limit its use to within the `sophos` crate, encouraging
+///     - Marked `pub(crate)` to limit its use to within the `chess` crate, encouraging
 ///       the use of `safe_from` externally or careful validation internally.
 ///     - **Use with extreme caution.** Only call this if you can mathematically guarantee
 ///       that `value` is a valid discriminant for the enum.
@@ -296,7 +296,7 @@ pub fn derive_from_primitive(input: TokenStream) -> TokenStream {
 ///     - `op_token`: The operator symbol as a string (e.g., "&", "+").
 ///     - `method_name`: The name of the trait method (e.g., "bitand", "add").
 ///     - `rhs_type`: An `Option<&str>` specifying the right-hand side type.
-///                   `None` means `Self`, `Some("u8")` means `u8`, etc. Used for shifts.
+///     - `None` means `Self`, `Some("u8")` means `u8`, etc. Used for shifts.
 ///
 /// # Behavior
 ///
@@ -387,7 +387,7 @@ fn bit_ops_impl(
         };
 
         // Generate the code snippets for the operation itself
-        let (op_action, op_assign_action) = if let Some(_) = rhs_type_str {
+        let (op_action, op_assign_action) = if rhs_type_str.is_some() {
             // Case 1: RHS is a specific type (e.g., u8 for shifts)
             // Shifts require casting RHS to u32 as per Rust's shift trait methods
             if *trait_name == "Shl" || *trait_name == "Shr" {
