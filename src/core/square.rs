@@ -35,7 +35,7 @@
 
 use macros::{EnumIter, FromPrimitive};
 
-use super::errors::ParseSquareError;
+use super::errors::{ParseFileError, ParseRankError, ParseSquareError};
 use super::types::Colour;
 use crate::utils::abs_diff;
 
@@ -329,6 +329,20 @@ impl Square {
 \******************************************/
 
 /// Display function for squares
+impl std::fmt::Display for File {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", (b'a' + (*self as u8)) as char)
+    }
+}
+
+/// Display function for squares
+impl std::fmt::Display for Rank {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", (b'1' + (*self as u8)) as char)
+    }
+}
+
+/// Display function for squares
 impl std::fmt::Display for Square {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", format!("{:?}", self).to_lowercase())
@@ -341,6 +355,38 @@ impl std::fmt::Display for Square {
 |==========================================|
 \******************************************/
 
+impl std::str::FromStr for File {
+    type Err = ParseFileError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() != 1 {
+            return Err(ParseFileError::InvalidLength(s.len()));
+        }
+
+        let file_char = s.chars().next().unwrap(); // Safe due to length check
+        match file_char {
+            'a'..='h' => Ok(unsafe { File::from_unchecked((file_char as u8 - b'a') as u8) }),
+            _ => Err(ParseFileError::InvalidChar(file_char)),
+        }
+    }
+}
+
+// Parses a rank from algebraic notation (e.g. '4')
+impl std::str::FromStr for Rank {
+    type Err = ParseRankError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() != 1 {
+            return Err(ParseRankError::InvalidLength(s.len()));
+        }
+
+        let rank_char = s.chars().next().unwrap(); // Safe due to length check
+        match rank_char {
+            '1'..='8' => Ok(unsafe { Rank::from_unchecked((rank_char as u8 - b'1') as u8) }),
+            _ => Err(ParseRankError::InvalidChar(rank_char)),
+        }
+    }
+}
 /// Parses a square from algebraic notation (e.g., "e4").
 impl std::str::FromStr for Square {
     type Err = ParseSquareError;
@@ -354,15 +400,14 @@ impl std::str::FromStr for Square {
         let file_char = chars.next().unwrap(); // Safe due to length check
         let rank_char = chars.next().unwrap(); // Safe due to length check
 
-        let file = match file_char {
-            'a'..='h' => unsafe { File::from_unchecked((file_char as u8 - b'a') as u8) },
-            _ => return Err(ParseSquareError::InvalidFileChar(file_char)),
-        };
-
-        let rank = match rank_char {
-            '1'..='8' => unsafe { Rank::from_unchecked((rank_char as u8 - b'1') as u8) },
-            _ => return Err(ParseSquareError::InvalidRankChar(rank_char)),
-        };
+        let file = file_char
+            .to_string()
+            .parse::<File>()
+            .map_err(|_| ParseSquareError::InvalidFileChar(file_char))?;
+        let rank = rank_char
+            .to_string()
+            .parse::<Rank>()
+            .map_err(|_| ParseSquareError::InvalidRankChar(rank_char))?;
 
         Ok(Square::from_parts(file, rank))
     }

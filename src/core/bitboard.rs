@@ -615,6 +615,45 @@ impl Bitboard {
         }
     }
 }
+
+/******************************************\
+|==========================================|
+|                 Iterator                 |
+|==========================================|
+\******************************************/
+
+impl Iterator for Bitboard {
+    type Item = Square;
+
+    /// # Returns the next `Square` in the iteration, or `None` if the bitboard is empty.
+    ///
+    /// This method implements the `Iterator` trait for `Bitboard`, allowing it to be used in
+    /// `for` loops and other iterator-based constructs. It iterates through the set bits in the
+    /// bitboard, returning the `Square` corresponding to each set bit, starting from the least
+    /// significant bit (LSB) and moving towards the most significant bit (MSB).
+    ///
+    /// # Returns
+    ///
+    /// * `Some(Square)` - The next `Square` in the iteration.
+    /// * `None` - If the bitboard is empty, or if all set bits have been iterated over.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use sophos::{Bitboard, Square};
+    ///
+    /// let bb = Square::E4.bb() | Square::D5.bb() | Square::A1.bb();
+    /// let mut iter = bb;
+    ///
+    /// assert_eq!(iter.next(), Some(Square::A1));
+    /// assert_eq!(iter.next(), Some(Square::E4));
+    /// assert_eq!(iter.next(), Some(Square::D5));
+    /// assert_eq!(iter.next(), None);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.pop_lsb()
+    }
+}
+
 /******************************************\
 |==========================================|
 |                 Display                  |

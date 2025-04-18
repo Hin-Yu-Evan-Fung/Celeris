@@ -107,9 +107,6 @@ const PIN_BB: SquarePairTable = init_pin_bb_table();
 /// Precomputed check masks between squares, indexed by `[Square][Square]`.
 const CHECK_BB: SquarePairTable = init_check_bb_table();
 
-/// Precomputed castling rights changes associated with squares, indexed by `[Square]`.
-const CASTLING_RIGHTS: CastlingTable = init_castling_rights_table();
-
 /// Precomputed Chebyshev distances between squares, indexed by `[Square][Square]`.
 const DIST: DistanceTable = init_dist_table();
 
@@ -190,11 +187,14 @@ pub const fn pawn_attack(col: Colour, sq: Square) -> Bitboard {
 /// assert!(king_attacks_e1.get(Square::F1));
 /// ```
 #[inline]
-pub const fn leaper_attack(pt: PieceType, sq: Square) -> Bitboard {
-    match pt {
-        PieceType::Knight => KNIGHT_ATTACKS[sq as usize],
-        PieceType::King => KING_ATTACKS[sq as usize],
-        _ => unreachable!(),
+pub fn leaper_attack(pt: PieceType, sq: Square) -> Bitboard {
+    // Safety (The arrays are intialise at constant time and the input types already constrain access enough)
+    unsafe {
+        match pt {
+            PieceType::Knight => *KNIGHT_ATTACKS.get_unchecked(sq as usize),
+            PieceType::King => *KING_ATTACKS.get_unchecked(sq as usize),
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -243,7 +243,7 @@ pub const fn leaper_attack(pt: PieceType, sq: Square) -> Bitboard {
 /// assert!(queen_attacks.get(Square::G1)); // Diagonal
 /// ```
 #[inline]
-pub const fn slider_attack(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
+pub fn slider_attack(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
     // Magic bitboard lookups are designed to be safe.
     match pt {
         PieceType::Bishop => bishop_attacks(sq, occ),
@@ -253,12 +253,12 @@ pub const fn slider_attack(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard
     }
 }
 
-const fn bishop_attacks(sq: Square, occ: Bitboard) -> Bitboard {
-    BISHOP_TABLE[BISHOP_MAGICS[sq as usize].index(occ)]
+fn bishop_attacks(sq: Square, occ: Bitboard) -> Bitboard {
+    unsafe { *BISHOP_TABLE.get_unchecked(BISHOP_MAGICS.get_unchecked(sq as usize).index(occ)) }
 }
 
-const fn rook_attacks(sq: Square, occ: Bitboard) -> Bitboard {
-    ROOK_TABLE[ROOK_MAGICS[sq as usize].index(occ)]
+fn rook_attacks(sq: Square, occ: Bitboard) -> Bitboard {
+    unsafe { *ROOK_TABLE.get_unchecked(ROOK_MAGICS.get_unchecked(sq as usize).index(occ)) }
 }
 
 /******************************************\
@@ -305,8 +305,12 @@ const fn rook_attacks(sq: Square, occ: Bitboard) -> Bitboard {
 /// assert_eq!(same_sq, Bitboard::EMPTY);
 /// ```
 #[inline]
-pub const fn line_bb(from: Square, to: Square) -> Bitboard {
-    LINE_BB[from as usize][to as usize]
+pub fn line_bb(from: Square, to: Square) -> Bitboard {
+    unsafe {
+        *LINE_BB
+            .get_unchecked(from as usize)
+            .get_unchecked(to as usize)
+    }
 }
 
 /// Gets the `Bitboard` representing the squares strictly between two squares.
@@ -348,8 +352,12 @@ pub const fn line_bb(from: Square, to: Square) -> Bitboard {
 /// assert_eq!(no_line, Bitboard::EMPTY);
 /// ```
 #[inline]
-pub const fn between_bb(from: Square, to: Square) -> Bitboard {
-    BETWEEN_BB[from as usize][to as usize]
+pub fn between_bb(from: Square, to: Square) -> Bitboard {
+    unsafe {
+        *BETWEEN_BB
+            .get_unchecked(from as usize)
+            .get_unchecked(to as usize)
+    }
 }
 
 /// Gets the `Bitboard` representing valid destination squares along the pin line for a pinned piece.
@@ -399,8 +407,12 @@ pub const fn between_bb(from: Square, to: Square) -> Bitboard {
 /// assert!(!pin_mask.get(Square::F6)); // Excludes squares beyond pinner (off the line segment)
 /// ```
 #[inline]
-pub const fn pin_bb(king: Square, pinner: Square) -> Bitboard {
-    PIN_BB[king as usize][pinner as usize]
+pub fn pin_bb(king: Square, pinner: Square) -> Bitboard {
+    unsafe {
+        *PIN_BB
+            .get_unchecked(king as usize)
+            .get_unchecked(pinner as usize)
+    }
 }
 
 /// Gets the `Bitboard` representing squares the king cannot move to along the line of attack when checked by a sliding piece.
@@ -456,64 +468,68 @@ pub const fn pin_bb(king: Square, pinner: Square) -> Bitboard {
 /// assert!(!check_mask_diag.get(Square::D8)); // Excludes checker
 /// ```
 #[inline]
-pub const fn check_bb(king: Square, checker: Square) -> Bitboard {
-    CHECK_BB[king as usize][checker as usize]
+pub fn check_bb(king: Square, checker: Square) -> Bitboard {
+    unsafe {
+        *CHECK_BB
+            .get_unchecked(king as usize)
+            .get_unchecked(checker as usize)
+    }
 }
 
-/// Gets the `Castling` rights that are removed if a piece moves *to* or *from* the given square.
-///
-/// Certain moves invalidate castling rights. Specifically:
-/// - If the White King moves from/to E1, White loses both Kingside and Queenside rights.
-/// - If the Black King moves from/to E8, Black loses both Kingside and Queenside rights.
-/// - If a Rook moves from/to A1, White loses Queenside rights.
-/// - If a Rook moves from/to H1, White loses Kingside rights.
-/// - If a Rook moves from/to A8, Black loses Queenside rights.
-/// - If a Rook moves from/to H8, Black loses Kingside rights.
-///
-/// This function returns a `Castling` bitmask representing the rights that *must be removed*
-/// based on the specified square being the origin or destination of a move. To update
-/// the board's castling rights, you typically use `current_rights &= !castling_rights(square);`.
-///
-/// # Arguments
-/// * `sq`: The `Square` involved in the move (either origin or destination).
-///
-/// # Returns
-/// A `Castling` bitmask indicating the rights to be removed.
-///
-/// # Example
-/// ```rust
-/// use sophos::core::{Castling, Square};
-/// use sophos::movegen::lookup::castling_rights; // Removed init_all_tables
-///
-/// // init_all_tables(); // Removed call
-///
-/// let mut current_rights = Castling::ALL;
-///
-/// // White moves King from E1
-/// let rights_to_remove_e1 = castling_rights(Square::E1); // Should be WK | WQ
-/// assert_eq!(rights_to_remove_e1, Castling::WHITE_CASTLING);
-/// current_rights &= !rights_to_remove_e1;
-/// assert!(!current_rights.has(Castling::WK));
-/// assert!(!current_rights.has(Castling::WQ));
-/// assert!(current_rights.has(Castling::BK)); // Black rights unaffected
-///
-/// // Black moves Rook from A8
-/// let rights_to_remove_a8 = castling_rights(Square::A8); // Should be BQ
-/// assert_eq!(rights_to_remove_a8, Castling::BQ);
-/// current_rights &= !rights_to_remove_a8;
-/// assert!(!current_rights.has(Castling::BQ));
-/// assert!(current_rights.has(Castling::BK)); // Black Kingside unaffected
-///
-/// // Moving a piece from/to D4 doesn't affect castling
-/// let rights_to_remove_d4 = castling_rights(Square::D4); // Should be NONE
-/// assert_eq!(rights_to_remove_d4, Castling::NONE);
-/// current_rights &= !rights_to_remove_d4; // No change
-/// assert!(current_rights.has(Castling::BK));
-/// ```
-#[inline]
-pub const fn castling_rights(sq: Square) -> Castling {
-    CASTLING_RIGHTS[sq as usize]
-}
+// /// Gets the `Castling` rights that are removed if a piece moves *to* or *from* the given square.
+// ///
+// /// Certain moves invalidate castling rights. Specifically:
+// /// - If the White King moves from/to E1, White loses both Kingside and Queenside rights.
+// /// - If the Black King moves from/to E8, Black loses both Kingside and Queenside rights.
+// /// - If a Rook moves from/to A1, White loses Queenside rights.
+// /// - If a Rook moves from/to H1, White loses Kingside rights.
+// /// - If a Rook moves from/to A8, Black loses Queenside rights.
+// /// - If a Rook moves from/to H8, Black loses Kingside rights.
+// ///
+// /// This function returns a `Castling` bitmask representing the rights that *must be removed*
+// /// based on the specified square being the origin or destination of a move. To update
+// /// the board's castling rights, you typically use `current_rights &= !castling_rights(square);`.
+// ///
+// /// # Arguments
+// /// * `sq`: The `Square` involved in the move (either origin or destination).
+// ///
+// /// # Returns
+// /// A `Castling` bitmask indicating the rights to be removed.
+// ///
+// /// # Example
+// /// ```rust
+// /// use sophos::core::{Castling, Square};
+// /// use sophos::movegen::lookup::castling_rights; // Removed init_all_tables
+// ///
+// /// // init_all_tables(); // Removed call
+// ///
+// /// let mut current_rights = Castling::ALL;
+// ///
+// /// // White moves King from E1
+// /// let rights_to_remove_e1 = castling_rights(Square::E1); // Should be WK | WQ
+// /// assert_eq!(rights_to_remove_e1, Castling::WHITE_CASTLING);
+// /// current_rights &= !rights_to_remove_e1;
+// /// assert!(!current_rights.has(Castling::WK));
+// /// assert!(!current_rights.has(Castling::WQ));
+// /// assert!(current_rights.has(Castling::BK)); // Black rights unaffected
+// ///
+// /// // Black moves Rook from A8
+// /// let rights_to_remove_a8 = castling_rights(Square::A8); // Should be BQ
+// /// assert_eq!(rights_to_remove_a8, Castling::BQ);
+// /// current_rights &= !rights_to_remove_a8;
+// /// assert!(!current_rights.has(Castling::BQ));
+// /// assert!(current_rights.has(Castling::BK)); // Black Kingside unaffected
+// ///
+// /// // Moving a piece from/to D4 doesn't affect castling
+// /// let rights_to_remove_d4 = castling_rights(Square::D4); // Should be NONE
+// /// assert_eq!(rights_to_remove_d4, Castling::NONE);
+// /// current_rights &= !rights_to_remove_d4; // No change
+// /// assert!(current_rights.has(Castling::BK));
+// /// ```
+// #[inline]
+// pub const fn castling_rights(sq: Square) -> Castling {
+//     CASTLING_RIGHTS[sq as usize]
+// }
 
 /// Gets the Chebyshev distance (also known as maximum norm or king distance) between two squares.
 ///
@@ -540,8 +556,8 @@ pub const fn castling_rights(sq: Square) -> Castling {
 /// assert_eq!(dist(Square::H1, Square::A2), 7); // max(abs(0-1), abs(7-0)) = max(1, 7) = 7
 /// ```
 #[inline]
-pub const fn dist(sq1: Square, sq2: Square) -> u8 {
-    DIST[sq1 as usize][sq2 as usize]
+pub fn dist(sq1: Square, sq2: Square) -> u8 {
+    unsafe { *DIST.get_unchecked(sq1 as usize).get_unchecked(sq2 as usize) }
 }
 
 // Tests remain unchanged, but ensure they call init_all_tables() first if needed.
@@ -946,35 +962,6 @@ mod test {
             expected_a1_a8,
             "check_bb(A1, A8)"
         );
-    }
-
-    #[test]
-    fn test_castling_rights_table() {
-        // ensure_init(); // Removed call
-        // Table stores rights to REMOVE.
-        assert_eq!(castling_rights(Square::E1), !Castling::WHITE_CASTLING); // Moving King E1 removes WK | WQ
-        assert_eq!(castling_rights(Square::E8), !Castling::BLACK_CASTLING); // Moving King E8 removes BK | BQ
-        assert_eq!(castling_rights(Square::A1), !Castling::WQ); // Moving Rook A1 removes WQ
-        assert_eq!(castling_rights(Square::H1), !Castling::WK); // Moving Rook H1 removes WK
-        assert_eq!(castling_rights(Square::A8), !Castling::BQ); // Moving Rook A8 removes BQ
-        assert_eq!(castling_rights(Square::H8), !Castling::BK); // Moving Rook H8 removes BK
-        // Test a square that doesn't affect rights - removes NONE
-        assert_eq!(castling_rights(Square::D4), !Castling::NONE);
-        assert_eq!(castling_rights(Square::G5), !Castling::NONE);
-
-        // Verify the example logic using the actual values
-        let mut current_rights = Castling::ALL;
-        current_rights &= castling_rights(Square::E1); // Remove WK | WQ
-        assert!(!current_rights.has(Castling::WK));
-        assert!(!current_rights.has(Castling::WQ));
-        assert!(current_rights.has(Castling::BK));
-
-        current_rights &= castling_rights(Square::A8); // Remove BQ
-        assert!(!current_rights.has(Castling::BQ));
-        assert!(current_rights.has(Castling::BK));
-
-        current_rights &= castling_rights(Square::D4); // Remove NONE
-        assert!(current_rights.has(Castling::BK)); // Still has BK
     }
 
     #[test]

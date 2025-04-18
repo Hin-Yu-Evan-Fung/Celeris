@@ -34,7 +34,7 @@ pub mod fen;
 pub mod movement;
 pub mod zobrist;
 
-use zobrist::Key;
+use zobrist::KeyBundle;
 
 use crate::core::*;
 use fen::START_FEN;
@@ -76,7 +76,7 @@ const MAX_DEPTH: usize = 256;
 /// - `king_attacks`: A bitboard representing the squares attacked by the friendly king.
 /// - `available`: A bitboard representing all squares not occupied by the side to move (potential destinations, excluding captures).
 /// - `enpassant_pin`: A boolean indicating if the pawn performing an en passant capture is pinned to the king, making the en passant illegal.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct BoardState {
     // --- Board State Variables -- //
     /// Number of times the current position (by `key`) has occurred in the game history.
@@ -90,9 +90,7 @@ pub struct BoardState {
     /// Castling rights (`Castling`) available *before* the move leading to this state.
     castle: Castling,
     /// Zobrist keys for the current position
-    key: Key,
-    /// Zobrist Key for the current position (Only for pawns)
-    pawn_key: Key,
+    keys: KeyBundle,
 
     // --- Move generation masks ---
     /// Bitboard mask: squares that block check or capture the checking piece(s). If not in check, all squares (`!0`).
@@ -155,6 +153,9 @@ pub struct Board {
     /// `occupied[Colour::Black as usize]` holds all black pieces.
     occupied: [Bitboard; Colour::NUM],
 
+    /// Castling Masks for each square, stores the original rook squares for chess960,
+    pub castling_mask: CastlingMask,
+
     /// Counts the number of half-moves (plies) since the last capture or pawn advance.
     /// Used for the fifty-move rule. Reset to 0 on capture or pawn move.
     half_moves: u16, // Renamed from fifty_move in BoardState for clarity, common practice
@@ -184,6 +185,7 @@ impl Board {
             board: [None; Square::NUM],
             pieces: [Bitboard::EMPTY; PieceType::NUM],
             occupied: [Bitboard::EMPTY; Colour::NUM],
+            castling_mask: CastlingMask::default(),
             side_to_move: Colour::White,
             half_moves: 0,
             state: BoardState::default(),
@@ -234,11 +236,9 @@ impl Board {
     /// * `self` - The board to restore the state of
     #[inline]
     fn restore_state(&mut self) {
+        debug_assert!(!self.history.is_empty(), "History stack is empty!");
         // Pop the last board state from the history stack
-        self.state = self
-            .history
-            .pop()
-            .expect("Empty history stack! Make sure you have made a move before undoing it!");
+        self.state = unsafe { self.history.pop().unwrap_unchecked() }
     }
 
     /// # Get Piece on Square
@@ -260,8 +260,8 @@ impl Board {
     /// assert_eq!(board.on(Square::A3), None);
     /// ```
     #[inline]
-    pub const fn on(&self, square: Square) -> Option<Piece> {
-        self.board[square as usize]
+    pub fn on(&self, square: Square) -> Option<Piece> {
+        unsafe { *self.board.get_unchecked(square as usize) }
     }
 
     /// # Get Piece Type Bitboard
@@ -287,8 +287,8 @@ impl Board {
     ///     Square::A1, Square::H1, Square::A8, Square::H8,
     /// ]));
     #[inline]
-    pub const fn piecetype_bb(&self, piecetype: PieceType) -> Bitboard {
-        self.pieces[piecetype as usize]
+    pub fn piecetype_bb(&self, piecetype: PieceType) -> Bitboard {
+        unsafe { *self.pieces.get_unchecked(piecetype as usize) }
     }
 
     /// # Get Occupied Bitboard
@@ -315,8 +315,8 @@ impl Board {
     ///     Square::A7, Square::B7, Square::C7, Square::D7, Square::E7, Square::F7, Square::G7, Square::H7,
     /// ]));
     #[inline]
-    pub const fn occupied_bb(&self, colour: Colour) -> Bitboard {
-        self.occupied[colour as usize]
+    pub fn occupied_bb(&self, colour: Colour) -> Bitboard {
+        unsafe { *self.occupied.get_unchecked(colour as usize) }
     }
 
     /// # Get Total Occupied Bitboard
@@ -339,9 +339,8 @@ impl Board {
     /// ]));
     /// ```
     #[inline]
-    pub const fn all_occupied_bb(&self) -> Bitboard {
-        self.occupied_bb(Colour::White)
-            .bitor(self.occupied_bb(Colour::Black))
+    pub fn all_occupied_bb(&self) -> Bitboard {
+        self.occupied_bb(Colour::White) | self.occupied_bb(Colour::Black)
     }
 
     /// # Get Piece Bitboard
@@ -365,9 +364,8 @@ impl Board {
     ///     Square::A8, Square::H8,
     /// ]));
     #[inline]
-    pub const fn piece_bb(&self, piece: Piece) -> Bitboard {
-        self.piecetype_bb(piece.pt())
-            .bitand(self.occupied_bb(piece.colour()))
+    pub fn piece_bb(&self, piece: Piece) -> Bitboard {
+        self.piecetype_bb(piece.pt()) & self.occupied_bb(piece.colour())
     }
 
     /// # Get Side To Move
@@ -384,7 +382,7 @@ impl Board {
     /// assert_eq!(board.side_to_move(), Colour::White);
     /// ```
     #[inline]
-    pub const fn side_to_move(&self) -> Colour {
+    pub fn side_to_move(&self) -> Colour {
         self.side_to_move
     }
 
@@ -402,11 +400,11 @@ impl Board {
     /// assert_eq!(board.half_moves(), 0);
     /// ```
     #[inline]
-    pub const fn half_moves(&self) -> u16 {
+    pub fn half_moves(&self) -> u16 {
         self.half_moves
     }
 
-    /// # Get state
+    /// # Get State
     ///
     /// ## Returns
     ///
@@ -420,8 +418,22 @@ impl Board {
     /// assert_eq!(board.state.castle, Castling::ALL);
     /// ```
     #[inline]
-    pub(crate) const fn state(&self) -> &BoardState {
+    pub(crate) fn state(&self) -> &BoardState {
         &self.state
+    }
+
+    /// # Get Castling Rights
+    ///
+    /// ## Arguments
+    ///
+    /// * `Square` - The square to get the castling rights from
+    ///
+    /// ## Returns
+    ///
+    /// * `Castling` - The castling rights masks that denoted the remaining possible castle rights after a piece has moved from the square.
+    #[inline]
+    pub(crate) fn castling_rights(&self, square: Square) -> Castling {
+        unsafe { *self.castling_mask.castling.get_unchecked(square as usize) }
     }
 }
 
@@ -462,6 +474,18 @@ impl std::fmt::Display for Board {
         writeln!(f, "Half Move Clock: {}", self.state.fifty_move)?;
         writeln!(f, "Full Move: {}", self.half_moves / 2 + 1)?;
         writeln!(f, "Fen: {}", self.fen())?;
+        writeln!(f, "Key: {:#X}", self.state.keys.key)?;
+        writeln!(f, "Pawn Key: {:#X}", self.state.keys.pawn_key)?;
+        writeln!(
+            f,
+            "White Non Pawn Key: {:#X}",
+            self.state.keys.non_pawn_key[Colour::White as usize]
+        )?;
+        writeln!(
+            f,
+            "Black Non Pawn Key: {:#X}",
+            self.state.keys.non_pawn_key[Colour::Black as usize]
+        )?;
 
         Ok(())
     }

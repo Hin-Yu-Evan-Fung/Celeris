@@ -4,7 +4,7 @@
 //!
 //! ## Overview
 //!
-//! Zobrist hashing assigns a unique pseudo-random number (`Key`, a `u64`) to each possible
+//! Zobrist hashing assigns a unique pseudo-random number (`Key`, a `Key`) to each possible
 //! element of a chess position:
 //! - Each piece type on each square (`Piece` + `Square`)
 //! - The side to move (`Colour::Black`)
@@ -31,7 +31,7 @@
 //!
 //! ## Key Components
 //!
-//! - **`Key`**: A wrapper struct around `u64` representing a Zobrist key. Derives `BitOps` for easy XORing.
+//! - **`Key`**: A wrapper struct around `Key` representing a Zobrist key. Derives `BitOps` for easy XORing.
 //!   - Includes `toggle_*` methods for efficient incremental updates.
 //! - **`ZobristTable`**: Stores the precomputed pseudo-random `Key` values for all possible board elements.
 //! - **`ZOBRIST`**: A global `const ZobristTable` providing thread-safe, compile-time initialization
@@ -41,8 +41,6 @@
 //! - **`Board` Methods**:
 //!     - `calc_key`: Calculates the full key from scratch. Useful for initialization or verification.
 //!     // Note: Board update methods are not shown here but would typically use the Key::toggle_* methods.
-
-use macros::BitOps;
 
 use super::Board;
 use crate::core::*;
@@ -54,76 +52,37 @@ use crate::utils::PRNG;
 |==========================================|
 \******************************************/
 
-/// Represents a Zobrist hash key, wrapping a `u64`.
-///
-/// Provides type safety over using raw `u64` for Zobrist keys.
-/// Derives `BitOps` (`^`, `^=`) for convenient XOR operations, which are
-/// fundamental to calculating and updating Zobrist keys.
-#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, BitOps)]
-pub struct Key(
+pub type Key = u64;
+
+/******************************************\
+|==========================================|
+|                Key Bundle                |
+|==========================================|
+\******************************************/
+
+#[derive(Debug, Copy, Clone, Default)]
+pub struct KeyBundle {
     /// The underlying 64-bit unsigned integer representing the hash value.
-    pub u64,
-);
+    pub key: Key,
+    pub pawn_key: Key,
+    pub non_pawn_key: [Key; Colour::NUM],
+}
 
-impl Key {
-    /// Returns the inner `u64` value of the Zobrist key.
+impl KeyBundle {
     #[inline]
-    pub const fn data(self) -> u64 {
-        self.0
+    pub fn toggle_piece(&mut self, piece: Piece, sq: Square) {
+        if piece.pt() as u8 == PieceType::Pawn as u8 {
+            self.pawn_key ^= piece_key(piece, sq);
+        } else {
+            self.non_pawn_key[piece.colour() as usize] ^= piece_key(piece, sq);
+        }
+
+        self.key ^= piece_key(piece, sq);
     }
 
-    /// Toggles (XORs) the key corresponding to a specific piece on a specific square
-    /// into this `Key`.
-    ///
-    /// This is used for incrementally updating a board's Zobrist key when a piece
-    /// is added to or removed from a square during make/unmake move operations.
-    /// Because XORing twice restores the original value, this function handles both
-    /// adding and removing the piece's contribution to the key.
-    ///
-    /// # Arguments
-    /// * `piece`: The `Piece` (including color) being added or removed.
-    /// * `sq`: The `Square` where the piece is located.
-    ///
-    /// # Example (Conceptual)
-    /// ```ignore
-    /// let mut board_key = board.calc_key();
-    /// let piece = Piece::WhitePawn;
-    /// let from_sq = Square::E2;
-    /// let to_sq = Square::E4;
-    ///
-    /// // Make move E2-E4: Remove pawn from E2, add pawn to E4
-    /// board_key.toggle_piece(piece, from_sq); // XOR out E2 key
-    /// board_key.toggle_piece(piece, to_sq);   // XOR in E4 key
-    ///
-    /// // Unmake move E2-E4: Remove pawn from E4, add pawn to E2
-    /// board_key.toggle_piece(piece, to_sq);   // XOR out E4 key (restores state before E4 add)
-    /// board_key.toggle_piece(piece, from_sq); // XOR in E2 key (restores original key)
-    /// ```
     #[inline]
-    pub const fn toggle_piece(&mut self, piece: Piece, sq: Square) {
-        // XOR self with the precomputed key for the given piece and square.
-        // Uses the global ZOBRIST table via the piece_key helper.
-        self.0 ^= piece_key(piece, sq).0; // Access inner u64 for XOR
-    }
-
-    /// Toggles (XORs) the key corresponding to a specific set of castling rights
-    /// into this `Key`.
-    ///
-    /// This is used for incrementally updating a board's Zobrist key when castling
-    /// rights change. Note that Zobrist keys are typically defined for *individual*
-    /// rights (WK, WQ, BK, BQ). To update the key when rights change from `old_rights`
-    /// to `new_rights`, you would typically XOR with the keys for both the old and new
-    /// rights states: `key ^= castle_key(old_rights) ^ castle_key(new_rights)`.
-    /// This function toggles a single specific flag's key contribution.
-    ///
-    /// # Arguments
-    /// * `flag`: The `Castling` flag (e.g., `Castling::WK`, `Castling::BQ`) whose
-    ///           corresponding key should be XORed into this `Key`.
-    #[inline]
-    pub const fn toggle_castle(&mut self, flag: Castling) {
-        // XOR self with the precomputed key for the given castling flag.
-        // Uses the global ZOBRIST table via the castle_key helper.
-        self.0 ^= castle_key(flag).0; // Access inner u64 for XOR
+    pub fn toggle_castle(&mut self, flag: Castling) {
+        self.key ^= castle_key(flag); // Access inner Key for XOR
     }
 
     /// Toggles (XORs) the key corresponding to the side to move into this `Key`.
@@ -133,10 +92,10 @@ impl Key {
     /// `side_key` effectively flips the part of the hash that indicates whether
     /// it's Black's turn.
     #[inline]
-    pub const fn toggle_colour(&mut self) {
+    pub fn toggle_colour(&mut self) {
         // XOR self with the precomputed key indicating Black to move.
         // Uses the global ZOBRIST table via the side_key helper.
-        self.0 ^= side_key().0; // Access inner u64 for XOR
+        self.key ^= side_key(); // Access inner Key for XOR
     }
 
     /// Toggles (XORs) the key corresponding to the enpassant square into this `Key`.
@@ -146,10 +105,10 @@ impl Key {
     /// `enpassant_key(file)` effectively flips the part of the hash that indicates whether
     /// it's Black's turn.
     #[inline]
-    pub const fn toggle_ep(&mut self, file: File) {
+    pub fn toggle_ep(&mut self, file: File) {
         // XOR self with the precomputed key indicating Black to move.
         // Uses the global ZOBRIST table via the side_key helper.
-        self.0 ^= ep_key(file).0; // Access inner u64 for XOR
+        self.key ^= ep_key(file); // Access inner Key for XOR
     }
 }
 
@@ -178,9 +137,9 @@ pub struct ZobristTable {
 
     /// Stores keys corresponding to combinations of castling rights.
     /// Indexed directly by the `Castling` bitmask value (0-15).
-    /// `castling[castling_rights.0 as usize]`.
-    /// For example, `castling[Castling::WK.0 as usize]` holds the key for White kingside rights.
-    /// `castling[Castling::ALL.0 as usize]` holds the key for all four rights (WK | WQ | BK | BQ).
+    /// `castling[castling_rights as usize]`.
+    /// For example, `castling[Castling::WK as usize]` holds the key for White kingside rights.
+    /// `castling[Castling::ALL as usize]` holds the key for all four rights (WK | WQ | BK | BQ).
     pub castling: [Key; Castling::NUM], // Castling::NUM = 16
 
     /// Stores keys corresponding to the *file* of a potential en passant target square.
@@ -201,7 +160,7 @@ pub const ZOBRIST: ZobristTable = init_zobrist_table();
 |==========================================|
 \******************************************/
 
-/// Initializes the global `ZobristTable` with pseudo-random `u64` keys using `const fn`.
+/// Initializes the global `ZobristTable` with pseudo-random `Key` keys using `const fn`.
 ///
 /// This function is evaluated at compile time to populate `ZOBRIST`.
 /// It uses a `PRNG` (Pseudo-Random Number Generator) to fill the table arrays.
@@ -218,37 +177,37 @@ const fn init_zobrist_table() -> ZobristTable {
     let mut rng = PRNG::new(0xDEADBEEFCAFEBABE); // Example fixed seed
 
     // Initialize arrays with default (zero) keys.
-    let mut pieces = [[Key(0); Square::NUM]; Piece::NUM];
-    let mut castling = [Key(0); Castling::NUM];
-    let mut enpassant = [Key(0); File::NUM];
+    let mut pieces = [[0; Square::NUM]; Piece::NUM];
+    let mut castling = [0; Castling::NUM];
+    let mut enpassant = [0; File::NUM];
 
     // Generate a unique key for each piece on each square.
     let mut i = 0;
     while i < Piece::NUM {
         let mut j = 0;
         while j < Square::NUM {
-            pieces[i][j] = Key(rng.random_u64());
+            pieces[i][j] = rng.random_u64();
             j += 1;
         }
         i += 1;
     }
 
     // Generate the key for indicating Black to move.
-    let side_to_move = Key(rng.random_u64());
+    let side_to_move = rng.random_u64();
 
     // Generate a unique key for each possible combination of castling rights (0-15).
     // It's important that ZOBRIST.castling[rights.bits()] gives the key for that specific combination.
     i = 0;
     while i < Castling::NUM {
         // Iterate 0 through 15
-        castling[i] = Key(rng.random_u64());
+        castling[i] = rng.random_u64();
         i += 1;
     }
 
     // Generate a unique key for each possible en passant file.
     i = 0;
     while i < File::NUM {
-        enpassant[i] = Key(rng.random_u64());
+        enpassant[i] = rng.random_u64();
         i += 1; // Increment loop counter
     }
 
@@ -278,10 +237,15 @@ const fn init_zobrist_table() -> ZobristTable {
 ///
 /// `#[inline]` is suggested as this is a very frequent, simple lookup.
 #[inline]
-pub const fn piece_key(piece: Piece, sq: Square) -> Key {
+pub fn piece_key(piece: Piece, sq: Square) -> Key {
     // Access the precomputed key using piece and square as indices.
     // Assumes Piece and Square can be safely cast to usize for indexing.
-    ZOBRIST.pieces[piece as usize][sq as usize]
+    unsafe {
+        *ZOBRIST
+            .pieces
+            .get_unchecked(piece as usize)
+            .get_unchecked(sq as usize)
+    }
 }
 
 /// Gets the precomputed Zobrist key used to indicate the side to move.
@@ -293,7 +257,7 @@ pub const fn piece_key(piece: Piece, sq: Square) -> Key {
 ///
 /// `#[inline]` is suggested as this is a frequent, simple lookup.
 #[inline]
-pub const fn side_key() -> Key {
+pub fn side_key() -> Key {
     ZOBRIST.side_to_move
 }
 
@@ -307,9 +271,9 @@ pub const fn side_key() -> Key {
 ///
 /// `#[inline]` is suggested as this is a frequent, simple lookup.
 #[inline]
-pub const fn castle_key(flag: Castling) -> Key {
+pub fn castle_key(flag: Castling) -> Key {
     // Access the precomputed key using the castling flag's bits as the index (0-15).
-    ZOBRIST.castling[flag.0 as usize]
+    unsafe { *ZOBRIST.castling.get_unchecked(flag.0 as usize) }
 }
 
 /// Gets the precomputed Zobrist key for a potential en passant capture file.
@@ -323,10 +287,10 @@ pub const fn castle_key(flag: Castling) -> Key {
 ///
 /// `#[inline]` is suggested as this is a frequent, simple lookup.
 #[inline]
-pub const fn ep_key(file: File) -> Key {
+pub fn ep_key(file: File) -> Key {
     // Access the precomputed key using the file as the index.
     // Assumes File can be safely cast to usize for indexing.
-    ZOBRIST.enpassant[file as usize]
+    unsafe { *ZOBRIST.enpassant.get_unchecked(file as usize) }
 }
 
 /******************************************\
@@ -350,8 +314,8 @@ impl Board {
     /// # Returns
     ///
     /// The calculated `Key` for the current board position.
-    pub const fn calc_key(&self) -> Key {
-        let mut key = Key(0); // Start with a zero key
+    pub fn calc_key(&self) -> Key {
+        let mut key = 0; // Start with a zero key
 
         // 1. XOR keys for all pieces on the board
         // Iterate through squares and XOR in the key if a piece is present.
@@ -360,25 +324,25 @@ impl Board {
             let sq = unsafe { Square::from_unchecked(i as u8) };
             if let Some(piece) = self.on(sq) {
                 // Use the toggle_piece method for clarity, even though direct XOR is equivalent here
-                key.toggle_piece(piece, sq);
+                key ^= piece_key(piece, sq);
             }
             i += 1;
         }
 
         // 2. XOR side key if it's Black's turn
         if self.side_to_move as u8 == Colour::Black as u8 {
-            key.toggle_colour();
+            key ^= side_key();
         }
 
         // 3. XOR the key corresponding to the current castling rights state.
         // Assumes ZOBRIST.castling is indexed by the Castling bitmask value (0-15).
-        key.toggle_castle(self.state.castle);
+        key ^= castle_key(self.state.castle);
 
         // 4. XOR the en passant key if an EP square exists.
         if let Some(ep_square) = self.state.enpassant {
             // Only the file of the target square matters for the key.
             // Direct XOR is fine here as ep_key gives the specific key needed.
-            key.0 ^= ep_key(ep_square.file()).0;
+            key ^= ep_key(ep_square.file());
         }
 
         key // Return the final calculated key
@@ -391,8 +355,8 @@ impl Board {
     /// # Returns
     ///
     /// The calculated `Key` representing only the pawn configuration.
-    pub const fn calc_pawn_key(&self) -> Key {
-        let mut key = Key(0); // Start with a zero key
+    pub fn calc_pawn_key(&self) -> Key {
+        let mut key = 0; // Start with a zero key
 
         // Iterate through squares and XOR in the key if a pawn is present.
         let mut i = 0;
@@ -402,13 +366,33 @@ impl Board {
             // Check if there is a piece AND if that piece is a pawn
             if let Some(piece) = self.on(sq) {
                 if piece.pt() as u8 == PieceType::Pawn as u8 {
-                    key.toggle_piece(piece, sq);
+                    key ^= piece_key(piece, sq);
                 }
             }
             i += 1;
         }
 
         key // Return the final calculated key
+    }
+
+    /// Calculates the Zobrist Key consider only the non pawns on the board for a particular side
+    pub fn calc_non_pawn_key(&self) -> [Key; Colour::NUM] {
+        let mut keys = [0; Colour::NUM]; // Start with a zero
+
+        let mut i = 0;
+        while i < Square::NUM {
+            let sq = unsafe { Square::from_unchecked(i as u8) };
+
+            // Check if there is a piece AND if that piece is a pawn
+            if let Some(piece) = self.on(sq) {
+                if piece.pt() as u8 != PieceType::Pawn as u8 {
+                    keys[piece.colour() as usize] ^= piece_key(piece, sq);
+                }
+            }
+            i += 1;
+        }
+
+        keys // Return the final calculated key
     }
 }
 
@@ -421,10 +405,10 @@ mod tests {
 
     #[test]
     fn key_xor() {
-        let k1 = Key(0x12345);
-        let k2 = Key(0xABCDE);
+        let k1 = 0x12345;
+        let k2 = 0xABCDE;
         let k3 = k1 ^ k2;
-        assert_eq!(k3.0, 0x12345 ^ 0xABCDE);
+        assert_eq!(k3, 0x12345 ^ 0xABCDE);
         let mut k4 = k1;
         k4 ^= k2;
         assert_eq!(k4, k3);
@@ -435,12 +419,12 @@ mod tests {
     #[test]
     fn zobrist_table_init() {
         // Accessing ZOBRIST directly ensures it's initialized (as it's const)
-        // Basic checks: ensure keys are not zero (highly unlikely with random u64)
-        assert_ne!(piece_key(Piece::WhitePawn, Square::E4).0, 0);
-        assert_ne!(piece_key(Piece::BlackKing, Square::G8).0, 0);
-        assert_ne!(side_key().0, 0);
-        assert_ne!(castle_key(Castling::WK).0, 0);
-        assert_ne!(ep_key(File::FileD).0, 0);
+        // Basic checks: ensure keys are not zero (highly unlikely with random Key)
+        assert_ne!(piece_key(Piece::WhitePawn, Square::E4), 0);
+        assert_ne!(piece_key(Piece::BlackKing, Square::G8), 0);
+        assert_ne!(side_key(), 0);
+        assert_ne!(castle_key(Castling::WK), 0);
+        assert_ne!(ep_key(File::FileD), 0);
 
         // Check uniqueness (highly likely, but not guaranteed)
         assert_ne!(
@@ -465,22 +449,22 @@ mod tests {
         let p_key = piece_key(piece, sq); // Get the key for WN on C3
 
         // Test starting from zero
-        let mut key1 = Key(0);
-        key1.toggle_piece(piece, sq);
+        let mut key1 = 0;
+        key1 ^= piece_key(piece, sq);
         assert_eq!(key1, p_key, "Toggle piece from zero failed");
-        key1.toggle_piece(piece, sq); // Toggle back
-        assert_eq!(key1, Key(0), "Toggle piece back to zero failed");
+        key1 ^= piece_key(piece, sq); // Toggle back
+        assert_eq!(key1, 0, "Toggle piece back to zero failed");
 
         // Test starting from arbitrary value
-        let initial_key = Key(0xABCDEF1234567890);
+        let initial_key = 0xABCDEF1234567890;
         let mut key2 = initial_key;
-        key2.toggle_piece(piece, sq);
+        key2 ^= piece_key(piece, sq);
         assert_eq!(
             key2,
             initial_key ^ p_key,
             "Toggle piece from non-zero failed"
         );
-        key2.toggle_piece(piece, sq); // Toggle back
+        key2 ^= piece_key(piece, sq); // Toggle back
         assert_eq!(key2, initial_key, "Toggle piece back to non-zero failed");
     }
 
@@ -490,35 +474,35 @@ mod tests {
         let c_key = castle_key(flag);
 
         // Test starting from zero
-        let mut key1 = Key(0);
-        key1.toggle_castle(flag);
+        let mut key1 = 0;
+        key1 ^= castle_key(flag);
         assert_eq!(key1, c_key, "Toggle castle from zero failed");
-        key1.toggle_castle(flag); // Toggle back
-        assert_eq!(key1, Key(0), "Toggle castle back to zero failed");
+        key1 ^= castle_key(flag); // Toggle back
+        assert_eq!(key1, 0, "Toggle castle back to zero failed");
 
         // Test starting from arbitrary value
-        let initial_key = Key(0x1122334455667788);
+        let initial_key = 0x1122334455667788;
         let mut key2 = initial_key;
-        key2.toggle_castle(flag);
+        key2 ^= castle_key(flag);
         assert_eq!(
             key2,
             initial_key ^ c_key,
             "Toggle castle from non-zero failed"
         );
-        key2.toggle_castle(flag); // Toggle back
+        key2 ^= castle_key(flag); // Toggle back
         assert_eq!(key2, initial_key, "Toggle castle back to non-zero failed");
 
         // Test combined flag (though toggle usually used with single flags)
         let combined_flag = Castling::WHITE_CASTLING; // WK | WQ
         let combined_key = castle_key(combined_flag);
         let mut key3 = initial_key;
-        key3.toggle_castle(combined_flag);
+        key3 ^= castle_key(combined_flag);
         assert_eq!(
             key3,
             initial_key ^ combined_key,
             "Toggle combined castle flag failed"
         );
-        key3.toggle_castle(combined_flag);
+        key3 ^= castle_key(combined_flag);
         assert_eq!(key3, initial_key, "Toggle combined castle flag back failed");
     }
 
@@ -527,22 +511,22 @@ mod tests {
         let s_key = side_key(); // Key indicating black to move
 
         // Test starting from zero
-        let mut key1 = Key(0);
-        key1.toggle_colour();
+        let mut key1 = 0;
+        key1 ^= side_key();
         assert_eq!(key1, s_key, "Toggle colour from zero failed");
-        key1.toggle_colour(); // Toggle back
-        assert_eq!(key1, Key(0), "Toggle colour back to zero failed");
+        key1 ^= side_key(); // Toggle back
+        assert_eq!(key1, 0, "Toggle colour back to zero failed");
 
         // Test starting from arbitrary value
-        let initial_key = Key(0x9876543210FEDCBA);
+        let initial_key = 0x9876543210FEDCBA;
         let mut key2 = initial_key;
-        key2.toggle_colour();
+        key2 ^= side_key();
         assert_eq!(
             key2,
             initial_key ^ s_key,
             "Toggle colour from non-zero failed"
         );
-        key2.toggle_colour(); // Toggle back
+        key2 ^= side_key(); // Toggle back
         assert_eq!(key2, initial_key, "Toggle colour back to non-zero failed");
     }
 
@@ -561,7 +545,7 @@ mod tests {
 
         assert_eq!(
             calculated_key,
-            board.state().key,
+            board.state().keys.key,
             "Stored key differs from calculated key"
         );
         // Note: Board::set likely doesn't update the key yet, so this assert might fail.
@@ -577,38 +561,11 @@ mod tests {
     #[test]
     fn test_startpos_key() {
         let key_start = get_key_from_fen(START_FEN);
-        assert_ne!(key_start.data(), 0, "Startpos key should not be zero");
+        assert_ne!(key_start, 0, "Startpos key should not be zero");
 
         // Verify it's consistent
         let key_start_again = get_key_from_fen(START_FEN);
         assert_eq!(key_start, key_start_again, "Startpos key is not consistent");
-    }
-
-    #[test]
-    fn test_empty_board_key() {
-        // Empty board, white to move, KQkq rights (as per EMPTY_FEN spec)
-        let key_empty_w_kqkq = get_key_from_fen(EMPTY_FEN);
-
-        // Empty board, black to move, KQkq rights
-        let key_empty_b_kqkq = get_key_from_fen("8/8/8/8/8/8/8/8 b KQkq - 0 1");
-        assert_ne!(
-            key_empty_w_kqkq, key_empty_b_kqkq,
-            "Keys should differ based on side to move"
-        );
-        // Check that XORing side key works
-        assert_eq!(key_empty_b_kqkq, key_empty_w_kqkq ^ side_key());
-
-        // Empty board, white to move, no rights
-        let key_empty_w_none = get_key_from_fen("8/8/8/8/8/8/8/8 w - - 0 1");
-        assert_ne!(
-            key_empty_w_kqkq, key_empty_w_none,
-            "Keys should differ based on castling rights"
-        );
-        // Check that XORing castling keys works
-        assert_eq!(
-            key_empty_w_none,
-            key_empty_w_kqkq ^ castle_key(Castling::ALL) ^ castle_key(Castling::NONE)
-        ); // XORing ALL rights out and NONE rights in
     }
 
     #[test]
@@ -698,7 +655,7 @@ mod tests {
     fn test_kiwipete_key() {
         // Test against a known complex position
         let key_kiwi = get_key_from_fen(TRICKY_FEN);
-        assert_ne!(key_kiwi.data(), 0, "Kiwipete key should not be zero");
+        assert_ne!(key_kiwi, 0, "Kiwipete key should not be zero");
 
         // Compare against startpos
         let key_start = get_key_from_fen(START_FEN);
@@ -713,27 +670,27 @@ mod tests {
         let board_start = Board::from_fen(START_FEN).unwrap();
         let pawn_key_start = board_start.calc_pawn_key();
 
-        let mut expected_key = Key(0);
+        let mut expected_key = 0;
         for sq in Square::iter() {
             if let Some(p) = board_start.on(sq) {
                 if p.pt() == PieceType::Pawn {
-                    expected_key.toggle_piece(p, sq);
+                    expected_key ^= piece_key(p, sq);
                 }
             }
         }
         assert_eq!(pawn_key_start, expected_key, "Startpos pawn key mismatch");
-        assert_ne!(pawn_key_start, Key(0), "Startpos pawn key is zero");
+        assert_ne!(pawn_key_start, 0, "Startpos pawn key is zero");
 
         // Position with fewer pawns
         let fen_fewer_pawns = "rnbqkbnr/pp1ppppp/8/8/8/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1";
         let board_fewer = Board::from_fen(fen_fewer_pawns).unwrap();
         let pawn_key_fewer = board_fewer.calc_pawn_key();
 
-        let mut expected_fewer_key = Key(0);
+        let mut expected_fewer_key = 0;
         for sq in Square::iter() {
             if let Some(p) = board_fewer.on(sq) {
                 if p.pt() == PieceType::Pawn {
-                    expected_fewer_key.toggle_piece(p, sq);
+                    expected_fewer_key ^= piece_key(p, sq);
                 }
             }
         }

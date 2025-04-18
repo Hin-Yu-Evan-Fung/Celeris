@@ -12,7 +12,6 @@
 //! - **Pin Bitboard Table (`PIN_BB`)**: Stores bitboards representing potential pin rays or lines of movement for pinned pieces.
 //! - **Check Bitboard Table (`CHECK_BB`)**: Stores bitboards representing squares that can resolve a check from a sliding piece.
 //! - **Distance Table (`DIST`)**: Stores the Chebyshev distance between any two squares on the board.
-//! - **Castling Rights Table (`CASTLING_RIGHTS`)**: Stores the castling rights that are removed if a piece moves to or from a given square.
 //!
 //! ## Functions
 //!
@@ -22,31 +21,30 @@
 //! - `populate_check_bb`: Populates the `CHECK_BB` table for a given pair of squares.
 //! - `init_lookup_table`: A generic helper function to initialize square-pair lookup tables.
 //! - `init_dist_table`: Initializes the `DIST` table.
-//! - `init_castling_rights_table`: Initializes the `CASTLING_RIGHTS` table.
 //!
 //! ## Usage
 //!
 //! These functions are typically called during the initialization of the chess engine to precompute
 //! the lookup tables. The tables are then used by other modules, such as `lookup`, to efficiently
 //! generate moves and evaluate board positions.
-use super::lookup::*;
+use super::{lookup::*, magic::attacks_on_the_fly};
 use crate::core::*;
 
 // Returns the line crossing 2 squares
 const fn line_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
     let from_bb: Bitboard = from.bb();
     let to_bb: Bitboard = to.bb();
-    // Use the public slider_attack function which relies on the (potentially lazy) tables
+    // Use the public attacks_on_the_fly function which relies on the (potentially lazy) tables
 
-    let from_ray = slider_attack(pt, from, Bitboard::EMPTY);
-    let to_ray = slider_attack(pt, to, Bitboard::EMPTY);
+    let from_ray = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
+    let to_ray = attacks_on_the_fly(pt, to, Bitboard::EMPTY);
 
     from_ray.bitand(to_ray).bitor(from_bb).bitor(to_bb)
 }
 
 // Populate line bb table for Diagonal or Vertical lines (Depending on Piece Type)
 const fn populate_line_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
-    let mut bb = slider_attack(pt, from, Bitboard::EMPTY);
+    let mut bb = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
     while !bb.is_empty() {
         let to = bb.pop_lsb().unwrap();
         // Populate the table entry for the pair (from, to)
@@ -77,15 +75,15 @@ pub(super) const fn init_line_bb_table() -> SquarePairTable {
 // If the squares are adjacent, the result is an empty bitboard.
 // If the squares are the same, the result is an empty bitboard.
 const fn between_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
-    let from_ray = slider_attack(pt, from, to.bb());
-    let to_ray = slider_attack(pt, to, from.bb());
+    let from_ray = attacks_on_the_fly(pt, from, to.bb());
+    let to_ray = attacks_on_the_fly(pt, to, from.bb());
 
     from_ray.bitand(to_ray)
 }
 
 // Populate between bb table for Diagonal or Vertical lines (Depending on Piece Type)
 const fn populate_between_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
-    let mut bb = slider_attack(pt, from, Bitboard::EMPTY);
+    let mut bb = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
     while !bb.is_empty() {
         let to = bb.pop_lsb().unwrap();
         // Populate the table entry for the pair (from, to)
@@ -115,16 +113,16 @@ pub(super) const fn init_between_bb_table() -> SquarePairTable {
 // Assuming 'from' is the pinner and 'to' is the pinned piece's square (or king).
 // The resulting mask represents squares the pinned piece *could* move to along the pin line.
 const fn pin_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
-    // Use the public slider_attack function
-    let from_ray = slider_attack(pt, from, to.bb());
-    let to_ray = slider_attack(pt, to, from.bb());
+    // Use the public attacks_on_the_fly function
+    let from_ray = attacks_on_the_fly(pt, from, to.bb());
+    let to_ray = attacks_on_the_fly(pt, to, from.bb());
 
     from_ray.bitand(to_ray).bitor(to.bb()) // Include the 'to' square (pinner)
 }
 
 // Populate pin bb table for Diagonal or Vertical lines (Depending on Piece Type)
 const fn populate_pin_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
-    let mut bb = slider_attack(pt, from, Bitboard::EMPTY);
+    let mut bb = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
     while !bb.is_empty() {
         let to = bb.pop_lsb().unwrap();
         // Populate the table entry for the pair (from, to)
@@ -154,9 +152,9 @@ pub(super) const fn init_pin_bb_table() -> SquarePairTable {
 // This represents squares where a piece can block the check or capture the attacker.
 // Assuming 'from' is the attacker and 'to' is the king.
 const fn check_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
-    // Use the public slider_attack function
-    let from_ray = slider_attack(pt, from, to.bb());
-    let to_ray = slider_attack(pt, to, from.bb());
+    // Use the public attacks_on_the_fly function
+    let from_ray = attacks_on_the_fly(pt, from, to.bb());
+    let to_ray = attacks_on_the_fly(pt, to, from.bb());
 
     let dir = match Direction::try_from(to, from) {
         Ok(dir) => dir,
@@ -173,7 +171,7 @@ const fn check_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
 
 // Populate check bb table for Diagonal or Vertical lines (Depending on Piece Type)
 const fn populate_check_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
-    let mut bb = slider_attack(pt, from, Bitboard::EMPTY);
+    let mut bb = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
     while !bb.is_empty() {
         let to = bb.pop_lsb().unwrap();
         // Populate the table entry for the pair (from, to)
@@ -205,9 +203,9 @@ pub(super) const fn init_check_bb_table() -> SquarePairTable {
 //     from: Square,
 //     to: Square,
 // ) {
-//     // Use the public slider_attack function
-//     let from_ray = slider_attack(pt, from, to.bb()); // Ray from attacker towards king
-//     let to_ray = slider_attack(pt, to, from.bb()); // Ray from king towards attacker
+//     // Use the public attacks_on_the_fly function
+//     let from_ray = attacks_on_the_fly(pt, from, to.bb()); // Ray from attacker towards king
+//     let to_ray = attacks_on_the_fly(pt, to, from.bb()); // Ray from king towards attacker
 //     let between = from_ray & to_ray; // Squares between attacker and king
 
 //     table[from as usize][to as usize] = between | from.bb(); // Include the 'from' square (attacker)
@@ -241,35 +239,6 @@ pub(super) const fn init_dist_table() -> [[u8; Square::NUM]; Square::NUM] {
 
     table
 }
-
-/// Initializes the castling rights update mask table.
-/// The value `table[sq]` is a mask that should be ANDed with the
-/// board's current castling rights when a piece moves *to* or *from* `sq`.
-/// It effectively removes the rights associated with that square's role (king or rook start square).
-pub(super) const fn init_castling_rights_table() -> [Castling; Square::NUM] {
-    use Square::*;
-
-    // Start with a mask that keeps all rights.
-    let mut table = [Castling::ALL; Square::NUM];
-
-    // For specific squares, modify the mask to *remove* the relevant right(s).
-    // Moving the E1 King removes both WK and WQ.
-    table[E1 as usize].remove(Castling::WHITE_CASTLING);
-    // Moving the E8 King removes both BK and BQ.
-    table[E8 as usize].remove(Castling::BLACK_CASTLING);
-    // Moving the A1 Rook removes WQ.
-    table[A1 as usize].remove(Castling::WQ);
-    // Moving the H1 Rook removes WK.
-    table[H1 as usize].remove(Castling::WK);
-    // Moving the A8 Rook removes BQ.
-    table[A8 as usize].remove(Castling::BQ);
-    // Moving the H8 Rook removes BK.
-    table[H8 as usize].remove(Castling::BK);
-
-    table
-}
-
-// Removed init_all_tables() function as it's no longer needed for const tables.
 
 /// Initializes pseudo-attack tables for non-sliding pieces (Pawn, Knight, King).
 /// "Pseudo attacks" are potential moves ignoring blockers.

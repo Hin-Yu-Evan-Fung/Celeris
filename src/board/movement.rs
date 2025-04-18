@@ -1,6 +1,5 @@
 use super::Board;
 use crate::core::*;
-use crate::movegen::lookup::castling_rights;
 
 impl Board {
     /// Adds a piece to the board at the specified square.
@@ -40,8 +39,8 @@ impl Board {
     /// Panics with `.expect` if `self.board[square]` is `None`.
     pub fn remove_piece(&mut self, square: Square) {
         // Get the piece to remove
-        let piece =
-            self.board[square as usize].expect("Attempted to remove piece from empty square");
+        debug_assert!(self.on(square).is_some(), "remove_piece: 'square' is empty");
+        let piece = unsafe { self.on(square).unwrap_unchecked() };
         // Remove piece from the board
         self.board[square as usize] = None;
         // Update piece bitboards
@@ -66,9 +65,14 @@ impl Board {
     /// # Panics
     ///
     /// Panics with `.expect` if `self.board[from]` is `None`.
+    #[inline]
     pub fn move_piece(&mut self, from: Square, to: Square) {
         // Get the piece to move
-        let piece = self.board[from as usize].expect("Attempted to move piece from empty square");
+        debug_assert!(
+            self.on(from).is_some(),
+            "move_piece: 'from' square is empty"
+        );
+        let piece = unsafe { self.on(from).unwrap_unchecked() };
         // Remove piece from the board
         self.board[from as usize] = None;
         // Put piece in the board
@@ -98,12 +102,13 @@ impl Board {
         // Set Enpassant Square
         self.state.enpassant = from.add(us.forward()).ok();
         // Toggle enpassant key (There must be an enpassant square after a double push)
-        self.state.key.toggle_ep(
-            self.state
-                .enpassant
-                .expect("En passant square should exist after double push")
-                .file(),
+        debug_assert!(
+            self.state.enpassant.is_some(),
+            "En passant square should exist after double push"
         );
+        self.state
+            .keys
+            .toggle_ep(unsafe { self.state.enpassant.unwrap_unchecked().file() });
     }
 
     /// Calculates the starting square of the rook involved in castling.
@@ -117,10 +122,13 @@ impl Board {
     /// The `Square` where the rook starts (H1/H8 or A1/A8).
     fn rook_from(&self, king_side: bool) -> Square {
         let us = self.side_to_move;
-        match king_side {
-            true => Square::H1.relative(us),
-            false => Square::A1.relative(us),
-        }
+        let index = us as usize * 2 + !king_side as usize;
+
+        debug_assert!(
+            self.castling_mask.rook_sq[index].is_some(),
+            "If Castling Rights are set then there should be a rook square set"
+        );
+        unsafe { self.castling_mask.rook_sq[index].unwrap_unchecked() }
     }
 
     /// Calculates the destination square of the rook involved in castling.
@@ -162,8 +170,8 @@ impl Board {
         self.move_piece(rook_from, rook_to);
 
         // Update hash key for the rook's movement
-        self.state.key.toggle_piece(piece, rook_from);
-        self.state.key.toggle_piece(piece, rook_to);
+        self.state.keys.toggle_piece(piece, rook_from);
+        self.state.keys.toggle_piece(piece, rook_to);
 
         // Disclaimer: The King will be moved as part of the main make move function
     }
@@ -203,13 +211,13 @@ impl Board {
     /// * `to` - The ending `Square` of the move.
     fn update_castle_rights(&mut self, from: Square, to: Square) {
         // Remove previous castling rights from hash key
-        self.state.key.toggle_castle(self.state.castle);
+        self.state.keys.toggle_castle(self.state.castle);
         // Update castling rights by masking away rights affected by the move
         self.state
             .castle
-            .mask(castling_rights(from) & castling_rights(to));
+            .mask(self.castling_rights(from) & self.castling_rights(to));
         // Add new castling rights to hash key
-        self.state.key.toggle_castle(self.state.castle);
+        self.state.keys.toggle_castle(self.state.castle);
     }
 
     /// Applies a `Move` to the board, updating the state.
@@ -231,11 +239,6 @@ impl Board {
     /// # Arguments
     ///
     /// * `move_` - The `Move` to apply. Assumed to be pseudo-legal or legal for the current position.
-    ///
-    /// # Panics
-    ///
-    /// Can panic with `.expect` if the `move_` is fundamentally invalid for the current board state
-    /// (e.g., attempting to move a piece from an empty square, illegal en passant, capture flag on empty square).
     pub fn make_move(&mut self, move_: Move) {
         // Cache the current state (becomes the previous state after this function)
         self.store_state();
@@ -247,7 +250,8 @@ impl Board {
         let to = move_.to();
         let us = self.side_to_move;
         let them = !us;
-        let piece = self.on(from).expect("make_move: 'from' square is empty"); // Piece being moved
+        debug_assert!(self.on(from).is_some(), "make_move: 'from' square is empty");
+        let piece = unsafe { self.on(from).unwrap_unchecked() }; // Piece being moved
         let flag = move_.flag();
 
         // Increment fifty-move counter by default. It will be reset below if applicable.
@@ -256,7 +260,7 @@ impl Board {
         // Clear previous en passant square from state and Zobrist key if it exists.
         // Must be done *before* potentially setting a new one.
         if let Some(ep_sq) = self.state.enpassant {
-            self.state.key.toggle_ep(ep_sq.file());
+            self.state.keys.toggle_ep(ep_sq.file());
             self.state.enpassant = None;
         }
 
@@ -270,9 +274,9 @@ impl Board {
                 }
                 // Move the piece on board and bitboards
                 self.move_piece(from, to);
-                // Update hash key for piece movement
-                self.state.key.toggle_piece(piece, from);
-                self.state.key.toggle_piece(piece, to);
+                // Update hash keys for piece movement
+                self.state.keys.toggle_piece(piece, from);
+                self.state.keys.toggle_piece(piece, to);
                 // Update castling rights if king/rook moved from/to relevant squares
                 self.update_castle_rights(from, to);
             }
@@ -284,23 +288,26 @@ impl Board {
                 self.set_ep(from);
                 // Move the pawn on board and bitboards
                 self.move_piece(from, to);
-                // Update hash key for pawn movement
-                self.state.key.toggle_piece(piece, from);
-                self.state.key.toggle_piece(piece, to);
+                // Update hash keys for pawn movement
+                self.state.keys.toggle_piece(piece, from);
+                self.state.keys.toggle_piece(piece, to);
                 // Note: Castling rights are not affected by pawn moves.
             }
             // Handle Castling
             MoveFlag::KingCastle | MoveFlag::QueenCastle => {
                 // Reset fifty move counter (castling is a king move, not pawn/capture)
                 // self.state.fifty_move += 1; // Already incremented above
+                // Remove the king (Pick it up, prevent bug where the destination of the rook is on the square of the king)
+                self.remove_piece(from);
+                // Update hash keys for king movement
+                self.state.keys.toggle_piece(piece, from);
                 let is_king_side = flag == MoveFlag::KingCastle;
                 // Move the rook and update its Zobrist keys
                 self.castle(is_king_side);
-                // Move the king on board and bitboards
-                self.move_piece(from, to);
-                // Update hash key for king movement
-                self.state.key.toggle_piece(piece, from);
-                self.state.key.toggle_piece(piece, to);
+                // Add the king (Place it back down)
+                self.add_piece(piece, to);
+                // Update hash keys for king movement
+                self.state.keys.toggle_piece(piece, to);
                 // Update castling rights (king move always removes rights for that side)
                 // The `from` square (e1/e8) is sufficient to remove rights.
                 self.update_castle_rights(from, to); // `to` doesn't affect rights here, but harmless
@@ -310,19 +317,21 @@ impl Board {
                 // Reset fifty move counter for captures
                 self.state.fifty_move = 0;
                 // Store captured piece (must exist at 'to' square)
-                let captured_piece = self
-                    .on(to)
-                    .expect("make_move: Capture flag set, but 'to' square is empty");
+                debug_assert!(
+                    self.on(to).is_some(),
+                    "make_move: Capture flag set, but 'to' square is empty"
+                );
+                let captured_piece = unsafe { self.on(to).unwrap_unchecked() };
                 self.state.captured = Some(captured_piece);
                 // Remove the captured piece from board/bitboards
                 self.remove_piece(to);
-                // Update hash key for the removed captured piece
-                self.state.key.toggle_piece(captured_piece, to);
+                // Update hash keys for the removed captured piece
+                self.state.keys.toggle_piece(captured_piece, to);
                 // Move the attacking piece
                 self.move_piece(from, to);
-                // Update hash key for the moved attacking piece
-                self.state.key.toggle_piece(piece, from);
-                self.state.key.toggle_piece(piece, to);
+                // Update hash keys for the moved attacking piece
+                self.state.keys.toggle_piece(piece, from);
+                self.state.keys.toggle_piece(piece, to);
                 // Update castling rights if king/rook moved or if a rook was captured on its home square
                 self.update_castle_rights(from, to);
             }
@@ -330,22 +339,24 @@ impl Board {
             MoveFlag::EPCapture => {
                 // Reset fifty move counter for captures (en passant is a pawn capture)
                 self.state.fifty_move = 0;
-                // Calculate the square of the pawn being captured en passant
-                let cap_sq = to
-                    .add(-us.forward())
-                    .expect("make_move: Invalid EP target square calculation");
+                // Calculate the square of the pawn being captured enpassant (Safe as en_passant squares can only be on Rank 2 or 6)
+                debug_assert!(
+                    to.add(-us.forward()).is_ok(),
+                    "make_move: Invalid EP target square calculation"
+                );
+                let cap_sq = unsafe { to.add(-us.forward()).unwrap_unchecked() };
                 let captured_pawn = Piece::from_parts(them, PieceType::Pawn);
                 // Store the captured pawn type (always a pawn of the opposite color)
                 self.state.captured = Some(captured_pawn);
                 // Remove the captured pawn from board/bitboards
                 self.remove_piece(cap_sq);
-                // Update hash key for the removed captured pawn
-                self.state.key.toggle_piece(captured_pawn, cap_sq);
+                // Update hash keys for the removed captured pawn
+                self.state.keys.toggle_piece(captured_pawn, cap_sq);
                 // Move the attacking pawn
                 self.move_piece(from, to);
-                // Update hash key for the moved attacking pawn
-                self.state.key.toggle_piece(piece, from);
-                self.state.key.toggle_piece(piece, to);
+                // Update hash keys for the moved attacking pawn
+                self.state.keys.toggle_piece(piece, from);
+                self.state.keys.toggle_piece(piece, to);
                 // Note: Castling rights are not affected by EP captures.
             }
 
@@ -361,12 +372,12 @@ impl Board {
                 let promo_piece = Piece::from_parts(us, promo_pt);
                 // Remove the pawn from its starting square
                 self.remove_piece(from);
-                // Update hash key for the removed pawn
-                self.state.key.toggle_piece(piece, from); // `piece` is the pawn here
+                // Update hash keys for the removed pawn
+                self.state.keys.toggle_piece(piece, from); // `piece` is the pawn here
                 // Add the promoted piece to the destination square
                 self.add_piece(promo_piece, to);
-                // Update hash key for the added promoted piece
-                self.state.key.toggle_piece(promo_piece, to);
+                // Update hash keys for the added promoted piece
+                self.state.keys.toggle_piece(promo_piece, to);
                 // Update castling rights if promotion occurs on a rook's home square (rare, but possible)
                 self.update_castle_rights(from, to);
             }
@@ -379,25 +390,27 @@ impl Board {
                 // Reset fifty move counter for captures (and pawn moves)
                 self.state.fifty_move = 0;
                 // Store captured piece (must exist at 'to' square)
-                let captured_piece = self
-                    .on(to)
-                    .expect("make_move: PromoCapture flag set, but 'to' square is empty");
+                debug_assert!(
+                    self.on(to).is_some(),
+                    "make_move: PromoCapture flag set, but 'to' square is empty"
+                );
+                let captured_piece = unsafe { self.on(to).unwrap_unchecked() };
                 self.state.captured = Some(captured_piece);
                 // Remove the captured piece
                 self.remove_piece(to);
                 // Update hash key for the removed captured piece
-                self.state.key.toggle_piece(captured_piece, to);
+                self.state.keys.toggle_piece(captured_piece, to);
                 // Get the piece type to promote to
                 let promo_pt = move_.promotion_pt();
                 let promo_piece = Piece::from_parts(us, promo_pt);
                 // Remove the pawn from its starting square
                 self.remove_piece(from);
                 // Update hash key for the removed pawn
-                self.state.key.toggle_piece(piece, from); // `piece` is the pawn
+                self.state.keys.toggle_piece(piece, from); // `piece` is the pawn
                 // Add the promoted piece to the destination square
                 self.add_piece(promo_piece, to);
                 // Update hash key for the added promoted piece
-                self.state.key.toggle_piece(promo_piece, to);
+                self.state.keys.toggle_piece(promo_piece, to);
                 // Update castling rights if promotion/capture occurs on a rook's home square
                 self.update_castle_rights(from, to);
             }
@@ -406,7 +419,7 @@ impl Board {
         // Toggle side to move *after* all other updates
         self.side_to_move = !self.side_to_move;
         // Update hash key for the change in side to move
-        self.state.key.toggle_colour();
+        self.state.keys.toggle_colour();
     }
 
     /// Reverses a `Move` that was just made, restoring the previous board state.
@@ -432,11 +445,6 @@ impl Board {
     /// - This function should only be called after a move has been made (or else there might be a stack underflow or mismatched moves)
     /// - The `move_` argument *must* be identical to the one passed to `make_move`.
     /// - The board state must not have been modified between the `make_move` and `undo_move` calls.
-    ///
-    /// # Panics
-    ///
-    /// Can panic with `.expect` if the state history is empty (`restore_state` panics) or if internal logic errors occur
-    /// (e.g., trying to operate on `None` where a captured piece was expected based on the move flag and restored state).
     pub fn undo_move(&mut self, move_: Move) {
         // Toggle side to move back to the state *before* the move was made
         self.side_to_move = !self.side_to_move;
@@ -453,7 +461,7 @@ impl Board {
 
         // Restore the entire previous state (key, counters, ep, castle, captured piece)
         // This must happen *before* moving pieces back, especially to retrieve `state.captured`.
-        // restore_state() itself uses .unwrap() which is appropriate here - if history is empty, it's a fatal logic error.
+
         self.restore_state();
 
         // Reverse the piece movements based on the move flag
@@ -470,12 +478,11 @@ impl Board {
                 // Move the attacking piece back
                 self.move_piece(to, from);
                 // Add the captured piece (retrieved from restored state) back to the 'to' square
-                self.add_piece(
-                    captured.expect(
-                        "undo_move: Capture flag set, but restored state has no captured piece",
-                    ),
-                    to,
+                debug_assert!(
+                    captured.is_some(),
+                    "undo_move: Capture flag set, but restored state has no captured piece"
                 );
+                self.add_piece(unsafe { captured.unwrap_unchecked() }, to);
                 // Castling rights restored by restore_state()
             }
             // Handle Enpassant
@@ -483,25 +490,28 @@ impl Board {
                 // Move the attacking pawn back
                 self.move_piece(to, from);
                 // Calculate the square where the EP captured pawn was
-                let cap_sq = to
-                    .add(-us.forward())
-                    .expect("undo_move: Invalid EP target square calculation");
-                // Add the captured pawn (always Pawn of opposite color) back
-                self.add_piece(
-                    captured.expect(
-                        "undo_move: EPCapture flag set, but restored state has no captured piece",
-                    ),
-                    cap_sq,
+                debug_assert!(
+                    to.add(-us.forward()).is_ok(),
+                    "undo_move: Invalid EP target square calculation"
                 );
+                let cap_sq = unsafe { to.add(-us.forward()).unwrap_unchecked() };
+                // Add the captured pawn (always Pawn of opposite color) back
+                debug_assert!(
+                    captured.is_some(),
+                    "undo_move: EPCapture flag set, but restored state has no captured piece"
+                );
+                self.add_piece(unsafe { captured.unwrap_unchecked() }, cap_sq);
                 // En passant square restored by restore_state()
             }
             // Handle Castling
             MoveFlag::KingCastle | MoveFlag::QueenCastle => {
                 let is_king_side = flag == MoveFlag::KingCastle;
-                // Move the king back
-                self.move_piece(to, from);
+                // Pick up the king
+                self.remove_piece(to);
                 // Move the rook back (undo_castle uses move_piece internally)
                 self.undo_castle(is_king_side);
+                // Place the king down
+                self.add_piece(Piece::from_parts(us, PieceType::King), from);
                 // Castling rights are restored by restore_state()
             }
             // Promotion without capture
@@ -523,7 +533,11 @@ impl Board {
                 // Remove the promoted piece from the 'to' square
                 self.remove_piece(to);
                 // Add the captured piece (from restored state) back to the 'to' square
-                self.add_piece(captured.expect("undo_move: PromoCapture flag set, but restored state has no captured piece"), to);
+                debug_assert!(
+                    captured.is_some(),
+                    "undo_move: PromoCapture flag set, but restored state has no captured piece"
+                );
+                self.add_piece(unsafe { captured.unwrap_unchecked() }, to);
                 // Add the original pawn back to the 'from' square
                 self.add_piece(Piece::from_parts(us, PieceType::Pawn), from);
                 // Castling rights restored by restore_state()
@@ -543,30 +557,53 @@ mod tests {
     // The .expect() calls added above are primarily for the core board logic.
     use super::*; // Import Board and its methods
     use crate::board::fen::*; // Import FEN constants and Board::from_fen
-    use crate::core::*; // Import Piece, Square, Move, MoveFlag, etc.
 
-    // Helper function to create a board and calculate its key consistently
+    // Helper function to create a board and calculate its keys consistently
     fn board_from_fen(fen: &str) -> Board {
         let mut board = Board::from_fen(fen).expect("Test FEN should be valid");
-        // Ensure the key stored after parsing matches a fresh calculation
+        // Ensure the keys stored after parsing match a fresh calculation
         let calculated_key = board.calc_key();
+        let calculated_pawn_key = board.calc_pawn_key();
+        let calculated_non_pawn_key = board.calc_non_pawn_key();
         assert_eq!(
-            board.state().key,
+            board.state().keys.key,
             calculated_key,
             "Key mismatch after initial FEN parse for: {}",
+            fen
+        );
+        assert_eq!(
+            board.state().keys.pawn_key,
+            calculated_pawn_key,
+            "Pawn key mismatch after initial FEN parse for: {}",
+            fen
+        );
+        assert_eq!(
+            board.state().keys.non_pawn_key[0],
+            calculated_non_pawn_key[0],
+            "Pawn key mismatch after initial FEN parse for: {}",
+            fen
+        );
+        assert_eq!(
+            board.state().keys.non_pawn_key[1],
+            calculated_non_pawn_key[1],
+            "Pawn key mismatch after initial FEN parse for: {}",
             fen
         );
         board
     }
 
-    // Helper function to perform make/undo and check board state + key consistency
+    // Helper function to perform make/undo and check board state + keys consistency
     fn test_make_undo(fen_before: &str, move_to_test: Move, fen_after: &str) {
         let mut board = board_from_fen(fen_before);
-        let key_before = board.state().key;
+        let key_before = board.state().keys.key;
+        let pawn_key_before = board.state().keys.pawn_key;
+        let non_pawn_key_before = board.state().keys.non_pawn_key;
 
         // --- Make Move ---
         board.make_move(move_to_test);
-        let key_after_make = board.state().key;
+        let key_after_make = board.state().keys.key;
+        let pawn_key_after_make = board.state().keys.pawn_key;
+        let non_pawn_key_after_make = board.state().keys.non_pawn_key;
 
         // Assert board state after make_move
         assert_eq!(
@@ -575,37 +612,96 @@ mod tests {
             "FEN mismatch after make_move for '{}'",
             move_to_test
         );
-        // Assert key is different after make_move (unless it's a null move, which we aren't testing here)
+        // Assert main key is different
         assert_ne!(
             key_before, key_after_make,
             "Key should change after make_move for '{}'",
             move_to_test
         );
 
+        // --- Verify Pawn Key Change (or lack thereof) ---
+        let expected_pawn_key_after = Board::from_fen(fen_after).unwrap().calc_pawn_key();
+        assert_eq!(
+            pawn_key_after_make, expected_pawn_key_after,
+            "Pawn key incorrect after make_move for '{}'. Expected {:?}, Got {:?}",
+            move_to_test, expected_pawn_key_after, pawn_key_after_make
+        );
+        let expected_non_pawn_key_after = Board::from_fen(fen_after).unwrap().calc_non_pawn_key();
+        assert_eq!(
+            non_pawn_key_after_make, expected_non_pawn_key_after,
+            "Pawn key incorrect after make_move for '{}'. Expected {:?}, Got {:?}",
+            move_to_test, expected_non_pawn_key_after, non_pawn_key_after_make
+        );
+        // Optionally assert if pawn key *should* have changed
+        let piece = Board::from_fen(fen_before)
+            .unwrap()
+            .on(move_to_test.from())
+            .unwrap();
+        let captured_piece = if move_to_test.flag().is_capture() {
+            Board::from_fen(fen_before).unwrap().on(move_to_test.to())
+        } else if move_to_test.is_ep_capture() {
+            Some(Piece::from_parts(!board.side_to_move, PieceType::Pawn)) // After make_move, side is flipped
+        } else {
+            None
+        };
+
+        let affects_pawn_key = piece.pt() == PieceType::Pawn
+            || captured_piece.map_or(false, |p| p.pt() == PieceType::Pawn);
+        if affects_pawn_key {
+            assert_ne!(
+                pawn_key_before, pawn_key_after_make,
+                "Pawn key should change after pawn-related move '{}'",
+                move_to_test
+            );
+        } else {
+            assert_eq!(
+                pawn_key_before, pawn_key_after_make,
+                "Pawn key should NOT change after non-pawn move '{}'",
+                move_to_test
+            );
+        }
+
         // --- Undo Move ---
         board.undo_move(move_to_test);
-        let key_after_undo = board.state().key;
+        let key_after_undo = board.state().keys.key;
+        let pawn_key_after_undo = board.state().keys.pawn_key;
+        let non_pawn_key_after_undo = board.state().keys.non_pawn_key;
 
-        // Assert board state is restored after undo_move
+        // Assert board state is restored
         assert_eq!(
             board.fen(),
             fen_before,
             "FEN mismatch after undo_move for '{}'",
             move_to_test
         );
-        // Assert key is restored exactly
+        // Assert keys are restored exactly
         assert_eq!(
             key_after_undo, key_before,
             "Key mismatch after undo_move for '{}'",
             move_to_test
         );
+        assert_eq!(
+            pawn_key_after_undo, pawn_key_before,
+            "Pawn key mismatch after undo_move for '{}'",
+            move_to_test
+        );
+        assert_eq!(
+            non_pawn_key_after_undo, non_pawn_key_before,
+            "Non Pawn key mismatch after undo_move for '{}'",
+            move_to_test
+        );
 
         // --- Optional: Verify key calculation consistency after undo ---
-        // This helps catch if undo_move modified pieces correctly but restore_state failed somehow
         let calculated_key_after_undo = board.calc_key();
+        let calculated_pawn_key_after_undo = board.calc_pawn_key();
         assert_eq!(
             calculated_key_after_undo, key_before,
             "Recalculated key mismatch after undo_move for '{}'",
+            move_to_test
+        );
+        assert_eq!(
+            calculated_pawn_key_after_undo, pawn_key_before,
+            "Recalculated pawn key mismatch after undo_move for '{}'",
             move_to_test
         );
     }
@@ -794,5 +890,187 @@ mod tests {
         // Quiet king move
         board.make_move(Move::new(Square::E1, Square::E2, MoveFlag::QuietMove));
         assert_eq!(board.state().fifty_move, 1); // Increment on non-pawn, non-capture
+    }
+
+    #[test]
+    fn test_quiet_pawn_move_keys() {
+        test_make_undo(
+            START_FEN,
+            Move::new(Square::E2, Square::E4, MoveFlag::DoublePawnPush), // e2e4
+            "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+        );
+    }
+
+    #[test]
+    fn test_quiet_knight_move_keys() {
+        test_make_undo(
+            "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1", // After 1. e4
+            Move::new(Square::G8, Square::F6, MoveFlag::QuietMove),        // ...Nf6
+            "rnbqkb1r/pppppppp/5n2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2",
+        );
+    }
+
+    #[test]
+    fn test_capture_pawn_takes_pawn_keys() {
+        test_make_undo(
+            "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2", // After 1.e4 d5
+            Move::new(Square::E4, Square::D5, MoveFlag::Capture),            // exd5
+            "rnbqkbnr/ppp1pppp/8/3P4/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2",
+        );
+    }
+
+    #[test]
+    fn test_capture_knight_takes_pawn_keys() {
+        test_make_undo(
+            "rnbqkbnr/ppp1pppp/8/3p4/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2", // After 1.e4 d5 2.Nf3
+            Move::new(Square::F3, Square::D4, MoveFlag::QuietMove), // Need a setup where knight takes pawn
+            "rnbqkbnr/ppp1pppp/8/3p4/3NP3/8/PPPP1PPP/RNBQKB1R w KQkq - 2 3", // Example setup
+        );
+        // Actual test
+        test_make_undo(
+            "r1bqkbnr/ppp1pppp/2n5/3p4/3NP3/8/PPPP1PPP/RNBQKB1R b KQkq - 3 3", // After 1.e4 d5 2.Nf3 Nc6 3.Nd4
+            Move::new(Square::C6, Square::D4, MoveFlag::Capture),              // Nxd5
+            "r1bqkbnr/ppp1pppp/8/3p4/3nP3/8/PPPP1PPP/RNBQKB1R w KQkq - 0 4",   // Corrected FEN
+        );
+    }
+
+    #[test]
+    fn test_en_passant_capture_keys() {
+        let fen_before_ep = "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3";
+        test_make_undo(
+            fen_before_ep,
+            Move::new(Square::E5, Square::D6, MoveFlag::EPCapture), // White captures EP
+            "rnbqkbnr/ppp1pppp/3P4/8/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 3",
+        );
+    }
+
+    #[test]
+    fn test_white_kingside_castle_keys() {
+        let fen_before_castle = "rnbq1bnr/pppppkpp/8/8/8/8/PPPPPPPP/RNBQK2R w KQ - 0 5";
+        test_make_undo(
+            fen_before_castle,
+            Move::new(Square::E1, Square::G1, MoveFlag::KingCastle), // O-O
+            "rnbq1bnr/pppppkpp/8/8/8/8/PPPPPPPP/RNBQ1RK1 b - - 1 5",
+        );
+    }
+
+    #[test]
+    fn test_promotion_quiet_keys() {
+        let fen_before_promo = "r1bqkbnr/pPpppppp/8/8/8/8/1PPPPPPP/RNBQKBNR w KQkq - 0 6";
+        test_make_undo(
+            fen_before_promo,
+            Move::new_promotion(Square::B7, Square::B8, PieceType::Queen, false), // b7b8=Q
+            "rQbqkbnr/p1pppppp/8/8/8/8/1PPPPPPP/RNBQKBNR b KQkq - 0 6",
+        );
+    }
+
+    #[test]
+    fn test_promotion_capture_pawn_keys() {
+        // Pawn takes pawn promotion
+        let fen_before_promo_cap = "rnbqkbnr/ppPppppp/8/8/8/8/PPP1PPPP/RNBQKBNR w KQkq - 0 1"; // White C7, Black D7
+        test_make_undo(
+            fen_before_promo_cap,
+            Move::new_promotion(Square::C7, Square::D8, PieceType::Queen, true), // cxd8=Q
+            "rnbQkbnr/pp1ppppp/8/8/8/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+        );
+    }
+
+    #[test]
+    fn test_promotion_capture_non_pawn_keys() {
+        // Pawn takes rook promotion
+        let fen_before_promo_cap = "rnbqkbnr/pPpppppp/8/8/8/8/1PPPPPPP/RNBQKBNR w KQkq - 0 6"; // White b7, Black a8
+        test_make_undo(
+            fen_before_promo_cap,
+            Move::new_promotion(Square::B7, Square::A8, PieceType::Knight, true), // bxa8=N
+            "Nnbqkbnr/p1pppppp/8/8/8/8/1PPPPPPP/RNBQKBNR b KQk - 0 6",
+        );
+    }
+
+    // --- Chess960 Castling Tests ---
+
+    #[test]
+    fn test_xfen_white_kingside_castle_k_e1_r_g1() {
+        // Setup: King E1, Rook G1. White has 'G' castling right (maps to WK).
+        let fen_before = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/4KR2 w K - 0 1";
+        // Move: White castles kingside (O-O). King E1->G1, Rook G1->F1.
+        let castle_move = Move::new(Square::E1, Square::G1, MoveFlag::KingCastle);
+        // Expected state: King G1, Rook F1. Side black. Castling rights '-'. Halfmove 1, Fullmove 1.
+        let fen_after = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/5RK1 b - - 1 1";
+        test_make_undo(fen_before, castle_move, fen_after);
+    }
+
+    #[test]
+    fn test_xfen_white_queenside_castle_k_e1_r_b1() {
+        let fen_before = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/1R2K3 w Q - 0 1";
+        let castle_move = Move::new(Square::E1, Square::C1, MoveFlag::QueenCastle);
+        let fen_after = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/2KR4 b - - 1 1";
+        test_make_undo(fen_before, castle_move, fen_after);
+    }
+
+    #[test]
+    fn test_xfen_black_kingside_castle_k_e8_r_f8() {
+        // Setup: King E8, Rook F8. Black has 'f' castling right (maps to BK).
+        let fen_before = "4kr2/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b k - 0 1";
+        // Move: Black castles kingside (O-O). King E8->G8, Rook F8->F8 (standard dest).
+        let castle_move = Move::new(Square::E8, Square::G8, MoveFlag::KingCastle);
+        // Expected state: King G8, Rook F8. Side white. Castling rights '-'. Halfmove 1, Fullmove 2.
+        let fen_after = "5rk1/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 1 2";
+        test_make_undo(fen_before, castle_move, fen_after);
+    }
+
+    #[test]
+    fn test_xfen_black_queenside_castle_k_e8_r_c8() {
+        // Setup: King E8, Rook C8. Black has 'c' castling right (maps to BQ).
+        let fen_before = "2r1k3/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b q - 0 1";
+        // Move: Black castles queenside (O-O-O). King E8->C8, Rook C8->D8.
+        let castle_move = Move::new(Square::E8, Square::C8, MoveFlag::QueenCastle);
+        // Expected state: King C8, Rook D8. Side white. Castling rights '-'. Halfmove 1, Fullmove 2.
+        let fen_after = "2kr4/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 1 2";
+        test_make_undo(fen_before, castle_move, fen_after);
+    }
+
+    #[test]
+    fn test_xfen_sp4_white_kingside_castle() {
+        let fen_before = "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/R4KR1 w KQ - 0 1";
+        let castle_move = Move::new(Square::F1, Square::G1, MoveFlag::KingCastle);
+        let fen_after = "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/R4RK1 b - - 1 1";
+        test_make_undo(fen_before, castle_move, fen_after);
+    }
+
+    #[test]
+    fn test_xfen_sp4_white_queenside_castle() {
+        let fen_before = "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/R4KR1 w KQ - 0 1";
+        let castle_move = Move::new(Square::F1, Square::C1, MoveFlag::QueenCastle); // King G1 -> C1
+        let fen_after = "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/2KR2R1 b - - 1 1";
+        test_make_undo(fen_before, castle_move, fen_after);
+    }
+
+    // --- Chess960 Castling Rights Removal Tests ---
+
+    #[test]
+    fn test_xfen_rights_removal_king_move() {
+        let fen_before = "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/RNBQ2KR w KQ - 0 1";
+        let king_move = Move::new(Square::G1, Square::F1, MoveFlag::QuietMove);
+        let fen_after = "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/RNBQ1K1R b - - 1 1";
+        test_make_undo(fen_before, king_move, fen_after);
+    }
+
+    #[test]
+    fn test_xfen_rights_removal_h_rook_move() {
+        // Setup: SP 4 (RNBQKB1R). King G1, Rooks F1, H1. White has 'F' (WQ) and 'H' (WK) rights.
+        let fen_before = "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKB1R w KQ - 0 1";
+        // Move: H-Rook (WK side) moves H1->H2.
+        let rook_move = Move::new(Square::H1, Square::G1, MoveFlag::QuietMove);
+        let fen_after = "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBR1 b Q - 1 1"; // Note: Castling right is now just 'F'
+        test_make_undo(fen_before, rook_move, fen_after);
+    }
+
+    // --- XFen Move Tests ---
+    #[test]
+    fn test_xfen_custom_position() {
+        let fen_before = "rn2k1r1/ppp1pp1p/3p2p1/5bn1/P7/2N2B2/1PPPPP2/2BNK1RR w Gkq - 4 11";
+        let fen_after = "rn2k1r1/ppp1pp1p/3p2p1/5bn1/P6R/2N2B2/1PPPPP2/2BNK1R1 b Kkq - 5 11";
+        let rook_move = Move::new(Square::H1, Square::H4, MoveFlag::QuietMove);
+        test_make_undo(fen_before, rook_move, fen_after);
     }
 }

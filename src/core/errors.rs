@@ -1,4 +1,12 @@
-//! This module defines the custom error types used throughout the Sophos chess engine.
+//! Defines the custom error types used throughout the Sophos chess engine.
+//!
+//! These errors cover issues related to parsing core types (like pieces, squares, FEN strings),
+//! performing board operations (like moving pieces off the board), and other potential
+//! failure conditions within the engine's logic. Each error type provides specific
+//! information about the cause of the failure.
+
+// Add this attribute to enforce documentation on all public items
+#![deny(missing_docs)]
 
 use std::fmt; // Import fmt for use in doc examples if needed
 
@@ -18,7 +26,7 @@ pub enum ParsePieceError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::utils::errors::ParsePieceError;
+    /// # use sophos::core::errors::ParsePieceError; // Corrected path
     /// # use sophos::core::Piece; // Assuming Piece is in core
     /// let result = "Pn".parse::<Piece>(); // Input is too long
     /// assert!(matches!(result, Err(ParsePieceError::InvalidLength(2))));
@@ -31,7 +39,7 @@ pub enum ParsePieceError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::utils::errors::ParsePieceError;
+    /// # use sophos::core::errors::ParsePieceError; // Corrected path
     /// # use sophos::core::Piece; // Assuming Piece is in core
     /// let result = "X".parse::<Piece>(); // 'X' is not a valid piece character
     /// assert!(matches!(result, Err(ParsePieceError::InvalidChar('X'))));
@@ -74,11 +82,16 @@ pub enum SquareAddError {
     /// # Example
     /// ```
     /// # use sophos::core::{Square, Direction}; // Assuming these types exist
-    /// # use sophos::utils::errors::SquareAddError;
+    /// # use sophos::core::errors::SquareAddError; // Corrected path
+    /// # // Dummy Direction enum for example
+    /// # #[derive(PartialEq, Eq, Clone, Copy, Debug)] enum Direction { NORTH, SOUTH, EAST, WEST }
+    /// # // Dummy Square enum for example
+    /// # #[derive(PartialEq, Eq, Clone, Copy, Debug)] enum Square { A1, A2, H8 }
+    /// # impl Square { fn index(&self) -> i8 { *self as i8 } } // Dummy index
     /// # fn add_direction(sq: Square, dir: Direction) -> Result<Square, SquareAddError> {
     /// #     // Dummy implementation for example
-    /// #     if sq == Square::H8 && dir == Direction::NORTH { Ok(Square::H8) } // Prevent unused warning
-    /// #     if sq == Square::A1 && dir == Direction::SOUTH { return Err(SquareAddError::OutOfBounds); }
+    /// #     if sq == Square::H8 && dir == Direction::NORTH { return Err(SquareAddError::OutOfBounds); } // Example failure
+    /// #     if sq == Square::A1 && dir == Direction::SOUTH { return Err(SquareAddError::OutOfBounds); } // Example failure
     /// #     Ok(Square::A2) // Dummy success case
     /// # }
     /// let square = Square::A1;
@@ -107,6 +120,62 @@ impl std::error::Error for SquareAddError {}
 |==========================================|
 \******************************************/
 
+/// Represents errors that can occur when attempting to parse a `File` from a string.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseFileError {
+    /// The input string did not have the expected length (usually 1).
+    InvalidLength(usize),
+    /// The character is not a valid file character ('a' through 'h').
+    InvalidChar(char),
+}
+
+impl fmt::Display for ParseFileError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ParseFileError::InvalidLength(l) => {
+                write!(f, "Invalid length for file string: {}, expected 1", l)
+            }
+            ParseFileError::InvalidChar(c) => {
+                write!(
+                    f,
+                    "Invalid character for file string: '{}', expected 'a'-'h'",
+                    c
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ParseFileError {}
+
+/// Represents errors that can occur when attempting to parse a `Rank` from a string.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseRankError {
+    /// The input string did not have the expected length (usually 1).
+    InvalidLength(usize),
+    /// The character is not a valid rank character ('1' through '8').
+    InvalidChar(char),
+}
+
+impl fmt::Display for ParseRankError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ParseRankError::InvalidLength(l) => {
+                write!(f, "Invalid length for rank string: {}, expected 1", l)
+            }
+            ParseRankError::InvalidChar(c) => {
+                write!(
+                    f,
+                    "Invalid character for rank string: '{}', expected '1'-'8'",
+                    c
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ParseRankError {}
+
 /// Represents errors that can occur when attempting to parse a `Square`
 /// from algebraic notation (e.g., "e4", "h8").
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -116,7 +185,7 @@ pub enum ParseSquareError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::utils::errors::ParseSquareError;
+    /// # use sophos::core::errors::ParseSquareError; // Corrected path
     /// # use sophos::core::Square; // Assuming Square is in core
     /// let result = "e4g".parse::<Square>(); // Input is too long
     /// assert!(matches!(result, Err(ParseSquareError::InvalidLength(3))));
@@ -130,7 +199,7 @@ pub enum ParseSquareError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::utils::errors::ParseSquareError;
+    /// # use sophos::core::errors::ParseSquareError; // Corrected path
     /// # use sophos::core::Square; // Assuming Square is in core
     /// let result = "z4".parse::<Square>(); // 'z' is not a valid file
     /// assert!(matches!(result, Err(ParseSquareError::InvalidFileChar('z'))));
@@ -142,7 +211,7 @@ pub enum ParseSquareError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::utils::errors::ParseSquareError;
+    /// # use sophos::core::errors::ParseSquareError; // Corrected path
     /// # use sophos::core::Square; // Assuming Square is in core
     /// let result = "e9".parse::<Square>(); // '9' is not a valid rank
     /// assert!(matches!(result, Err(ParseSquareError::InvalidRankChar('9'))));
@@ -185,10 +254,10 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Position; // Assuming a Position struct exists
-    /// # use sophos::utils::errors::FenParseError;
+    /// # use sophos::core::Board; // Assuming Board::from_fen exists
+    /// # use sophos::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0"; // Missing fullmove number
-    /// let result = fen.parse::<Position>();
+    /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidNumberOfFields)));
     /// ```
     InvalidNumberOfFields,
@@ -199,32 +268,33 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Position;
-    /// # use sophos::utils::errors::FenParseError;
+    /// # use sophos::core::Board;
+    /// # use sophos::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/ppppxppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; // 'x' is invalid
-    /// let result = fen.parse::<Position>();
+    /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidPiecePlacementChar('x'))));
     /// ```
     InvalidPiecePlacementChar(char),
 
     /// A rank description within the piece placement field was malformed.
     /// This usually means the pieces and empty square counts ('1'-'8') for a rank
-    /// do not sum up to exactly 8 files. It can also indicate missing '/' separators
-    /// or too many separators.
+    /// do not sum up to exactly 8 files. It can also indicate missing '/' separators,
+    /// too many separators, or invalid skip digits ('0', '9').
+    /// Contains a string describing the specific format error.
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Position;
-    /// # use sophos::utils::errors::FenParseError;
-    /// // Rank 2 specifies 9 files (pppppppp + 1)
+    /// # use sophos::core::Board;
+    /// # use sophos::core::errors::FenParseError; // Corrected path
+    /// // Rank 2 specifies 9 files (pppppppp + 1 -> error on '1')
     /// let fen = "rnbqkbnr/pppppppp1/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    /// let result = fen.parse::<Position>();
-    /// assert!(matches!(result, Err(FenParseError::InvalidRankFormat("File out of bounds"))));
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidRankFormat(_)))); // Check message if needed
     ///
-    /// // Missing a rank separator
+    /// // Missing a rank separator (results in final rank check failure)
     /// let fen = "rnbqkbnr/pppppppp8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    /// let result = fen.parse::<Position>();
-    /// assert!(matches!(result, Err(FenParseError::InvalidRankFormat("File out of bounds")))); // Or potentially InvalidNumberOfFields depending on parser logic
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidRankFormat(_)))); // Check message if needed
     /// ```
     InvalidRankFormat(String),
 
@@ -234,41 +304,46 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Position;
-    /// # use sophos::utils::errors::FenParseError;
+    /// # use sophos::core::Board;
+    /// # use sophos::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1"; // 'x' is invalid
-    /// let result = fen.parse::<Position>();
+    /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidSideToMove(s)) if s == "x"));
     /// ```
     InvalidSideToMove(String),
 
     /// The castling availability field (the third field) contained an invalid character.
     /// Valid characters are 'K', 'Q', 'k', 'q', or '-' if no castling is possible.
+    /// For Chess960, valid characters are file letters 'A'-'H' and 'a'-'h', or '-'.
     /// Contains the first invalid character encountered.
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Position;
-    /// # use sophos::utils::errors::FenParseError;
+    /// # use sophos::core::Board;
+    /// # use sophos::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQXkq - 0 1"; // 'X' is invalid
-    /// let result = fen.parse::<Position>();
+    /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidCastlingChar('X'))));
     /// ```
     InvalidCastlingChar(char),
 
     /// The en passant target square field (the fourth field) was not '-' and did not
-    /// represent a valid square in algebraic notation (e.g., "e3", "f6").
+    /// represent a valid square in algebraic notation (e.g., "e3", "f6") on the correct rank (3 or 6).
     /// Contains the invalid string found.
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Position;
-    /// # use sophos::utils::errors::FenParseError;
-    /// let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e9 0 1"; // "e9" is invalid
-    /// let result = fen.parse::<Position>();
+    /// # use sophos::core::Board;
+    /// # use sophos::core::errors::FenParseError; // Corrected path
+    /// let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e9 0 1"; // "e9" is invalid square
+    /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidEnPassantSquare(s)) if s == "e9"));
+    ///
+    /// let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e4 0 1"; // "e4" is invalid rank for EP
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidEnPassantSquare(s)) if s.contains("e4 is not a valid enpassant square"))));
     /// ```
-    InvalidEnPassantSquare(String), // Consider wrapping ParseSquareError here
+    InvalidEnPassantSquare(String), // Contains the invalid string or a more descriptive error
 
     /// The halfmove clock field (the fifth field) could not be parsed as a non-negative integer (u8).
     /// This clock counts halfmoves since the last capture or pawn advance, used for the 50-move rule.
@@ -276,14 +351,14 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Position;
-    /// # use sophos::utils::errors::FenParseError;
+    /// # use sophos::core::Board;
+    /// # use sophos::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - fifty 1"; // "fifty" is invalid
-    /// let result = fen.parse::<Position>();
+    /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidHalfmoveClock(s)) if s == "fifty"));
     ///
     /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - -1 1"; // Negative is invalid
-    /// let result = fen.parse::<Position>();
+    /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidHalfmoveClock(s)) if s == "-1"));
     /// ```
     InvalidHalfmoveClock(String),
@@ -294,15 +369,15 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Position;
-    /// # use sophos::utils::errors::FenParseError;
+    /// # use sophos::core::Board;
+    /// # use sophos::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 zero"; // "zero" is invalid
-    /// let result = fen.parse::<Position>();
+    /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidFullmoveNumber(s)) if s == "zero"));
     ///
     /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0"; // 0 is invalid
-    /// let result = fen.parse::<Position>();
-    /// assert!(matches!(result, Err(FenParseError::InvalidFullmoveNumber(s)) if s == "0"));
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidFullmoveNumber(s)) if s.contains("cannot be 0")));
     /// ```
     InvalidFullmoveNumber(String),
 }
@@ -318,9 +393,9 @@ impl fmt::Display for FenParseError {
             }
             FenParseError::InvalidRankFormat(reason) => write!(
                 f,
-                "Invalid rank format in FEN piece placement, reason: '{}'",
+                "Invalid rank format in FEN piece placement: {}", // Removed 'reason:' prefix as reason is descriptive
                 reason
-            ), // Added detail
+            ),
             FenParseError::InvalidSideToMove(s) => {
                 write!(
                     f,

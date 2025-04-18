@@ -51,6 +51,5 @@ pub mod lookup;
 mod magic;
 
 pub use lookup::{
-    between_bb, castling_rights, check_bb, leaper_attack, line_bb, pawn_attack, pin_bb,
-    slider_attack,
+    between_bb, check_bb, leaper_attack, line_bb, pawn_attack, pin_bb, slider_attack,
 };

@@ -209,6 +209,24 @@ impl Default for Castling {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct CastlingMask {
+    pub castling: [Castling; Square::NUM],
+    /// [WK rook, WQ rook, BK rook, BQ rook]
+    pub rook_sq: [Option<Square>; 4],
+}
+
+impl Default for CastlingMask {
+    fn default() -> Self {
+        use Square::*;
+
+        Self {
+            castling: [Castling::ALL; Square::NUM],
+            rook_sq: [None, None, None, None],
+        }
+    }
+}
+
 /******************************************\
 |==========================================|
 |              Implementation              |
