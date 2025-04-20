@@ -126,7 +126,7 @@ pub(crate) const fn attacks_on_the_fly(pt: PieceType, sq: Square, occ: Bitboard)
             // Add the new square to the attacks
             attacks.bitor_assign(to.bb());
             // Stop if the new square is occupied (it blocks further attacks)
-            if occ.get(to) {
+            if occ.contains(to) {
                 break;
             }
         }

@@ -31,9 +31,12 @@
 //! - **Piece Access**: `Board::on()` retrieves the piece on a given square.
 //! - **Bitboard Access**: `Board::piecetype_bb()`, `Board::occupied_bb()`, `Board::all_occupied_bb()
 pub mod fen;
+pub mod history;
+pub mod mask;
 pub mod movement;
 pub mod zobrist;
 
+use history::UndoHistory;
 use zobrist::KeyBundle;
 
 use crate::core::*;
@@ -82,7 +85,7 @@ pub struct BoardState {
     /// Number of times the current position (by `key`) has occurred in the game history.
     repetitions: i8,
     /// Counter for the fifty-move rule (plies since last pawn move or capture).
-    fifty_move: u8,
+    pub fifty_move: u8,
     /// The piece that was captured on the move leading to this state. `Piece::None` if no capture.
     captured: Option<Piece>, // Assuming Piece::None exists
     /// The square where an en passant capture is possible, if any. `None` otherwise.
@@ -100,9 +103,9 @@ pub struct BoardState {
     /// Bitboard mask: squares occupied by pieces pinned horizontally or vertically to their king.
     hv_pin: Bitboard,
     /// Bitboard mask: squares the king cannot move to (attacked or occupied by friendly pieces).
-    king_ban: Bitboard,
-    /// Flag indicating if the pawn that could capture en passant is pinned, making the move illegal.
-    enpassant_pin: bool,
+    attacked: Bitboard,
+    /// Enpassant pin: whether enpassant pawn is pinned and cannot be taken without revealing a check
+    ep_pin: bool,
 }
 
 /******************************************\
@@ -154,7 +157,7 @@ pub struct Board {
     occupied: [Bitboard; Colour::NUM],
 
     /// Castling Masks for each square, stores the original rook squares for chess960,
-    pub castling_mask: CastlingMask,
+    castling_mask: CastlingMask,
 
     /// Counts the number of half-moves (plies) since the last capture or pawn advance.
     /// Used for the fifty-move rule. Reset to 0 on capture or pawn move.
@@ -167,7 +170,7 @@ pub struct Board {
     state: BoardState,
     // /// A stack-like structure storing previous board states (`BoardState`).
     // /// Used to undo moves (`unmake_move`) and track game history (e.g., for repetition checks).
-    history: Vec<BoardState>,
+    history: UndoHistory<MAX_DEPTH>,
 }
 
 /******************************************\
@@ -189,7 +192,7 @@ impl Board {
             side_to_move: Colour::White,
             half_moves: 0,
             state: BoardState::default(),
-            history: Vec::with_capacity(MAX_DEPTH),
+            history: UndoHistory::default(),
         }
     }
 
@@ -201,44 +204,6 @@ impl Board {
         let mut board = Board::new();
         board.set(START_FEN).unwrap();
         board
-    }
-
-    /// # Store State
-    /// - Stores the current board state in the history stack
-    ///
-    /// ## Example
-    ///
-    /// ```
-    /// use sophos::core::*;
-    /// let mut board = Board::default();
-    /// board.store_state();
-    /// assert_eq!(board.history.len(), 1);
-    /// ```
-    ///
-    #[inline]
-    fn store_state(&mut self) {
-        // Store the current board state in the history stack
-        self.history.push(self.state);
-    }
-
-    /// # Restore State
-    ///
-    /// - Restores the board to the previous state
-    /// - Pops the last board state from the history stack
-    /// - Updates the board state
-    ///
-    /// ## Panics
-    ///
-    /// - Panics if the history stack is empty
-    ///
-    /// ## Arguments
-    ///
-    /// * `self` - The board to restore the state of
-    #[inline]
-    fn restore_state(&mut self) {
-        debug_assert!(!self.history.is_empty(), "History stack is empty!");
-        // Pop the last board state from the history stack
-        self.state = unsafe { self.history.pop().unwrap_unchecked() }
     }
 
     /// # Get Piece on Square
@@ -364,8 +329,8 @@ impl Board {
     ///     Square::A8, Square::H8,
     /// ]));
     #[inline]
-    pub fn piece_bb(&self, piece: Piece) -> Bitboard {
-        self.piecetype_bb(piece.pt()) & self.occupied_bb(piece.colour())
+    pub fn piece_bb(&self, col: Colour, pt: PieceType) -> Bitboard {
+        self.piecetype_bb(pt) & self.occupied_bb(col)
     }
 
     /// # Get Side To Move
@@ -418,7 +383,7 @@ impl Board {
     /// assert_eq!(board.state.castle, Castling::ALL);
     /// ```
     #[inline]
-    pub(crate) fn state(&self) -> &BoardState {
+    pub fn state(&self) -> &BoardState {
         &self.state
     }
 
@@ -432,8 +397,55 @@ impl Board {
     ///
     /// * `Castling` - The castling rights masks that denoted the remaining possible castle rights after a piece has moved from the square.
     #[inline]
-    pub(crate) fn castling_rights(&self, square: Square) -> Castling {
+    fn castling_rights(&self, square: Square) -> Castling {
         unsafe { *self.castling_mask.castling.get_unchecked(square as usize) }
+    }
+
+    /// # Get Enpassant Square
+    ///
+    /// ## Returns
+    ///
+    /// * `Square` - The square where enpassant capture is possible
+    #[inline]
+    pub fn ep(&self) -> Option<Square> {
+        self.state.enpassant
+    }
+
+    /// # Get Enpassant Target Square
+    ///
+    /// ## Returns
+    ///
+    /// * `Square` - The square of the pawn that can be enpassant captured
+    #[inline]
+    pub fn ep_target(&self) -> Option<Square> {
+        self.state
+            .enpassant
+            .map(|sq| unsafe { sq.add_unchecked(-self.side_to_move.forward()) })
+    }
+
+    /// # Get Rook Squares
+    ///
+    /// ## Returns
+    ///
+    /// * `[Square; 4]` - The squares where the rooks start from, in order of white king side, white queen side, black king side, black queen side
+    #[inline]
+    pub unsafe fn rook_sq(&self, index: usize) -> Square {
+        unsafe {
+            self.castling_mask
+                .rook_sq
+                .get_unchecked(index)
+                .unwrap_unchecked()
+        }
+    }
+
+    /// # Get Castling Rights
+    ///
+    /// ## Returns
+    ///
+    /// * `Castling` - The castling rights for the current position
+    #[inline]
+    pub fn castling(&self) -> Castling {
+        self.state.castle
     }
 }
 

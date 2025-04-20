@@ -145,8 +145,41 @@ const DIST: DistanceTable = init_dist_table();
 /// assert_eq!(black_pawn_attacks_d5, Bitboard::from([Square::C4, Square::E4]));
 /// ```
 #[inline]
-pub const fn pawn_attack(col: Colour, sq: Square) -> Bitboard {
-    PAWN_ATTACKS[col as usize][sq as usize]
+pub fn pawn_attack(col: Colour, sq: Square) -> Bitboard {
+    unsafe {
+        *PAWN_ATTACKS
+            .get_unchecked(col as usize)
+            .get_unchecked(sq as usize)
+    }
+}
+
+/// Gets the precomputed attack span `Bitboard` for a bitboard of pawns
+///
+/// This returns the squares a pawn of the given `Colour` on the given `Bitboard`
+/// would attack (i.e., the squares it could capture on). It does not consider
+/// whether pieces are present on the target squares.
+///
+/// # Arguments
+/// * `col`: The `Colour` of the pawn.
+/// * `bb`: The `Bitboard` the pawns are on.
+///
+/// # Returns
+/// A `Bitboard` representing the squares attacked by the pawns.
+///
+/// # Example
+/// ```rust
+/// use sophos::core::{Bitboard, Colour, Square};
+/// use sophos::movegen::lookup::pawn_attack_span;
+///
+/// let white_pawn_attacks = pawn_attack_span(Colour::White, Bitboard::from_square(Square::E4) | Bitboard::from_square(Square::D5));
+/// assert_eq!(white_pawn_attacks, Bitboard::from([Square::D5, Square::F5]) | Bitboard::from([Square::C6, Square::E6]));
+/// ```
+#[inline]
+pub fn pawn_attack_span(col: Colour, bb: Bitboard) -> Bitboard {
+    match col {
+        Colour::White => bb.shift(Direction::NE) | bb.shift(Direction::NW),
+        Colour::Black => bb.shift(Direction::SE) | bb.shift(Direction::SW),
+    }
 }
 
 /// Gets the precomputed attack `Bitboard` for a "leaper" piece (Knight or King).
@@ -253,10 +286,12 @@ pub fn slider_attack(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
     }
 }
 
+#[inline]
 fn bishop_attacks(sq: Square, occ: Bitboard) -> Bitboard {
     unsafe { *BISHOP_TABLE.get_unchecked(BISHOP_MAGICS.get_unchecked(sq as usize).index(occ)) }
 }
 
+#[inline]
 fn rook_attacks(sq: Square, occ: Bitboard) -> Bitboard {
     unsafe { *ROOK_TABLE.get_unchecked(ROOK_MAGICS.get_unchecked(sq as usize).index(occ)) }
 }
@@ -786,14 +821,14 @@ mod test {
 
                 // Between should never contain the endpoints
                 assert!(
-                    !bb.get(from),
+                    !bb.contains(from),
                     "Between contains 'from' square {:?} for {:?}-{:?}",
                     from,
                     from,
                     to
                 );
                 assert!(
-                    !bb.get(to),
+                    !bb.contains(to),
                     "Between contains 'to' square {:?} for {:?}-{:?}",
                     to,
                     from,
@@ -832,7 +867,7 @@ mod test {
 
                     // Pin mask excludes king
                     assert!(
-                        !bb.get(king),
+                        !bb.contains(king),
                         "Pin mask includes king {:?} for pin_bb({:?}, {:?})",
                         king,
                         king,
@@ -840,7 +875,7 @@ mod test {
                     );
                     // Pin mask includes pinner
                     assert!(
-                        bb.get(pinner),
+                        bb.contains(pinner),
                         "Pin mask missing pinner {:?} for pin_bb({:?}, {:?})",
                         pinner,
                         king,
@@ -890,7 +925,7 @@ mod test {
 
                         // Check mask excludes king
                         assert!(
-                            bb.get(king),
+                            bb.contains(king),
                             "Check mask excludes king {:?} for check_bb({:?}, {:?})",
                             king,
                             king,
@@ -898,7 +933,7 @@ mod test {
                         );
                         // Check mask excludes checker
                         assert!(
-                            !bb.get(checker),
+                            !bb.contains(checker),
                             "Check mask includes checker {:?} for check_bb({:?}, {:?})",
                             checker,
                             king,

@@ -22,8 +22,6 @@
 ///
 /// The `utils` module is designed to be efficient and reusable. It uses techniques such as
 /// bitwise operations and lookup tables to optimize performance.
-pub(crate) mod misc;
-pub(crate) mod prng;
+mod prng;
 
-pub(crate) use misc::abs_diff;
-pub(crate) use prng::PRNG;
+pub use prng::PRNG;

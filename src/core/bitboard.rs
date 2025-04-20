@@ -37,7 +37,7 @@
 
 use std::fmt;
 
-use super::{Direction, File, Rank, Square};
+use super::{Colour, Direction, File, Rank, Square};
 use macros::{AriOps, BitManiOps, BitOps};
 
 /// # Bitboard Representation
@@ -161,6 +161,8 @@ pub struct Bitboard(pub u64);
 impl Bitboard {
     /// Empty bitboard (no bits set)
     pub const EMPTY: Bitboard = Bitboard(0);
+    /// Full Bitboard (all bits set)
+    pub const FULL: Bitboard = Self::EMPTY.not();
     /// Bitboard with only A1 square set
     pub const A1: Bitboard = Bitboard(1);
     /// Bitboard with all squares in rank 1 set
@@ -186,24 +188,6 @@ impl Bitboard {
 |                Conversions               |
 |==========================================|
 \******************************************/
-
-// impl From<Square> for Bitboard {
-//     fn from(square: Square) -> Self {
-//         Bitboard::A1 << square as u8
-//     }
-// }
-
-// impl From<Rank> for Bitboard {
-//     fn from(rank: Rank) -> Self {
-//         Bitboard::RANK_1 << (8 * rank as u8)
-//     }
-// }
-
-// impl From<File> for Bitboard {
-//     fn from(file: File) -> Self {
-//         Bitboard::FILE_A << file as u8
-//     }
-// }
 
 impl Square {
     pub const fn bb(&self) -> Bitboard {
@@ -294,6 +278,29 @@ impl Bitboard {
         }
     }
 
+    /// Returns the least significant bit (LSB) of the bitboard as a Square
+    ///
+    /// The LSB is the first (lowest) set bit in the bitboard's binary representation.
+    /// This is useful for iterating through pieces or finding the "first" piece on a bitboard.
+    ///
+    /// **Warning**: Unsafe variation of `lsb()`
+    ///
+    /// # Returns
+    ///
+    /// * `Square` - The square corresponding to the least significant bit
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    ///
+    /// let e4_bitboard = Square::E4.bb();
+    /// assert_eq!(e4_bitboard.lsb_unchecked(), Square::E4);
+    /// ```
+    pub const unsafe fn lsb_unchecked(&self) -> Square {
+        debug_assert!(self.0 != 0, "Bitboard is empty");
+        unsafe { Square::from_unchecked(self.0.trailing_zeros() as u8) }
+    }
+
     /// Returns the most significant bit (MSB) of the bitboard as a Square
     ///
     /// The MSB is the last (highest) set bit in the bitboard's binary representation.
@@ -346,13 +353,63 @@ impl Bitboard {
     pub const fn pop_lsb(&mut self) -> Option<Square> {
         match self.0 {
             0 => None,
-            bits => {
-                let lsb_square = self.lsb().unwrap();
-                self.0 = bits & (bits - 1); // Clear the LSB
+            _ => {
+                let lsb_square = unsafe { self.lsb_unchecked() };
+                self.0 &= self.0 - 1; // Clear the LSB
                 Some(lsb_square)
             }
         }
     }
+
+    /// Returns the least significant bit (LSB) and removes it from the bitboard
+    ///
+    /// This is an essential operation for efficiently iterating through pieces
+    /// on a bitboard one at a time.
+    ///
+    /// **Warning**: Unsafe version of `pop_lsb()`
+    ///
+    /// # Returns
+    ///
+    /// * `Square` - The square corresponding to the removed least significant bit
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use sophos::{Bitboard, Square};
+    ///
+    /// let mut multi_square = Square::E4.bb() | Square::D2.bb();
+    /// assert_eq!(multi_square.pop_lsb_unchecked(), Some(Square::D2)); // D2 has lower index than E4
+    /// assert_eq!(multi_square.pop_lsb_unchecked(), Some(Square::E4));
+    /// assert_eq!(multi_square.pop_lsb_unchecked(), None); // Now empty
+    /// ```
+    #[inline]
+    pub const unsafe fn pop_lsb_unchecked(&mut self) -> Square {
+        debug_assert!(self.0 != 0, "Bitboard is empty");
+        let lsb_square = unsafe { self.lsb_unchecked() };
+        self.0 &= self.0 - 1; // Clear the LSB
+        lsb_square
+    }
+
+    /// Returns the least significant bit (LSB) and removes it from the bitboard
+    ///
+    /// This is an essential operation for efficiently iterating through pieces
+    /// on a bitboard one at a time.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(Square)` - The square corresponding to the removed least significant bit
+    /// * `None` - If the bitboard is empty (no bits set)
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use sophos::{Bitboard, Square};
+    ///
+    /// let mut multi_square = Square::E4.bb() | Square::D2.bb();
+    /// assert_eq!(multi_square.pop_lsb(), Some(Square::D2)); // D2 has lower index than E4
+    /// assert_eq!(multi_square.pop_lsb(), Some(Square::E4));
+    /// assert_eq!(multi_square.pop_lsb(), None); // Now empty
+    /// ```
 
     /// Returns the most significant bit (MSB) and removes it from the bitboard
     ///
@@ -383,42 +440,6 @@ impl Bitboard {
                 self.0 = bits & !msb_bit; // Clear the MSB
                 Some(msb_square)
             }
-        }
-    }
-
-    /// Iterates through all set bits in the bitboard, applying the given function to each square
-    ///
-    /// This function processes squares from least significant bit to most significant bit.
-    /// It uses pop_lsb() internally to efficiently iterate through the bitboard.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - A function or closure that takes a Square as its parameter
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
-    ///
-    /// let mut squares = Vec::new();
-    /// let bb = Square::E4.bb() | Square::D5.bb();
-    ///
-    /// bb.for_each(|square| {
-    ///     squares.push(square);
-    /// });
-    ///
-    /// assert_eq!(squares.len(), 2);
-    /// assert!(squares.contains(&Square::E4));
-    /// assert!(squares.contains(&Square::D5));
-    /// ```
-    #[inline]
-    pub fn for_each<F>(&self, mut f: F)
-    where
-        F: FnMut(Square),
-    {
-        let mut bb = *self;
-        while let Some(square) = bb.pop_lsb() {
-            f(square);
         }
     }
 
@@ -469,6 +490,29 @@ impl Bitboard {
         self.0 == 0
     }
 
+    /// Checks if the bitboard is occupied (has some bits set)
+    ///
+    /// # Returns
+    ///
+    /// * `true` - If the bitboard has some bits set
+    /// * `false` - If the bitboard has no bits set
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use sophos::{Bitboard, Square};
+    ///
+    /// let bb = Square::E4.bb();
+    /// assert!(bb.is_occupied());
+    ///
+    /// let empty = Bitboard::EMPTY;
+    /// assert!(empty.is_occupied()));
+    /// ```
+    #[inline]
+    pub const fn is_occupied(&self) -> bool {
+        self.0 != 0
+    }
+
     /// Checks if a specific square is set in the bitboard
     ///
     /// # Arguments
@@ -490,7 +534,7 @@ impl Bitboard {
     /// assert!(!bb.get(Square::A1));
     /// ```
     #[inline]
-    pub const fn get(&self, square: Square) -> bool {
+    pub const fn contains(&self, square: Square) -> bool {
         (self.0 & (1u64 << (square as u8 as u64))) != 0
     }
 
@@ -571,6 +615,7 @@ impl Bitboard {
     /// # Returns
     /// * `Bitboard` - The shifted bitboard. If the shift would move all bits off the board,
     ///                an empty bitboard is returned.
+    #[inline]
     pub const fn shift(&self, dir: Direction) -> Bitboard {
         use Direction::*;
 
@@ -614,43 +659,85 @@ impl Bitboard {
             SS => bb.bitand(NOT_RANK_12).shr(16),
         }
     }
-}
 
-/******************************************\
-|==========================================|
-|                 Iterator                 |
-|==========================================|
-\******************************************/
-
-impl Iterator for Bitboard {
-    type Item = Square;
-
-    /// # Returns the next `Square` in the iteration, or `None` if the bitboard is empty.
+    /// Iterates through all set bits in the bitboard, applying the given function to each square
     ///
-    /// This method implements the `Iterator` trait for `Bitboard`, allowing it to be used in
-    /// `for` loops and other iterator-based constructs. It iterates through the set bits in the
-    /// bitboard, returning the `Square` corresponding to each set bit, starting from the least
-    /// significant bit (LSB) and moving towards the most significant bit (MSB).
+    /// This function processes squares from least significant bit to most significant bit.
+    /// It uses pop_lsb() internally to efficiently iterate through the bitboard.
     ///
-    /// # Returns
+    /// # Arguments
     ///
-    /// * `Some(Square)` - The next `Square` in the iteration.
-    /// * `None` - If the bitboard is empty, or if all set bits have been iterated over.
+    /// * `f` - A function or closure that takes a Square as its parameter
     ///
     /// # Examples
     ///
     /// ```rust,no_run
     /// use sophos::{Bitboard, Square};
     ///
-    /// let bb = Square::E4.bb() | Square::D5.bb() | Square::A1.bb();
-    /// let mut iter = bb;
+    /// let mut squares = Vec::new();
+    /// let bb = Square::E4.bb() | Square::D5.bb();
     ///
-    /// assert_eq!(iter.next(), Some(Square::A1));
-    /// assert_eq!(iter.next(), Some(Square::E4));
-    /// assert_eq!(iter.next(), Some(Square::D5));
-    /// assert_eq!(iter.next(), None);
-    fn next(&mut self) -> Option<Self::Item> {
-        self.pop_lsb()
+    /// bb.for_each(|square| {
+    ///     squares.push(square);
+    /// });
+    ///
+    /// assert_eq!(squares.len(), 2);
+    /// assert!(squares.contains(&Square::E4));
+    /// assert!(squares.contains(&Square::D5));
+    /// ```
+    #[inline]
+    pub fn for_each<F>(&self, mut f: F)
+    where
+        F: FnMut(Square),
+    {
+        let mut bb = *self;
+        while bb.0 != 0 {
+            f(unsafe { bb.pop_lsb_unchecked() });
+        }
+    }
+
+    /// Returns if the bitboard is a singleton
+    #[inline]
+    pub const fn is_singleton(&self) -> bool {
+        !self.is_empty() && !self.more_than_one()
+    }
+
+    /// Returns if the bitboard has more than one bit set
+    #[inline]
+    pub const fn more_than_one(&self) -> bool {
+        self.0 & (self.0.wrapping_sub(1)) != 0
+    }
+}
+
+/******************************************\
+|==========================================|
+|              Board Helpers               |
+|==========================================|
+\******************************************/
+
+impl Bitboard {
+    #[inline]
+    pub const fn push_rank(col: Colour) -> Bitboard {
+        match col {
+            Colour::White => Rank::Rank2.bb(),
+            Colour::Black => Rank::Rank7.bb(),
+        }
+    }
+
+    #[inline]
+    pub const fn promo_rank(col: Colour) -> Bitboard {
+        match col {
+            Colour::White => Rank::Rank7.bb(),
+            Colour::Black => Rank::Rank2.bb(),
+        }
+    }
+
+    #[inline]
+    pub const fn ep_rank(col: Colour) -> Bitboard {
+        match col {
+            Colour::White => Rank::Rank3.bb(),
+            Colour::Black => Rank::Rank6.bb(),
+        }
     }
 }
 
@@ -672,7 +759,7 @@ impl fmt::Display for Bitboard {
 
             for file in File::iter() {
                 let square = Square::from_parts(file, rank);
-                let cell = if self.get(square) { " 1 " } else { "   " };
+                let cell = if self.contains(square) { " 1 " } else { "   " };
                 write!(f, "{}|", cell)?;
             }
 
@@ -766,18 +853,18 @@ mod tests {
         // Test set
         let mut bb = Bitboard::EMPTY;
         bb.set(Square::E4);
-        assert!(bb.get(Square::E4));
-        assert!(!bb.get(Square::A1));
+        assert!(bb.contains(Square::E4));
+        assert!(!bb.contains(Square::A1));
 
         // Test clear
         bb.clear(Square::E4);
-        assert!(!bb.get(Square::E4));
+        assert!(!bb.contains(Square::E4));
 
         // Test toggle
         bb.toggle(Square::D5);
-        assert!(bb.get(Square::D5));
+        assert!(bb.contains(Square::D5));
         bb.toggle(Square::D5);
-        assert!(!bb.get(Square::D5));
+        assert!(!bb.contains(Square::D5));
     }
 
     #[test]
@@ -809,8 +896,8 @@ mod tests {
 
         // OR operation
         let combined = a1 | h8;
-        assert!(combined.get(Square::A1));
-        assert!(combined.get(Square::H8));
+        assert!(combined.contains(Square::A1));
+        assert!(combined.contains(Square::H8));
         assert_eq!(combined.count_bits(), 2);
 
         // AND operation
@@ -823,7 +910,7 @@ mod tests {
 
         // NOT operation
         let inverted = !a1;
-        assert!(!inverted.get(Square::A1));
+        assert!(!inverted.contains(Square::A1));
         assert_eq!(inverted.count_bits(), 63);
     }
 

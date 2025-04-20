@@ -46,7 +46,7 @@ const fn line_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
 const fn populate_line_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
     let mut bb = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
     while !bb.is_empty() {
-        let to = bb.pop_lsb().unwrap();
+        let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
         table[from as usize][to as usize] = line_bb(pt, from, to);
     }
@@ -85,7 +85,7 @@ const fn between_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
 const fn populate_between_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
     let mut bb = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
     while !bb.is_empty() {
-        let to = bb.pop_lsb().unwrap();
+        let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
         table[from as usize][to as usize] = between_bb(pt, from, to);
     }
@@ -124,7 +124,7 @@ const fn pin_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
 const fn populate_pin_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
     let mut bb = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
     while !bb.is_empty() {
-        let to = bb.pop_lsb().unwrap();
+        let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
         table[from as usize][to as usize] = pin_bb(pt, from, to);
     }
@@ -173,7 +173,7 @@ const fn check_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
 const fn populate_check_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
     let mut bb = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
     while !bb.is_empty() {
-        let to = bb.pop_lsb().unwrap();
+        let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
         table[from as usize][to as usize] = check_bb(pt, from, to);
     }

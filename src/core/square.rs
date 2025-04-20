@@ -37,7 +37,6 @@ use macros::{EnumIter, FromPrimitive};
 
 use super::errors::{ParseFileError, ParseRankError, ParseSquareError};
 use super::types::Colour;
-use crate::utils::abs_diff;
 
 /******************************************\
 |==========================================|
@@ -283,7 +282,7 @@ impl Square {
     pub const fn rank_dist(sq1: Square, sq2: Square) -> u8 {
         let v1 = sq1.rank() as u8;
         let v2 = sq2.rank() as u8;
-        abs_diff(v1, v2)
+        v1.abs_diff(v2)
     }
 
     /// # Calculate File Distance
@@ -308,7 +307,7 @@ impl Square {
     pub const fn file_dist(sq1: Square, sq2: Square) -> u8 {
         let v1 = sq1.file() as u8;
         let v2 = sq2.file() as u8;
-        abs_diff(v1, v2)
+        v1.abs_diff(v2)
     }
 
     /// ### Converts Square from File and Rank

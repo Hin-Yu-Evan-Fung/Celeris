@@ -99,7 +99,8 @@ impl Board {
         self.state.keys.pawn_key = self.calc_pawn_key();
         self.state.keys.non_pawn_key = self.calc_non_pawn_key();
 
-        // TODO: Update derived data like attack masks, king squares etc. if needed.
+        // --- 9. Update masks
+        self.update_masks();
 
         Ok(())
     }
@@ -180,15 +181,16 @@ impl Board {
         });
 
         // --- 3. Castling Rights ---
-        let white_ksq = self.piece_bb(Piece::WhiteKing).lsb().unwrap();
-        let black_ksq = self.piece_bb(Piece::BlackKing).lsb().unwrap();
+        let white_ksq = self.piece_bb(Colour::White, PieceType::King).lsb().unwrap();
+        let black_ksq = self.piece_bb(Colour::Black, PieceType::King).lsb().unwrap();
 
         fen.push(' ');
         if self.state.castle == Castling::NONE {
             fen.push('-');
         } else {
             if self.state.castle.has(Castling::WK) {
-                let wk_side_rooks = self.piece_bb(Piece::WhiteRook) & pin_bb(white_ksq, Square::H1);
+                let wk_side_rooks =
+                    self.piece_bb(Colour::White, PieceType::Rook) & pin_bb(white_ksq, Square::H1);
                 if wk_side_rooks.count_bits() == 1 {
                     fen.push('K');
                 } else {
@@ -206,7 +208,8 @@ impl Board {
                 }
             }
             if self.state.castle.has(Castling::WQ) {
-                let wq_side_rooks = self.piece_bb(Piece::WhiteRook) & pin_bb(white_ksq, Square::A1);
+                let wq_side_rooks =
+                    self.piece_bb(Colour::White, PieceType::Rook) & pin_bb(white_ksq, Square::A1);
                 if wq_side_rooks.count_bits() == 1 {
                     fen.push('Q');
                 } else {
@@ -224,7 +227,8 @@ impl Board {
                 }
             }
             if self.state.castle.has(Castling::BK) {
-                let bk_side_rooks = self.piece_bb(Piece::BlackRook) & pin_bb(black_ksq, Square::H8);
+                let bk_side_rooks =
+                    self.piece_bb(Colour::Black, PieceType::Rook) & pin_bb(black_ksq, Square::H8);
                 if bk_side_rooks.count_bits() == 1 {
                     fen.push('k');
                 } else {
@@ -234,7 +238,8 @@ impl Board {
                 }
             }
             if self.state.castle.has(Castling::BQ) {
-                let bq_side_rooks = self.piece_bb(Piece::BlackRook) & pin_bb(black_ksq, Square::A8);
+                let bq_side_rooks =
+                    self.piece_bb(Colour::Black, PieceType::Rook) & pin_bb(black_ksq, Square::A8);
                 if bq_side_rooks.count_bits() == 1 {
                     fen.push('q');
                 } else {
@@ -491,11 +496,11 @@ impl Board {
         self.state.castle = Castling::NONE;
 
         let white_ksq = self
-            .piece_bb(Piece::WhiteKing)
+            .piece_bb(Colour::White, PieceType::King)
             .pop_lsb()
             .expect("There should be exactly one white king on the board");
         let black_ksq = self
-            .piece_bb(Piece::BlackKing)
+            .piece_bb(Colour::Black, PieceType::King)
             .pop_lsb()
             .expect("There should be exactly one black king on the board");
 
@@ -512,8 +517,8 @@ impl Board {
             match c {
                 'K' => {
                     self.state.castle.set(Castling::WK);
-                    let wk_side_rook =
-                        self.piece_bb(Piece::WhiteRook) & pin_bb(white_ksq, Square::H1);
+                    let wk_side_rook = self.piece_bb(Colour::White, PieceType::Rook)
+                        & pin_bb(white_ksq, Square::H1);
                     let rook_sq = wk_side_rook
                         .lsb()
                         .expect("There should be exactly one king side white rook on the board when the castling flag K is set");
@@ -522,8 +527,8 @@ impl Board {
                 }
                 'Q' => {
                     self.state.castle.set(Castling::WQ);
-                    let wq_side_rook =
-                        self.piece_bb(Piece::WhiteRook) & pin_bb(white_ksq, Square::A1);
+                    let wq_side_rook = self.piece_bb(Colour::White, PieceType::Rook)
+                        & pin_bb(white_ksq, Square::A1);
                     let rook_sq = wq_side_rook
                     .lsb()
                     .expect("There should be exactly one queen side white rook on the board when the castling flag Q is set");
@@ -532,8 +537,8 @@ impl Board {
                 }
                 'k' => {
                     self.state.castle.set(Castling::BK);
-                    let bk_side_rook =
-                        self.piece_bb(Piece::BlackRook) & pin_bb(black_ksq, Square::H8);
+                    let bk_side_rook = self.piece_bb(Colour::Black, PieceType::Rook)
+                        & pin_bb(black_ksq, Square::H8);
 
                     let rook_sq = bk_side_rook
                     .lsb()
@@ -544,8 +549,8 @@ impl Board {
                 'q' => {
                     self.state.castle.set(Castling::BQ);
 
-                    let bq_side_rook =
-                        self.piece_bb(Piece::BlackRook) & pin_bb(black_ksq, Square::A8);
+                    let bq_side_rook = self.piece_bb(Colour::Black, PieceType::Rook)
+                        & pin_bb(black_ksq, Square::A8);
 
                     let rook_sq = bq_side_rook
                     .lsb()

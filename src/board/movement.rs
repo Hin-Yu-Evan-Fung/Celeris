@@ -14,6 +14,7 @@ impl Board {
     ///
     /// * `piece` - The `Piece` to add.
     /// * `square` - The `Square` to add the piece to.
+    #[inline]
     pub fn add_piece(&mut self, piece: Piece, square: Square) {
         // Put piece in the board
         self.board[square as usize] = Some(piece);
@@ -37,6 +38,7 @@ impl Board {
     /// # Panics
     ///
     /// Panics with `.expect` if `self.board[square]` is `None`.
+    #[inline]
     pub fn remove_piece(&mut self, square: Square) {
         // Get the piece to remove
         debug_assert!(self.on(square).is_some(), "remove_piece: 'square' is empty");
@@ -97,10 +99,11 @@ impl Board {
     /// # Panics
     ///
     /// Panics with `.expect` if the calculated en passant square is invalid or `None`.
+    #[inline]
     fn set_ep(&mut self, from: Square) {
         let us = self.side_to_move;
         // Set Enpassant Square
-        self.state.enpassant = from.add(us.forward()).ok();
+        self.state.enpassant = Some(unsafe { from.add_unchecked(us.forward()) });
         // Toggle enpassant key (There must be an enpassant square after a double push)
         debug_assert!(
             self.state.enpassant.is_some(),
@@ -120,6 +123,7 @@ impl Board {
     /// # Returns
     ///
     /// The `Square` where the rook starts (H1/H8 or A1/A8).
+    #[inline]
     fn rook_from(&self, king_side: bool) -> Square {
         let us = self.side_to_move;
         let index = us as usize * 2 + !king_side as usize;
@@ -140,6 +144,7 @@ impl Board {
     /// # Returns
     ///
     /// The `Square` where the rook ends up (F1/F8 or D1/D8).
+    #[inline]
     fn rook_to(&self, king_side: bool) -> Square {
         let us = self.side_to_move;
         match king_side {
@@ -158,6 +163,7 @@ impl Board {
     /// # Arguments
     ///
     /// * `king_side` - `true` for kingside castling (O-O), `false` for queenside (O-O-O).
+    #[inline]
     fn castle(&mut self, king_side: bool) {
         let us = self.side_to_move;
         let piece = Piece::from_parts(us, PieceType::Rook);
@@ -187,6 +193,7 @@ impl Board {
     /// # Arguments
     ///
     /// * `king_side` - `true` for kingside castling (O-O), `false` for queenside (O-O-O).
+    #[inline]
     fn undo_castle(&mut self, king_side: bool) {
         // Get the source and destination squares of the rook, given the side to move
         let rook_from = self.rook_from(king_side);
@@ -209,6 +216,7 @@ impl Board {
     ///
     /// * `from` - The starting `Square` of the move.
     /// * `to` - The ending `Square` of the move.
+    #[inline]
     fn update_castle_rights(&mut self, from: Square, to: Square) {
         // Remove previous castling rights from hash key
         self.state.keys.toggle_castle(self.state.castle);
@@ -239,6 +247,7 @@ impl Board {
     /// # Arguments
     ///
     /// * `move_` - The `Move` to apply. Assumed to be pseudo-legal or legal for the current position.
+    // 5 Branches (Not including update masks)
     pub fn make_move(&mut self, move_: Move) {
         // Cache the current state (becomes the previous state after this function)
         self.store_state();
@@ -420,6 +429,8 @@ impl Board {
         self.side_to_move = !self.side_to_move;
         // Update hash key for the change in side to move
         self.state.keys.toggle_colour();
+        // Update masks
+        self.update_masks();
     }
 
     /// Reverses a `Move` that was just made, restoring the previous board state.
@@ -445,6 +456,7 @@ impl Board {
     /// - This function should only be called after a move has been made (or else there might be a stack underflow or mismatched moves)
     /// - The `move_` argument *must* be identical to the one passed to `make_move`.
     /// - The board state must not have been modified between the `make_move` and `undo_move` calls.
+    // 0 Branches
     pub fn undo_move(&mut self, move_: Move) {
         // Toggle side to move back to the state *before* the move was made
         self.side_to_move = !self.side_to_move;
@@ -888,6 +900,8 @@ mod tests {
         board.undo_move(Move::new(Square::G1, Square::F3, MoveFlag::QuietMove));
 
         // Quiet king move
+        board.make_move(Move::new(Square::E2, Square::E4, MoveFlag::DoublePawnPush));
+        board.make_move(Move::new(Square::E7, Square::E5, MoveFlag::DoublePawnPush));
         board.make_move(Move::new(Square::E1, Square::E2, MoveFlag::QuietMove));
         assert_eq!(board.state().fifty_move, 1); // Increment on non-pawn, non-capture
     }

@@ -180,10 +180,8 @@ impl Move {
     const FLAG_MASK: u16 = 0xF; // 0b00000000001111
 
     // --- Default Moves ---
-    /// None Move Placeholder
-    pub const NONE: Self = Self::new(Square::A1, Square::A1, MoveFlag::QuietMove);
     /// Null Move Placeholder
-    pub const NULL: Self = Self::new(Square::B1, Square::B1, MoveFlag::QuietMove);
+    pub const NULL: Self = Self::new(Square::A1, Square::A1, MoveFlag::QuietMove);
 
     /// Creates a new move from its components.
     ///
@@ -318,17 +316,6 @@ impl Move {
     #[inline(always)]
     pub const fn is_null(&self) -> bool {
         self.data == Self::NULL.data
-    }
-
-    /// Checks if the move is a none move
-    #[inline(always)]
-    pub const fn is_none(&self) -> bool {
-        self.data == Self::NONE.data
-    }
-
-    #[inline(always)]
-    pub const fn is_valid(&self) -> bool {
-        !self.is_none() && !self.is_null()
     }
 }
 

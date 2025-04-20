@@ -66,7 +66,7 @@
 /// // Create a PRNG with a specific seed for reproducible sequences
 /// let mut seeded_prng = PRNG::new(0x123456789ABCDEF);
 /// ```
-pub(crate) struct PRNG {
+pub struct PRNG {
     s: (u64, u64, u64, u64),
 }
 
@@ -235,7 +235,7 @@ mod tests {
             for _ in 0..10000 {
                 let bb = random_bitboard(&mut prng);
                 for sq in Square::iter() {
-                    if bb.get(sq) {
+                    if bb.contains(sq) {
                         acc[sq as usize] += 1;
                     }
                 }

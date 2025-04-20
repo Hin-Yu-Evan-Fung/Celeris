@@ -84,7 +84,7 @@ pub(crate) const fn attacks_on_the_fly(pt: PieceType, sq: Square, occ: Bitboard)
     while i < dirs.len() {
         let mut to = sq;
         // Shift in the direction if the current square is empty and not occupied
-        while !occ.get(to) {
+        while !occ.contains(to) {
             to = match to.add(dirs[i]) {
                 Ok(to) => to,
                 Err(_) => break,

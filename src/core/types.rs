@@ -242,6 +242,30 @@ impl Colour {
             Colour::Black => Direction::S,
         }
     }
+
+    /// Returns the forward east direction
+    pub const fn forward_left(&self) -> Direction {
+        match self {
+            Colour::White => Direction::NE,
+            Colour::Black => Direction::SW,
+        }
+    }
+
+    /// Returns the forward west direction
+    pub const fn forward_right(&self) -> Direction {
+        match self {
+            Colour::White => Direction::NW,
+            Colour::Black => Direction::SE,
+        }
+    }
+
+    /// Returns the forward double push direction
+    pub const fn forward_double(&self) -> Direction {
+        match self {
+            Colour::White => Direction::NN,
+            Colour::Black => Direction::SS,
+        }
+    }
 }
 
 impl std::ops::Not for Colour {
@@ -265,6 +289,7 @@ impl Square {
         }
     }
 
+    #[inline]
     pub const fn add(self, rhs: Direction) -> Result<Self, SquareAddError> {
         // Get file and rank for bounds checking
         let file = self.file() as u8;
@@ -287,6 +312,13 @@ impl Square {
             },
             false => return Err(SquareAddError::OutOfBounds),
         }
+    }
+
+    #[inline]
+    pub const unsafe fn add_unchecked(self, rhs: Direction) -> Self {
+        debug_assert!(self as i16 + rhs as i16 >= 0, "Square out of bounds");
+        debug_assert!(self as i16 + rhs as i16 <= 64, "Square out of bounds");
+        unsafe { Square::from_unchecked((self as i16 + rhs as i16) as u8) }
     }
 }
 

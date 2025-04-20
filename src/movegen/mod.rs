@@ -49,7 +49,50 @@
 mod init;
 pub mod lookup;
 mod magic;
+pub mod move_gen;
+pub mod move_list;
 
 pub use lookup::{
-    between_bb, check_bb, leaper_attack, line_bb, pawn_attack, pin_bb, slider_attack,
+    between_bb, check_bb, leaper_attack, line_bb, pawn_attack, pawn_attack_span, pin_bb,
+    slider_attack,
 };
+
+pub use move_list::MoveList;
+
+#[derive(PartialEq, Eq)]
+pub enum MoveGenType {
+    Legal,
+    Quiet,
+    Capture,
+    Evasions,
+}
+
+pub trait GenTypeTrait {
+    fn gen_type() -> MoveGenType;
+}
+
+pub struct LegalGen;
+pub struct QuietGen;
+pub struct CaptureGen;
+pub struct EvasionsGen;
+
+impl GenTypeTrait for LegalGen {
+    fn gen_type() -> MoveGenType {
+        MoveGenType::Legal
+    }
+}
+impl GenTypeTrait for QuietGen {
+    fn gen_type() -> MoveGenType {
+        MoveGenType::Quiet
+    }
+}
+impl GenTypeTrait for CaptureGen {
+    fn gen_type() -> MoveGenType {
+        MoveGenType::Capture
+    }
+}
+impl GenTypeTrait for EvasionsGen {
+    fn gen_type() -> MoveGenType {
+        MoveGenType::Evasions
+    }
+}
