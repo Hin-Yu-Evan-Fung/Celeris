@@ -1,52 +1,15 @@
-use sophos::board::fen::*;
 use sophos::board::*;
 use sophos::core::*;
-use sophos::movegen::move_gen::generate_move;
-use sophos::movegen::*;
-use sophos::utils::PRNG;
-
-fn perft(board: &mut Board, depth: usize) -> usize {
-    let mut move_list = MoveList::new();
-
-    generate_move::<LegalGen>(board, &mut move_list);
-
-    if depth == 1 {
-        return move_list.len();
-    }
-
-    let mut nodes = 0;
-
-    for move_ in move_list.iter() {
-        board.make_move(*move_);
-        nodes += perft(board, depth - 1);
-        board.undo_move(*move_);
-    }
-
-    nodes
-}
-
-fn perft_test(board: &mut Board, depth: usize) {
-    let mut move_list = MoveList::new();
-
-    generate_move::<LegalGen>(board, &mut move_list);
-
-    let mut total_nodes = 0;
-
-    for move_ in move_list.iter() {
-        board.make_move(*move_);
-        let nodes = perft(board, depth - 1);
-        total_nodes += nodes;
-        board.undo_move(*move_);
-
-        println!("{move_}: {nodes:?}");
-    }
-
-    println!("Total nodes: {total_nodes}");
-}
+use sophos::utils::*;
 
 fn main() {
-    let mut board = Board::from_fen(TRICKY_FEN).unwrap();
-    board.make_move(Move::new(Square::E1, Square::D1, MoveFlag::QuietMove));
-    println!("{}", board);
-    perft_test(&mut board, 3);
+    perft_bench();
+    // let mut board = Board::from_fen("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1").unwrap();
+    // println!("{}", board);
+    // board.make_move(Move::new(Square::A5, Square::A4, MoveFlag::QuietMove));
+    // board.make_move(Move::new(Square::H4, Square::G3, MoveFlag::QuietMove));
+    // board.make_move(Move::new(Square::B4, Square::B2, MoveFlag::QuietMove));
+    // board.make_move(Move::new(Square::G3, Square::F2, MoveFlag::QuietMove));
+    // board.make_move(Move::new(Square::E2, Square::E4, MoveFlag::DoublePawnPush));
+    // perft_test(&mut board, 2);
 }

@@ -184,3 +184,99 @@ pub fn generate_file() -> std::io::Result<()> {
     // Return Ok to indicate successful execution of the build script.
     Ok(())
 }
+
+pub struct PRNG {
+    s: (u64, u64, u64, u64),
+}
+
+impl PRNG {
+    /// Creates a new PRNG with the given seed.
+    ///
+    /// The seed is a 64-bit integer that initializes the PRNG's internal state.
+    /// The same seed will always produce the same sequence of random numbers.
+    ///
+    /// # Arguments
+    /// * `seed` - A 64-bit unsigned integer used to initialize the PRNG
+    ///
+    /// # Returns
+    /// A new PRNG instance initialized with the given seed
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// let mut prng = PRNG::new(0x123456789ABCDEF);
+    /// ```
+    pub const fn new(seed: u64) -> Self {
+        let s0 = seed;
+        let s1 = seed.wrapping_mul(2);
+        let s2 = seed.wrapping_div(5);
+        let s3 = seed.wrapping_add(seed.wrapping_div(2));
+
+        PRNG {
+            s: (s0, s1, s2, s3),
+        }
+    }
+
+    /// Generates a random 64-bit unsigned integer.
+    ///
+    /// Implements the Xorshiro256++ algorithm, which is a fast, high-quality
+    /// PRNG suitable for non-cryptographic applications.
+    ///
+    /// # Returns
+    /// A random 64-bit unsigned integer with uniform distribution
+    ///
+    /// # Example
+    /// ```rust, no_run
+    /// let mut prng = PRNG::default();
+    /// let random_value = prng.random_u64();
+    /// ```
+    #[inline]
+    pub const fn random_u64(&mut self) -> u64 {
+        let t = self.s.1 << 17;
+        self.s.2 ^= self.s.0;
+        self.s.3 ^= self.s.1;
+        self.s.1 ^= self.s.2;
+        self.s.0 ^= self.s.3;
+        self.s.2 ^= t;
+        self.s.3 = self.s.3.rotate_left(45);
+
+        self.s.0
+    }
+
+    /// Generates a sparse random 64-bit unsigned integer.
+    ///
+    /// This method produces a random value with fewer bits set on average
+    /// by performing an AND operation on three randomly generated values.
+    /// This is useful for generating sparser bitboards or test positions
+    /// with fewer pieces.
+    ///
+    /// # Returns
+    /// A sparse random 64-bit unsigned integer
+    ///
+    /// # Example
+    /// ```rust, no_run
+    /// let mut prng = PRNG::default();
+    /// let sparse_value = prng.random_sparse_u64();
+    /// ```
+    #[inline]
+    pub const fn random_sparse_u64(&mut self) -> u64 {
+        self.random_u64() & self.random_u64() & self.random_u64()
+    }
+}
+
+impl Default for PRNG {
+    /// Creates a new PRNG with a default seed.
+    ///
+    /// The default seed is a predetermined value that provides good
+    /// randomization properties for chess-related applications.
+    ///
+    /// # Returns
+    /// A new PRNG instance with the default seed
+    ///
+    /// # Example
+    /// ```rust, no_run
+    /// let mut prng = PRNG::default();
+    /// ```
+    fn default() -> Self {
+        PRNG::new(0x6B51FF299F6A3AEE)
+    }
+}

@@ -103,7 +103,7 @@ pub fn generate_move<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
         generate_rook_moves::<G>(board, move_list);
         generate_queen_moves::<G>(board, move_list);
         generate_king_moves::<G>(board, move_list);
-        if G::gen_type() != MoveGenType::Capture {
+        if board.check_mask() == Bitboard::FULL && G::gen_type() != MoveGenType::Capture {
             generate_castling_moves(board, move_list);
         }
     }
@@ -176,6 +176,12 @@ fn generate_pawn_captures(board: &Board, move_list: &mut MoveList) {
     // Push and double push directions
     let left = us.forward_left();
     let right = us.forward_right();
+    let ep_left = if us == Colour::White {
+        Direction::W
+    } else {
+        Direction::E
+    };
+    let ep_right = -ep_left;
 
     // Non occupied bb (Empty squares on the board)
     let enemy_bb = board.occupied_bb(them);
@@ -199,9 +205,14 @@ fn generate_pawn_captures(board: &Board, move_list: &mut MoveList) {
 
     if let Some(ep_sq) = board.ep() {
         if !board.ep_pin() {
-            let ep_left = movable & ep_sq.bb().shift(-left) & (!diag_pin | diag_pin.shift(-left));
-            let ep_right =
-                movable & ep_sq.bb().shift(-right) & (!diag_pin | diag_pin.shift(-right));
+            let ep_target = unsafe { ep_sq.add_unchecked(-us.forward()) };
+
+            let ep_left = movable
+                & (ep_target.bb() & check_mask).shift(ep_left)
+                & (!diag_pin | diag_pin.shift(-left));
+            let ep_right = movable
+                & (ep_target.bb() & check_mask).shift(ep_right)
+                & (!diag_pin | diag_pin.shift(-right));
 
             if ep_left.is_occupied() {
                 let from = unsafe { ep_sq.add_unchecked(-left) };

@@ -40,7 +40,7 @@ use history::UndoHistory;
 use zobrist::KeyBundle;
 
 use crate::core::*;
-use fen::START_FEN;
+use fen::*;
 
 /******************************************\
 |==========================================|

@@ -16,7 +16,6 @@
 // contain the required definitions.
 mod buildutils;
 mod core;
-mod utils;
 
 // Import specific items needed for generation.
 use buildutils::generate_file;

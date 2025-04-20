@@ -24,4 +24,8 @@
 /// bitwise operations and lookup tables to optimize performance.
 mod prng;
 
+mod perft;
+
 pub use prng::PRNG;
+
+pub use perft::{perft_bench, perft_test};

@@ -49,8 +49,8 @@
 mod init;
 pub mod lookup;
 mod magic;
-pub mod move_gen;
-pub mod move_list;
+mod move_gen;
+mod move_list;
 
 pub use lookup::{
     between_bb, check_bb, leaper_attack, line_bb, pawn_attack, pawn_attack_span, pin_bb,
@@ -58,6 +58,8 @@ pub use lookup::{
 };
 
 pub use move_list::MoveList;
+
+pub use move_gen::generate_move;
 
 #[derive(PartialEq, Eq)]
 pub enum MoveGenType {

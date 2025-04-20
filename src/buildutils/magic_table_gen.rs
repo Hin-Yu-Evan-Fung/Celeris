@@ -1,4 +1,4 @@
-use crate::utils::PRNG;
+use super::PRNG;
 // use super::magic_numbers::*;
 use crate::core::*;
 const MAX_PERM: usize = 0x1000; // 2^16
