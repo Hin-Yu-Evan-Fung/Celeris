@@ -46,10 +46,10 @@
 //! - `magic_numbers`: Precomputed magic numbers.
 //!
 
+mod r#gen;
 mod init;
 pub mod lookup;
 mod magic;
-mod move_gen;
 mod move_list;
 
 pub use lookup::{
@@ -59,14 +59,13 @@ pub use lookup::{
 
 pub use move_list::MoveList;
 
-pub use move_gen::generate_move;
+pub use r#gen::generate_move;
 
 #[derive(PartialEq, Eq)]
 pub enum MoveGenType {
     Legal,
     Quiet,
     Capture,
-    Evasions,
 }
 
 pub trait GenTypeTrait {
@@ -76,7 +75,6 @@ pub trait GenTypeTrait {
 pub struct LegalGen;
 pub struct QuietGen;
 pub struct CaptureGen;
-pub struct EvasionsGen;
 
 impl GenTypeTrait for LegalGen {
     fn gen_type() -> MoveGenType {
@@ -93,8 +91,15 @@ impl GenTypeTrait for CaptureGen {
         MoveGenType::Capture
     }
 }
-impl GenTypeTrait for EvasionsGen {
-    fn gen_type() -> MoveGenType {
-        MoveGenType::Evasions
-    }
+
+use super::Board;
+
+impl Board {
+    // pub fn generate_moves<G: GenTypeTrait>(&self) -> MoveList {
+    //     let mut move_list = MoveList::new();
+
+    //     generate_move::<G>(self, &mut move_list);
+
+    //     move_list
+    // }
 }

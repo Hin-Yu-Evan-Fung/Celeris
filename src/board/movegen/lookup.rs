@@ -598,7 +598,7 @@ pub fn dist(sq1: Square, sq2: Square) -> u8 {
 mod test {
     use super::*;
     // Assuming attacks_on_the_fly is pub(crate) or pub(super) in magic.rs
-    use crate::movegen::magic::attacks_on_the_fly;
+    use super::super::magic::attacks_on_the_fly;
     use crate::utils::PRNG;
 
     // Removed ensure_init() helper function

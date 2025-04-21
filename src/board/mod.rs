@@ -33,6 +33,7 @@
 pub mod fen;
 pub mod history;
 pub mod mask;
+pub mod movegen;
 pub mod movement;
 pub mod zobrist;
 

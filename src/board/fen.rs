@@ -7,8 +7,8 @@ use super::Board;
 // Assuming FenParseError is defined in src/core/errors.rs
 use super::errors::FenParseError;
 // Import necessary core types (Piece, Square, Rank, File, Colour, Castling, etc.)
+use super::movegen::{between_bb, pin_bb};
 use crate::core::*;
-use crate::movegen::{between_bb, pin_bb};
 
 /******************************************\
 |==========================================|

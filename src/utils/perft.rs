@@ -1,5 +1,5 @@
 use crate::board::Board;
-use crate::movegen::{LegalGen, MoveList, generate_move};
+use crate::board::movegen::{LegalGen, MoveList, generate_move};
 
 fn perft(board: &mut Board, depth: usize) -> usize {
     let mut move_list = MoveList::new();

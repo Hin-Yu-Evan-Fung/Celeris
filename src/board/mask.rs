@@ -8,8 +8,8 @@
 //! access during move generation, avoiding recalculation for every potential move.
 //!
 use super::Board;
-use crate::core::*;
-use crate::movegen::*; // Assuming movegen functions like pawn_attack_span, leaper_attack, slider_attack, pin_bb are here
+use super::movegen::*;
+use crate::core::*; // Assuming movegen functions like pawn_attack_span, leaper_attack, slider_attack, pin_bb are here
 
 impl Board {
     /// Helper function to get a bitboard of bishops and queens for a given colour.
