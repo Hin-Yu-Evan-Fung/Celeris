@@ -228,7 +228,7 @@ fn add_castling_move(index: usize, board: &Board, move_list: &mut MoveList) {
 ///        - Call generators for pawns, knights, bishops, rooks, and queens (`gen_pawn_moves`, `gen_knight_moves`, etc.). These functions internally use the `check_mask` and pin masks (`board.hv_pin()`, `board.diag_pin()`) to filter for legal moves.
 ///        - Call `gen_king_moves` (which uses `board.attacked()` for legality).
 ///        - If **not in check** (`FULL` mask) and `G` allows quiet moves: Call `gen_castling_moves`.
-pub fn generate_move<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
+pub(crate) fn generate_move<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
     // Assumption: check_mask == EMPTY means double check (only king moves)
     //             check_mask == FULL means no check
     //             otherwise, single check (mask defines blocking/capture squares)

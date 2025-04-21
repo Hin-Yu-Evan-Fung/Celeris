@@ -314,7 +314,7 @@ impl Board {
     /// # Returns
     ///
     /// The calculated `Key` for the current board position.
-    pub fn calc_key(&self) -> Key {
+    pub(crate) fn calc_key(&self) -> Key {
         let mut key = 0; // Start with a zero key
 
         // 1. XOR keys for all pieces on the board
@@ -355,7 +355,7 @@ impl Board {
     /// # Returns
     ///
     /// The calculated `Key` representing only the pawn configuration.
-    pub fn calc_pawn_key(&self) -> Key {
+    pub(crate) fn calc_pawn_key(&self) -> Key {
         let mut key = 0; // Start with a zero key
 
         // Iterate through squares and XOR in the key if a pawn is present.
@@ -376,7 +376,7 @@ impl Board {
     }
 
     /// Calculates the Zobrist Key consider only the non pawns on the board for a particular side
-    pub fn calc_non_pawn_key(&self) -> [Key; Colour::NUM] {
+    pub(crate) fn calc_non_pawn_key(&self) -> [Key; Colour::NUM] {
         let mut keys = [0; Colour::NUM]; // Start with a zero
 
         let mut i = 0;

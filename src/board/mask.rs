@@ -17,7 +17,7 @@ impl Board {
     /// Combines the bitboards for bishops and queens of the specified `col`.
     /// Used internally for calculating slider attacks and pins.
     #[inline]
-    pub fn bishop_queen_bb(&self, col: Colour) -> Bitboard {
+    pub(crate) fn bishop_queen_bb(&self, col: Colour) -> Bitboard {
         self.piece_bb(col, PieceType::Bishop) | self.piece_bb(col, PieceType::Queen)
     }
 
@@ -26,7 +26,7 @@ impl Board {
     /// Combines the bitboards for rooks and queens of the specified `col`.
     /// Used internally for calculating slider attacks and pins.
     #[inline]
-    pub fn rook_queen_bb(&self, col: Colour) -> Bitboard {
+    pub(crate) fn rook_queen_bb(&self, col: Colour) -> Bitboard {
         self.piece_bb(col, PieceType::Rook) | self.piece_bb(col, PieceType::Queen)
     }
 
@@ -49,7 +49,7 @@ impl Board {
     /// Panics in debug mode if no king is found for the given colour.
     /// Behavior is undefined in release mode if no king is found (due to `lsb_unchecked`).
     #[inline]
-    pub fn ksq(&self, col: Colour) -> Square {
+    pub(crate) fn ksq(&self, col: Colour) -> Square {
         // This assertion is crucial for safety when using lsb_unchecked
         debug_assert!(
             !self.piece_bb(col, PieceType::King).is_empty(),
@@ -66,7 +66,7 @@ impl Board {
     /// This mask represents all squares attacked by the side *not* currently to move.
     /// It's stored in `BoardState` and updated by `update_masks`.
     #[inline]
-    pub const fn attacked(&self) -> Bitboard {
+    pub(crate) const fn attacked(&self) -> Bitboard {
         self.state.attacked
     }
 
@@ -81,7 +81,7 @@ impl Board {
     ///   it's the checker's square plus the squares between the checker and the king.
     /// It's stored in `BoardState` and updated by `update_masks`.
     #[inline]
-    pub const fn check_mask(&self) -> Bitboard {
+    pub(crate) const fn check_mask(&self) -> Bitboard {
         self.state.check_mask
     }
 
@@ -93,7 +93,7 @@ impl Board {
     /// the valid squares a pinned piece can move to *along the pin ray*.
     /// It's stored in `BoardState` and updated by `update_masks`.
     #[inline]
-    pub const fn diag_pin(&self) -> Bitboard {
+    pub(crate) const fn diag_pin(&self) -> Bitboard {
         self.state.diag_pin
     }
 
@@ -105,13 +105,13 @@ impl Board {
     /// the valid squares a pinned piece can move to *along the pin ray*.
     /// It's stored in `BoardState` and updated by `update_masks`.
     #[inline]
-    pub const fn hv_pin(&self) -> Bitboard {
+    pub(crate) const fn hv_pin(&self) -> Bitboard {
         self.state.hv_pin
     }
 
     /// Gets whether the enpassant pawn blocks a check
     #[inline]
-    pub const fn ep_pin(&self) -> bool {
+    pub(crate) const fn ep_pin(&self) -> bool {
         self.state.ep_pin
     }
 
@@ -259,7 +259,7 @@ impl Board {
     /// assert_eq!(board.ep_pin(), true);
     /// ```
     #[inline]
-    pub fn calc_ep_pin(&self, ep_target: Square, attackers: Bitboard) -> bool {
+    fn calc_ep_pin(&self, ep_target: Square, attackers: Bitboard) -> bool {
         let us = self.side_to_move;
         let them = !us;
         let ksq = self.ksq(us); // King square of the side to move
@@ -368,7 +368,7 @@ impl Board {
     /// the pin masks (`diag_pin`, `hv_pin`) are not calculated or are set to empty.
     /// This is because in a double check, only king moves are legal, so pinned pieces
     /// cannot move anyway, making the pin masks irrelevant for move generation in that specific state.
-    pub fn update_masks(&mut self) {
+    pub(crate) fn update_masks(&mut self) {
         // Calculate squares attacked by the opponent.
         self.state.attacked = self.calc_attacked_bb();
 

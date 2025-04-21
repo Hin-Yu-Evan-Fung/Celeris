@@ -255,14 +255,14 @@ impl Move {
 
     /// Checks if the move is any type of capture
     #[inline(always)]
-    pub const fn is_capture(&self) -> bool {
+    pub(crate) const fn is_capture(&self) -> bool {
         // Get the flag (if valid) and check its capture property
         self.flag().is_capture()
     }
 
     /// Checks if the move is any type of promotion
     #[inline(always)]
-    pub const fn is_promotion(&self) -> bool {
+    pub(crate) const fn is_promotion(&self) -> bool {
         // Get the flag (if valid) and check its promotion property
         self.flag().is_promotion()
     }
@@ -271,50 +271,50 @@ impl Move {
     ///
     /// Returns `None` if the move is not a promotion.
     #[inline(always)]
-    pub const fn promotion_pt(&self) -> PieceType {
+    pub(crate) const fn promotion_pt(&self) -> PieceType {
         // Get the flag (if valid) and then get its promotion piece type
         self.flag().promotion_piece_type()
     }
 
     /// Checks if the move is a quiet move
     #[inline(always)]
-    pub const fn is_quiet(&self) -> bool {
+    pub(crate) const fn is_quiet(&self) -> bool {
         self.flag() as u8 == MoveFlag::QuietMove as u8
     }
 
     /// Checks if the move is a double push
     #[inline(always)]
-    pub const fn is_double_push(&self) -> bool {
+    pub(crate) const fn is_double_push(&self) -> bool {
         self.flag() as u8 == MoveFlag::DoublePawnPush as u8
     }
 
     /// Checks if the move is an enpassant capture
     #[inline(always)]
-    pub const fn is_ep_capture(&self) -> bool {
+    pub(crate) const fn is_ep_capture(&self) -> bool {
         self.flag() as u8 == MoveFlag::EPCapture as u8
     }
 
     /// Checks if the move is a king side castle move
     #[inline(always)]
-    pub const fn is_king_castle(&self) -> bool {
+    pub(crate) const fn is_king_castle(&self) -> bool {
         self.flag() as u8 == MoveFlag::KingCastle as u8
     }
 
     /// Checks if the move is a queen side castle move
     #[inline(always)]
-    pub const fn is_queen_castle(&self) -> bool {
+    pub(crate) const fn is_queen_castle(&self) -> bool {
         self.flag() as u8 == MoveFlag::QueenCastle as u8
     }
 
     /// Checks if the move is a castle move
     #[inline(always)]
-    pub const fn is_castle(&self) -> bool {
+    pub(crate) const fn is_castle(&self) -> bool {
         self.is_king_castle() || self.is_queen_castle()
     }
 
     /// Checks if the move is a null move
     #[inline(always)]
-    pub const fn is_null(&self) -> bool {
+    pub(crate) const fn is_null(&self) -> bool {
         self.data == Self::NULL.data
     }
 }

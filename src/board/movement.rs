@@ -15,7 +15,7 @@ impl Board {
     /// * `piece` - The `Piece` to add.
     /// * `square` - The `Square` to add the piece to.
     #[inline]
-    pub fn add_piece(&mut self, piece: Piece, square: Square) {
+    pub(crate) fn add_piece(&mut self, piece: Piece, square: Square) {
         // Put piece in the board
         self.board[square as usize] = Some(piece);
         // Update piece bitboards
@@ -39,7 +39,7 @@ impl Board {
     ///
     /// Panics with `.expect` if `self.board[square]` is `None`.
     #[inline]
-    pub fn remove_piece(&mut self, square: Square) {
+    pub(crate) fn remove_piece(&mut self, square: Square) {
         // Get the piece to remove
         debug_assert!(self.on(square).is_some(), "remove_piece: 'square' is empty");
         let piece = unsafe { self.on(square).unwrap_unchecked() };
@@ -68,7 +68,7 @@ impl Board {
     ///
     /// Panics with `.expect` if `self.board[from]` is `None`.
     #[inline]
-    pub fn move_piece(&mut self, from: Square, to: Square) {
+    pub(crate) fn move_piece(&mut self, from: Square, to: Square) {
         // Get the piece to move
         debug_assert!(
             self.on(from).is_some(),

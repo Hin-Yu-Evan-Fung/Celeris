@@ -1,7 +1,7 @@
 use std::mem::MaybeUninit; // Import MaybeUninit
 use std::slice; // Import slice for iter()
 
-use crate::{Move, board::Board};
+use crate::Move;
 
 const MAX_LEGAL_MOVES: usize = 218;
 

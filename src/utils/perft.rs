@@ -4,7 +4,7 @@ use crate::board::movegen::{LegalGen, MoveList, generate_move};
 fn perft(board: &mut Board, depth: usize) -> usize {
     let mut move_list = MoveList::new();
 
-    generate_move::<LegalGen>(board, &mut move_list);
+    board.generate_moves::<LegalGen>(&mut move_list);
 
     if depth == 1 {
         return move_list.len();
@@ -26,7 +26,7 @@ pub fn perft_test(board: &mut Board, depth: usize) {
 
     let mut move_list = MoveList::new();
 
-    generate_move::<LegalGen>(board, &mut move_list);
+    board.generate_moves::<LegalGen>(&mut move_list);
 
     if depth == 1 {
         println!("Total nodes: {}", move_list.len());

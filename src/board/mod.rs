@@ -184,7 +184,7 @@ impl Board {
     /// # New Board
     ///
     /// - Creates a new empty board, initialising the history stack
-    pub fn new() -> Board {
+    pub(crate) fn new() -> Board {
         Board {
             board: [None; Square::NUM],
             pieces: [Bitboard::EMPTY; PieceType::NUM],
@@ -281,7 +281,7 @@ impl Board {
     ///     Square::A7, Square::B7, Square::C7, Square::D7, Square::E7, Square::F7, Square::G7, Square::H7,
     /// ]));
     #[inline]
-    pub fn occupied_bb(&self, colour: Colour) -> Bitboard {
+    pub(crate) fn occupied_bb(&self, colour: Colour) -> Bitboard {
         unsafe { *self.occupied.get_unchecked(colour as usize) }
     }
 
@@ -305,7 +305,7 @@ impl Board {
     /// ]));
     /// ```
     #[inline]
-    pub fn all_occupied_bb(&self) -> Bitboard {
+    pub(crate) fn all_occupied_bb(&self) -> Bitboard {
         self.occupied_bb(Colour::White) | self.occupied_bb(Colour::Black)
     }
 
@@ -330,7 +330,7 @@ impl Board {
     ///     Square::A8, Square::H8,
     /// ]));
     #[inline]
-    pub fn piece_bb(&self, col: Colour, pt: PieceType) -> Bitboard {
+    pub(crate) fn piece_bb(&self, col: Colour, pt: PieceType) -> Bitboard {
         self.piecetype_bb(pt) & self.occupied_bb(col)
     }
 
@@ -384,7 +384,7 @@ impl Board {
     /// assert_eq!(board.state.castle, Castling::ALL);
     /// ```
     #[inline]
-    pub fn state(&self) -> &BoardState {
+    pub(crate) fn state(&self) -> &BoardState {
         &self.state
     }
 
@@ -398,7 +398,7 @@ impl Board {
     ///
     /// * `Castling` - The castling rights masks that denoted the remaining possible castle rights after a piece has moved from the square.
     #[inline]
-    fn castling_rights(&self, square: Square) -> Castling {
+    pub(crate) fn castling_rights(&self, square: Square) -> Castling {
         unsafe { *self.castling_mask.castling.get_unchecked(square as usize) }
     }
 
@@ -418,7 +418,7 @@ impl Board {
     ///
     /// * `Square` - The square of the pawn that can be enpassant captured
     #[inline]
-    pub fn ep_target(&self) -> Option<Square> {
+    pub(crate) fn ep_target(&self) -> Option<Square> {
         self.state
             .enpassant
             .map(|sq| unsafe { sq.add_unchecked(-self.side_to_move.forward()) })
@@ -430,7 +430,7 @@ impl Board {
     ///
     /// * `[Square; 4]` - The squares where the rooks start from, in order of white king side, white queen side, black king side, black queen side
     #[inline]
-    pub unsafe fn rook_sq(&self, index: usize) -> Square {
+    pub(crate) unsafe fn rook_sq(&self, index: usize) -> Square {
         unsafe {
             self.castling_mask
                 .rook_sq

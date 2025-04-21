@@ -48,18 +48,18 @@
 
 mod r#gen;
 mod init;
-pub mod lookup;
+mod lookup;
 mod magic;
 mod move_list;
 
-pub use lookup::{
+pub(crate) use lookup::{
     between_bb, check_bb, leaper_attack, line_bb, pawn_attack, pawn_attack_span, pin_bb,
     slider_attack,
 };
 
 pub use move_list::MoveList;
 
-pub use r#gen::generate_move;
+pub(crate) use r#gen::generate_move;
 
 #[derive(PartialEq, Eq)]
 pub enum MoveGenType {
@@ -95,11 +95,8 @@ impl GenTypeTrait for CaptureGen {
 use super::Board;
 
 impl Board {
-    // pub fn generate_moves<G: GenTypeTrait>(&self) -> MoveList {
-    //     let mut move_list = MoveList::new();
-
-    //     generate_move::<G>(self, &mut move_list);
-
-    //     move_list
-    // }
+    #[inline]
+    pub fn generate_moves<G: GenTypeTrait>(&self, move_list: &mut MoveList) {
+        generate_move::<G>(self, move_list);
+    }
 }

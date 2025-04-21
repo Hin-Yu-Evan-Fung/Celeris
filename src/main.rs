@@ -1,5 +1,5 @@
-use sophos::board::fen::TRICKY_FEN;
 use sophos::board::*;
+use sophos::core::*;
 use sophos::utils::*;
 
 fn main() {
