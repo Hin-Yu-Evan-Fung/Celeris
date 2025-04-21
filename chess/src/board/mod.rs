@@ -83,8 +83,10 @@ const MAX_DEPTH: usize = 256;
 #[derive(Debug, Default, Clone, Copy)]
 pub struct BoardState {
     // --- Board State Variables -- //
+    /// Stores gaps between last repeat, if negative it means three fold repetition
+    repetitions: i8,
     /// Counter for the fifty-move rule (plies since last pawn move or capture).
-    pub fifty_move: u8,
+    fifty_move: u8,
     /// The piece that was captured on the move leading to this state. `Piece::None` if no capture.
     captured: Option<Piece>, // Assuming Piece::None exists
     /// The square where an en passant capture is possible, if any. `None` otherwise.

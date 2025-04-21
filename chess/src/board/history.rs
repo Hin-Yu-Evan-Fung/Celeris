@@ -59,6 +59,20 @@ impl<const N: usize> UndoHistory<N> {
         self.count += 1;
     }
 
+    /// Returns an iterator for the undo state list
+    ///
+    /// ## Arguments
+    ///
+    /// - `roll_back` - the number of elements in the list (roll back to a certain history)
+    ///
+    /// ## Returns
+    ///
+    /// - iterator - an iterator that starts from the roll back history all the way up to the present
+    #[inline]
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &BoardState> {
+        (0..self.count).map(|i| unsafe { self.arr[i].assume_init_ref() })
+    }
+
     /// Returns a reference to the state at the given logical index.
     ///
     /// The index refers to the sequence of pushes since the last clear.

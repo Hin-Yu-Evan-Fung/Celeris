@@ -228,6 +228,38 @@ impl Board {
         self.state.keys.toggle_castle(self.state.castle);
     }
 
+    /// Update Repetitions
+    #[inline]
+    fn update_repetitions(&mut self) {
+        self.state.repetitions = 0;
+
+        let roll_back: usize = 1 + self.state.fifty_move as usize;
+
+        let iterator = self
+            .history
+            .iter()
+            .rev()
+            .enumerate()
+            .take(roll_back)
+            .skip(1)
+            .step_by(2);
+
+        for (idx, state) in iterator {
+            println!(
+                "{}, Prev Key: {:#X}, New Key: {:#X}",
+                idx, state.keys.key, self.state.keys.key
+            );
+            if state.keys.key == self.state.keys.key {
+                if state.repetitions == 0 {
+                    self.state.repetitions = idx as i8;
+                } else {
+                    self.state.repetitions = -(idx as i8);
+                }
+                break;
+            }
+        }
+    }
+
     /// Applies a `Move` to the board, updating the state.
     ///
     /// This is the primary function for changing the board position. It handles:
@@ -431,6 +463,8 @@ impl Board {
         self.state.keys.toggle_colour();
         // Update masks
         self.update_masks();
+        // Update repetitions
+        self.update_repetitions();
     }
 
     /// Reverses a `Move` that was just made, restoring the previous board state.
@@ -1082,5 +1116,51 @@ mod tests {
         let fen_after = "rn2k1r1/ppp1pp1p/3p2p1/5bn1/P6R/2N2B2/1PPPPP2/2BNK1R1 b Kkq - 5 11";
         let rook_move = Move::new(Square::H1, Square::H4, MoveFlag::QuietMove);
         test_make_undo(fen_before, rook_move, fen_after);
+    }
+
+    // Helper to check repetition count
+    fn assert_repetitions(board: &Board, expected: i8) {
+        // NOTE: This assertion relies on the update_repetitions logic correctly
+        // finding repetitions in the history by comparing Zobrist keys.
+        // It also depends on the history scanning depth logic (interaction with fifty_move).
+        // If that logic is flawed, this test might pass incorrectly or fail unexpectedly.
+        assert_eq!(board.state.repetitions, expected);
+    }
+
+    #[test]
+    fn test_three_fold_repetition() {
+        // Use the existing helper that ensures keys are calculated correctly initially
+        let mut board = board_from_fen(START_FEN);
+
+        // Sequence = 1. Nf3 Nc6 2. Ng1 Nb8 3. Nf3 Nc6 4. Ng1 Nb8 5. Nf3 Nc6 6. Nd4 Nb8 7. Nf3 Nc6
+
+        let nf3 = Move::new(Square::G1, Square::F3, MoveFlag::QuietMove);
+        let nc6 = Move::new(Square::B8, Square::C6, MoveFlag::QuietMove);
+        let ng1 = Move::new(Square::F3, Square::G1, MoveFlag::QuietMove);
+        let nb8 = Move::new(Square::C6, Square::B8, MoveFlag::QuietMove);
+        let nd4 = Move::new(Square::F3, Square::D4, MoveFlag::QuietMove);
+        let ndf3 = Move::new(Square::D4, Square::F3, MoveFlag::QuietMove);
+
+        board.make_move(nf3);
+        board.make_move(nc6);
+        assert_repetitions(&board, 0);
+        board.make_move(ng1);
+        board.make_move(nb8);
+        assert_repetitions(&board, 3);
+        board.make_move(nf3);
+        board.make_move(nc6);
+        assert_repetitions(&board, 3);
+        board.make_move(ng1);
+        board.make_move(nb8);
+        assert_repetitions(&board, -3);
+        board.make_move(nf3);
+        board.make_move(nc6);
+        assert_repetitions(&board, -3);
+        board.make_move(nd4);
+        board.make_move(nb8);
+        assert_repetitions(&board, 0);
+        board.make_move(ndf3);
+        board.make_move(nc6);
+        assert_repetitions(&board, -3);
     }
 }
