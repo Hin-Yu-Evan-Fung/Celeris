@@ -29,14 +29,4 @@ panic = "abort"
 # Enable overflow checks in debug mode
 overflow-checks = false
 # Enable debug mode
-debug = "full"
-
-[profile.bench]
-# Use the same optimizations as release
-inherits = "release"
-# Enable overflow checks for benchmarks
-overflow-checks = true
-
-[profile.dev]
-# Enable overflow checks in debug mode
-overflow-checks = true
+debug = "line-tables-only"

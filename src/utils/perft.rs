@@ -22,6 +22,8 @@ fn perft(board: &mut Board, depth: usize) -> usize {
 }
 
 pub fn perft_test(board: &mut Board, depth: usize) {
+    use std::time::Instant;
+
     let mut move_list = MoveList::new();
 
     generate_move::<LegalGen>(board, &mut move_list);
@@ -33,6 +35,8 @@ pub fn perft_test(board: &mut Board, depth: usize) {
 
     let mut total_nodes = 0;
 
+    let start = Instant::now();
+
     for move_ in move_list.iter() {
         board.make_move(*move_);
         let nodes = perft(board, depth - 1);
@@ -42,7 +46,12 @@ pub fn perft_test(board: &mut Board, depth: usize) {
         println!("{move_}: {nodes:?}");
     }
 
-    println!("Total nodes: {total_nodes}");
+    let time = start.elapsed().as_millis();
+
+    println!(
+        "nodes: {total_nodes}, time: {time}ms, Mnps: {}Mnps",
+        (total_nodes as f64 / time as f64 / 1000.0)
+    )
 }
 
 #[rustfmt::skip]
@@ -87,9 +96,11 @@ const BENCH_LIST: &[(&str, usize, usize)] = &[
 ];
 
 pub fn perft_bench() {
+    use std::time::Instant;
     println!("==========  START BENCH  ===========");
 
     for (fen, depth, expected_nodes) in BENCH_LIST.iter() {
+        let mut start = Instant::now();
         let mut board = Board::from_fen(fen).unwrap();
         let nodes = perft(&mut board, *depth);
 
@@ -99,8 +110,11 @@ pub fn perft_bench() {
             "FAIL"
         };
 
+        let time = start.elapsed().as_millis();
+
         println!(
-            "Testing fen {fen}, expected nodes: {expected_nodes}, actual nodes: {nodes}, status: {status}"
+            "Testing fen {fen}, status: {status}, time: {time}ms, Mnps: {}Mnps",
+            (nodes as f64 / time as f64 / 1000.0)
         )
     }
 }

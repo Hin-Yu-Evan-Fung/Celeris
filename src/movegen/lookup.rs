@@ -222,12 +222,10 @@ pub fn pawn_attack_span(col: Colour, bb: Bitboard) -> Bitboard {
 #[inline]
 pub fn leaper_attack(pt: PieceType, sq: Square) -> Bitboard {
     // Safety (The arrays are intialise at constant time and the input types already constrain access enough)
-    unsafe {
-        match pt {
-            PieceType::Knight => *KNIGHT_ATTACKS.get_unchecked(sq as usize),
-            PieceType::King => *KING_ATTACKS.get_unchecked(sq as usize),
-            _ => unreachable!(),
-        }
+    match pt {
+        PieceType::Knight => KNIGHT_ATTACKS[sq as usize],
+        PieceType::King => KING_ATTACKS[sq as usize],
+        _ => unreachable!(),
     }
 }
 
