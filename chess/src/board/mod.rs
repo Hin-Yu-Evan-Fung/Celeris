@@ -83,8 +83,6 @@ const MAX_DEPTH: usize = 256;
 #[derive(Debug, Default, Clone, Copy)]
 pub struct BoardState {
     // --- Board State Variables -- //
-    /// Number of times the current position (by `key`) has occurred in the game history.
-    repetitions: i8,
     /// Counter for the fifty-move rule (plies since last pawn move or capture).
     pub fifty_move: u8,
     /// The piece that was captured on the move leading to this state. `Piece::None` if no capture.
@@ -180,6 +178,17 @@ pub struct Board {
 |==========================================|
 \******************************************/
 
+/// # Default Board
+///
+/// - Creates a new board with the starting position
+impl Default for Board {
+    fn default() -> Board {
+        let mut board = Board::new();
+        board.set(START_FEN).unwrap();
+        board
+    }
+}
+
 impl Board {
     /// # New Board
     ///
@@ -197,16 +206,6 @@ impl Board {
         }
     }
 
-    /// # Default Board
-    ///
-    /// - Creates a new board with the starting position
-    #[inline]
-    pub fn default() -> Board {
-        let mut board = Board::new();
-        board.set(START_FEN).unwrap();
-        board
-    }
-
     /// # Get Piece on Square
     ///
     /// ## Arguments
@@ -219,7 +218,7 @@ impl Board {
     /// ## Example
     ///
     /// ```
-    /// use sophos::core::*;
+    /// use chess::core::*;
     /// let board = Board::default();
     /// assert_eq!(board.on(Square::A1), Some(Piece::WhiteRook));
     /// assert_eq!(board.on(Square::A2), Some(Piece::WhitePawn));
@@ -243,7 +242,7 @@ impl Board {
     /// ## Example
     ///
     /// ```
-    /// use sophos::core::*;
+    /// use chess::core::*;
     /// let board = Board::default();
     /// assert_eq!(board.piecetype_bb(PieceType::Pawn), Bitboard::from([
     ///     Square::A2, Square::B2, Square::C2, Square::D2, Square::E2, Square::F2, Square::G2, Square::H2,
@@ -262,7 +261,7 @@ impl Board {
     /// ## Argument
     ///
     /// * `colour` - The colour to get the occupied bitboard of
-    ///     ///
+    ///
     /// ## Returns
     ///
     /// * `Bitboard` - The bitboard of the occupied squares of the colour
@@ -270,7 +269,7 @@ impl Board {
     /// ## Example
     ///
     /// ```
-    /// use sophos::core::*;
+    /// use chess::core::*;
     /// let board = Board::default();
     /// assert_eq!(board.occupied_bb(Colour::White), Bitboard::from([
     ///     Square::A1, Square::B1, Square::C1, Square::D1, Square::E1, Square::F1, Square::G1, Square::H1,
@@ -294,7 +293,7 @@ impl Board {
     /// ## Example
     ///
     /// ```
-    /// use sophos::core::*;
+    /// use chess::core::*;
     /// let board = Board::default();
     /// assert_eq!(board.occupied_bb(Colour::White), Bitboard::from([
     ///     Square::A1, Square::B1, Square::C1, Square::D1, Square::E1, Square::F1, Square::G1, Square::H1,
@@ -321,7 +320,7 @@ impl Board {
     /// ## Example
     ///
     /// ```
-    /// use sophos::core::*;
+    /// use chess::core::*;
     /// let board = Board::default();
     /// assert_eq!(board.piece_bb(Piece::WhitePawn), Bitboard::from([
     ///     Square::A2, Square::B2, Square::C2, Square::D2, Square::E2, Square::F2, Square::G2, Square::H2,
@@ -343,7 +342,7 @@ impl Board {
     /// ## Example
     ///
     /// ```
-    /// use sophos::core::*;
+    /// use chess::core::*;
     /// let board = Board::default();
     /// assert_eq!(board.side_to_move(), Colour::White);
     /// ```
@@ -361,31 +360,13 @@ impl Board {
     /// ## Example
     ///
     /// ```
-    /// use sophos::core::*;
+    /// use chess::core::*;
     /// let board = Board::default();
     /// assert_eq!(board.half_moves(), 0);
     /// ```
     #[inline]
     pub fn half_moves(&self) -> u16 {
         self.half_moves
-    }
-
-    /// # Get State
-    ///
-    /// ## Returns
-    ///
-    /// * `BoardState` - The current board state
-    ///
-    /// ## Example
-    ///
-    /// ```
-    /// use sophos::core::*;
-    /// let board = Board::default();
-    /// assert_eq!(board.state.castle, Castling::ALL);
-    /// ```
-    #[inline]
-    pub(crate) fn state(&self) -> &BoardState {
-        &self.state
     }
 
     /// # Get Castling Rights

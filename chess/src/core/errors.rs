@@ -1,4 +1,4 @@
-//! Defines the custom error types used throughout the Sophos chess engine.
+//! Defines the custom error types used throughout the Celeris chess engine.
 //!
 //! These errors cover issues related to parsing core types (like pieces, squares, FEN strings),
 //! performing board operations (like moving pieces off the board), and other potential
@@ -26,9 +26,9 @@ pub enum ParsePieceError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::errors::ParsePieceError; // Corrected path
-    /// # use sophos::core::Piece; // Assuming Piece is in core
-    /// let result = "Pn".parse::<Piece>(); // Input is too long
+    /// # use chess::core::errors::ParsePieceError;
+    /// # use chess::core::Piece;
+    /// let result = "Pn".parse::<Piece>();
     /// assert!(matches!(result, Err(ParsePieceError::InvalidLength(2))));
     /// ```
     InvalidLength(usize),
@@ -39,8 +39,8 @@ pub enum ParsePieceError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::errors::ParsePieceError; // Corrected path
-    /// # use sophos::core::Piece; // Assuming Piece is in core
+    /// # use chess::core::errors::ParsePieceError; // Corrected path
+    /// # use chess::core::Piece; // Assuming Piece is in core
     /// let result = "X".parse::<Piece>(); // 'X' is not a valid piece character
     /// assert!(matches!(result, Err(ParsePieceError::InvalidChar('X'))));
     /// ```
@@ -81,8 +81,8 @@ pub enum SquareAddError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::{Square, Direction}; // Assuming these types exist
-    /// # use sophos::core::errors::SquareAddError; // Corrected path
+    /// # use chess::core::{Square, Direction};
+    /// # use chess::core::errors::SquareAddError;
     /// # // Dummy Direction enum for example
     /// # #[derive(PartialEq, Eq, Clone, Copy, Debug)] enum Direction { NORTH, SOUTH, EAST, WEST }
     /// # // Dummy Square enum for example
@@ -185,8 +185,8 @@ pub enum ParseSquareError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::errors::ParseSquareError; // Corrected path
-    /// # use sophos::core::Square; // Assuming Square is in core
+    /// # use chess::core::errors::ParseSquareError; // Corrected path
+    /// # use chess::core::Square; // Assuming Square is in core
     /// let result = "e4g".parse::<Square>(); // Input is too long
     /// assert!(matches!(result, Err(ParseSquareError::InvalidLength(3))));
     /// let result = "e".parse::<Square>(); // Input is too short
@@ -199,8 +199,8 @@ pub enum ParseSquareError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::errors::ParseSquareError; // Corrected path
-    /// # use sophos::core::Square; // Assuming Square is in core
+    /// # use chess::core::errors::ParseSquareError; // Corrected path
+    /// # use chess::core::Square; // Assuming Square is in core
     /// let result = "z4".parse::<Square>(); // 'z' is not a valid file
     /// assert!(matches!(result, Err(ParseSquareError::InvalidFileChar('z'))));
     /// ```
@@ -211,8 +211,8 @@ pub enum ParseSquareError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::errors::ParseSquareError; // Corrected path
-    /// # use sophos::core::Square; // Assuming Square is in core
+    /// # use chess::core::errors::ParseSquareError; // Corrected path
+    /// # use chess::core::Square; // Assuming Square is in core
     /// let result = "e9".parse::<Square>(); // '9' is not a valid rank
     /// assert!(matches!(result, Err(ParseSquareError::InvalidRankChar('9'))));
     /// ```
@@ -254,8 +254,8 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Board; // Assuming Board::from_fen exists
-    /// # use sophos::core::errors::FenParseError; // Corrected path
+    /// # use chess::core::Board; // Assuming Board::from_fen exists
+    /// # use chess::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0"; // Missing fullmove number
     /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidNumberOfFields)));
@@ -268,8 +268,8 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Board;
-    /// # use sophos::core::errors::FenParseError; // Corrected path
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/ppppxppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; // 'x' is invalid
     /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidPiecePlacementChar('x'))));
@@ -284,8 +284,8 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Board;
-    /// # use sophos::core::errors::FenParseError; // Corrected path
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
     /// // Rank 2 specifies 9 files (pppppppp + 1 -> error on '1')
     /// let fen = "rnbqkbnr/pppppppp1/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     /// let result = Board::from_fen(fen);
@@ -304,8 +304,8 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Board;
-    /// # use sophos::core::errors::FenParseError; // Corrected path
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1"; // 'x' is invalid
     /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidSideToMove(s)) if s == "x"));
@@ -319,8 +319,8 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Board;
-    /// # use sophos::core::errors::FenParseError; // Corrected path
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQXkq - 0 1"; // 'X' is invalid
     /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidCastlingChar('X'))));
@@ -333,8 +333,8 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Board;
-    /// # use sophos::core::errors::FenParseError; // Corrected path
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e9 0 1"; // "e9" is invalid square
     /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidEnPassantSquare(s)) if s == "e9"));
@@ -351,8 +351,8 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Board;
-    /// # use sophos::core::errors::FenParseError; // Corrected path
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - fifty 1"; // "fifty" is invalid
     /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidHalfmoveClock(s)) if s == "fifty"));
@@ -369,8 +369,8 @@ pub enum FenParseError {
     ///
     /// # Example
     /// ```
-    /// # use sophos::core::Board;
-    /// # use sophos::core::errors::FenParseError; // Corrected path
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
     /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 zero"; // "zero" is invalid
     /// let result = Board::from_fen(fen);
     /// assert!(matches!(result, Err(FenParseError::InvalidFullmoveNumber(s)) if s == "zero"));

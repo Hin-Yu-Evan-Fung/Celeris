@@ -50,7 +50,7 @@ use macros::{BitOps, EnumIter, FromPrimitive};
 /// Represents the two colours in chess: White and Black.
 /// 
 /// ```rust,no_run
-/// use sophos::Colour;
+/// use chess::Colour;
 /// 
 /// const WHITE: bool = false;
 /// const BLACK: bool = true;
@@ -82,7 +82,7 @@ pub enum Colour {
 /// corresponds to the index difference between squares when moving in that direction.
 ///
 /// ```rust,no_run
-/// use sophos::Direction;
+/// use chess::Direction;
 /// 
 /// // Direction values
 /// const N: i8 = 8;
@@ -102,7 +102,7 @@ pub enum Colour {
 /// an `Option<Square>`. The result is `None` if the move would go off the board:
 /// 
 /// ```rust,no_run
-/// use sophos::{Square, Direction};
+/// use chess::{Square, Direction};
 /// 
 /// let e4 = Square::E4;
 /// let e5 = e4.add(Direction::N;  // Some(Square::E5)
@@ -112,7 +112,7 @@ pub enum Colour {
 /// You can also convert between squares to find the direction using `TryFrom`:
 /// 
 /// ```rust,no_run
-/// use sophos::{Square, Direction};
+/// use chess::{Square, Direction};
 /// 
 /// let dir = Direction::try_from(Square::E4, Square::E5);  // Ok(Direction::N)
 /// let invalid = Direction::try_from(Square::E4, Square::G5);  // Err - not a valid direction
@@ -142,7 +142,7 @@ pub enum Direction {
 /// Each bit corresponds to a specific castling right.
 ///
 /// ```rust,no_run
-/// use sophos::Castling;
+/// use chess::Castling;
 ///
 /// // Castling flags
 /// const WHITE_KINGSIDE: u8 = 0b0001;  // 1
@@ -163,6 +163,8 @@ pub enum Direction {
 /// Castling rights can be manipulated using bitwise operations:
 ///
 /// ```rust,no_run
+/// use chess::Castling;
+///
 /// // Initialize with all castling rights
 /// let mut castling = Castling::ALL;
 ///
@@ -184,6 +186,8 @@ pub enum Direction {
 /// Castling rights can also be manipulated using helper methods:
 ///
 /// ```rust,no_run
+/// use chess::Castling;
+///
 /// // Check if Black Kingside castling is allowed
 /// if castling.is_set(Castling::BK) {
 ///     println!("Black can castle kingside");
@@ -351,7 +355,7 @@ impl Direction {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Square, Direction};
+    /// use chess::{Square, Direction};
     ///
     /// let dir = Direction::try_from(Square::E4, Square::E5); // Ok(Direction::N)
     /// let invalid = Direction::try_from(Square::E4, Square::G5); // Err - not a valid direction

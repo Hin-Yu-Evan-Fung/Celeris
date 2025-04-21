@@ -1,4 +1,3 @@
-// d:\sophos\src\movegen\lookup.rs
 //! # Module: `lookup`
 //!
 //! This module provides precomputed lookup tables and functions for efficient move generation in a chess engine.
@@ -131,8 +130,8 @@ const DIST: DistanceTable = init_dist_table();
 ///
 /// # Example
 /// ```rust
-/// use sophos::core::{Bitboard, Colour, Square};
-/// use sophos::movegen::lookup::pawn_attack; // Removed init_all_tables
+/// use chess::core::{Bitboard, Colour, Square};
+/// use chess::movegen::lookup::pawn_attack; // Removed init_all_tables
 ///
 /// // init_all_tables(); // Removed call
 ///
@@ -168,8 +167,8 @@ pub(crate) fn pawn_attack(col: Colour, sq: Square) -> Bitboard {
 ///
 /// # Example
 /// ```rust
-/// use sophos::core::{Bitboard, Colour, Square};
-/// use sophos::movegen::lookup::pawn_attack_span;
+/// use chess::core::{Bitboard, Colour, Square};
+/// use chess::movegen::lookup::pawn_attack_span;
 ///
 /// let white_pawn_attacks = pawn_attack_span(Colour::White, Bitboard::from_square(Square::E4) | Bitboard::from_square(Square::D5));
 /// assert_eq!(white_pawn_attacks, Bitboard::from([Square::D5, Square::F5]) | Bitboard::from([Square::C6, Square::E6]));
@@ -200,8 +199,8 @@ pub(crate) fn pawn_attack_span(col: Colour, bb: Bitboard) -> Bitboard {
 ///
 /// # Example
 /// ```rust
-/// use sophos::core::{Bitboard, PieceType, Square};
-/// use sophos::movegen::lookup::leaper_attack; // Removed init_all_tables
+/// use chess::core::{Bitboard, PieceType, Square};
+/// use chess::movegen::lookup::leaper_attack; // Removed init_all_tables
 ///
 /// // init_all_tables(); // Removed call
 ///
@@ -250,8 +249,8 @@ pub(crate) fn leaper_attack(pt: PieceType, sq: Square) -> Bitboard {
 ///
 /// # Example
 /// ```rust
-/// use sophos::core::{Bitboard, PieceType, Square};
-/// use sophos::movegen::lookup::slider_attack; // Removed init_all_tables
+/// use chess::core::{Bitboard, PieceType, Square};
+/// use chess::movegen::lookup::slider_attack; // Removed init_all_tables
 ///
 /// // init_all_tables(); // Removed call
 ///
@@ -317,8 +316,8 @@ fn rook_attacks(sq: Square, occ: Bitboard) -> Bitboard {
 ///
 /// # Example
 /// ```rust
-/// use sophos::core::{Bitboard, Square};
-/// use sophos::movegen::lookup::line_bb; // Removed init_all_tables
+/// use chess::core::{Bitboard, Square};
+/// use chess::movegen::lookup::line_bb; // Removed init_all_tables
 ///
 /// // init_all_tables(); // Removed call
 ///
@@ -362,8 +361,8 @@ pub(crate) fn line_bb(from: Square, to: Square) -> Bitboard {
 ///
 /// # Example
 /// ```rust
-/// use sophos::core::{Bitboard, Square};
-/// use sophos::movegen::lookup::between_bb; // Removed init_all_tables
+/// use chess::core::{Bitboard, Square};
+/// use chess::movegen::lookup::between_bb; // Removed init_all_tables
 ///
 /// // init_all_tables(); // Removed call
 ///
@@ -420,8 +419,8 @@ pub(crate) fn between_bb(from: Square, to: Square) -> Bitboard {
 ///
 /// # Example
 /// ```rust
-/// use sophos::core::{Bitboard, Square};
-/// use sophos::movegen::lookup::pin_bb; // Removed init_all_tables
+/// use chess::core::{Bitboard, Square};
+/// use chess::movegen::lookup::pin_bb; // Removed init_all_tables
 ///
 /// // init_all_tables(); // Removed call
 ///
@@ -474,8 +473,8 @@ pub(crate) fn pin_bb(king: Square, pinner: Square) -> Bitboard {
 ///
 /// # Example
 /// ```rust
-/// use sophos::core::{Bitboard, Square};
-/// use sophos::movegen::lookup::check_bb; // Removed init_all_tables
+/// use chess::core::{Bitboard, Square};
+/// use chess::movegen::lookup::check_bb; // Removed init_all_tables
 ///
 /// // init_all_tables(); // Removed call
 ///
@@ -523,8 +522,8 @@ pub(crate) fn check_bb(king: Square, checker: Square) -> Bitboard {
 ///
 /// # Example
 /// ```rust
-/// use sophos::core::Square;
-/// use sophos::movegen::lookup::dist; // Removed init_all_tables
+/// use chess::core::Square;
+/// use chess::movegen::lookup::dist; // Removed init_all_tables
 ///
 /// // init_all_tables(); // Removed call
 ///

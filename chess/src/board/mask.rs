@@ -79,6 +79,7 @@ impl Board {
     ///   where a piece can move to block the check or capture the checking piece.
     ///   For knight/pawn checks, this is just the checker's square. For slider checks,
     ///   it's the checker's square plus the squares between the checker and the king.
+    ///
     /// It's stored in `BoardState` and updated by `update_masks`.
     #[inline]
     pub(crate) const fn check_mask(&self) -> Bitboard {
@@ -250,8 +251,8 @@ impl Board {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use sophos::board::Board;
-    /// use sophos::core::*;
+    /// use chess::board::Board;
+    /// use chess::core::*;
     ///
     /// let mut board = Board::from_fen("2k5/8/8/K2pP2r/8/8/8/8 w - d6 0 1").unwrap();
     /// board.update_masks();
@@ -402,10 +403,7 @@ impl Board {
 
 #[cfg(test)]
 mod tests {
-    use super::*; // Import items from parent module (Board impl)
-    use crate::core::*; // Import core types like Square, Bitboard, Colour, PieceType
-    // Assuming Board::from_fen exists and returns Result<Board, _>
-    // Add `use crate::board::FenParseError;` or similar if needed.
+    use super::*;
 
     #[test]
     fn test_ksq() {
@@ -524,7 +522,6 @@ mod tests {
         // Pass in_check = true
 
         // Check mask should include the rook line + rook (e2-e8) AND the bishop (g3)
-        let expected_check_mask = Bitboard(0x1010101010503000);
         assert_eq!(board.check_mask(), Bitboard::EMPTY);
         assert_eq!(board.diag_pin(), Bitboard::EMPTY); // No pins in double check
         assert_eq!(board.hv_pin(), Bitboard::EMPTY); // No pins in double check

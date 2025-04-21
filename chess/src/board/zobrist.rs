@@ -40,7 +40,8 @@
 //! - **Access Functions**: (`piece_key`, `side_key`, `castle_key`, `ep_key`) provide convenient access to keys in the global table.
 //! - **`Board` Methods**:
 //!     - `calc_key`: Calculates the full key from scratch. Useful for initialization or verification.
-//!     // Note: Board update methods are not shown here but would typically use the Key::toggle_* methods.
+//!
+//! Note: Board update methods are not shown here but would typically use the Key::toggle_* methods.
 
 use super::Board;
 use crate::core::*;
@@ -544,8 +545,7 @@ mod tests {
         let calculated_key = board.calc_key();
 
         assert_eq!(
-            calculated_key,
-            board.state().keys.key,
+            calculated_key, board.state.keys.key,
             "Stored key differs from calculated key"
         );
         // Note: Board::set likely doesn't update the key yet, so this assert might fail.

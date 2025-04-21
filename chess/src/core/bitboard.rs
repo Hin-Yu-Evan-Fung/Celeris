@@ -218,7 +218,7 @@ impl<const N: usize> From<[Square; N]> for Bitboard {
     /// # Examples          
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let squares = [Square::E4, Square::D5, Square::A1];
     /// let bb = Bitboard::from(squares);
@@ -342,7 +342,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let mut multi_square = Square::E4.bb() | Square::D2.bb();
     /// assert_eq!(multi_square.pop_lsb(), Some(Square::D2)); // D2 has lower index than E4
@@ -375,7 +375,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let mut multi_square = Square::E4.bb() | Square::D2.bb();
     /// assert_eq!(multi_square.pop_lsb_unchecked(), Some(Square::D2)); // D2 has lower index than E4
@@ -403,7 +403,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let mut multi_square = Square::E4.bb() | Square::D2.bb();
     /// assert_eq!(multi_square.pop_lsb(), Some(Square::D2)); // D2 has lower index than E4
@@ -423,7 +423,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let mut multi_square = Square::E4.bb() | Square::G7.bb();
     /// assert_eq!(multi_square.pop_msb(), Some(Square::G7)); // G7 has higher index than E4
@@ -454,7 +454,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let bb = Square::E4.bb() | Square::D5.bb();
     /// assert_eq!(bb.count_bits(), 2);
@@ -477,7 +477,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let bb = Square::E4.bb();
     /// assert!(!bb.is_empty());
@@ -500,7 +500,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let bb = Square::E4.bb();
     /// assert!(bb.is_occupied());
@@ -527,7 +527,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let bb = Square::E4.bb();
     /// assert!(bb.get(Square::E4));
@@ -547,7 +547,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let mut bb = Bitboard::EMPTY;
     /// bb.set(Square::E4);
@@ -567,7 +567,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let mut bb = Square::E4.bb();
     /// bb.clear(Square::E4);
@@ -590,7 +590,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let mut bb = Bitboard::EMPTY;
     /// bb.toggle(Square::E4);
@@ -672,7 +672,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use sophos::{Bitboard, Square};
+    /// use chess::{Bitboard, Square};
     ///
     /// let mut squares = Vec::new();
     /// let bb = Square::E4.bb() | Square::D5.bb();

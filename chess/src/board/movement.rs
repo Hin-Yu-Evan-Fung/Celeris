@@ -187,7 +187,7 @@ impl Board {
     /// Moves the appropriate rook back to its original square using `move_piece`.
     ///
     /// **Note:** Zobrist key updates are *not* performed here, as the entire key is
-    /// restored by `restore_state()` in `undo_move`. The king's movement is also
+    /// restored by `restore_state` in `undo_move`. The king's movement is also
     /// handled separately in `undo_move`.
     ///
     /// # Arguments
@@ -440,7 +440,7 @@ impl Board {
     /// - Toggles the side to move back.
     /// - Decrements the half-move counter.
     /// - Restores the *entire* previous state (`fifty_move`, `captured`, `enpassant`, `castle`, Zobrist `key`)
-    ///   from the history using `restore_state()`. This implicitly handles Zobrist key restoration.
+    ///   from the history using `restore_state`. This implicitly handles Zobrist key restoration.
     /// - Reverses the piece movements based on the `MoveFlag`:
     ///   - Moves pieces back to their original squares.
     ///   - Adds captured pieces back to the board (using the `captured` piece from the restored state).
@@ -482,8 +482,8 @@ impl Board {
             MoveFlag::QuietMove | MoveFlag::DoublePawnPush => {
                 // Move the piece back from 'to' to 'from'
                 self.move_piece(to, from);
-                // En passant square (if any existed before this move) is restored by restore_state()
-                // Castling rights are restored by restore_state()
+                // En passant square (if any existed before this move) is restored by restore_state
+                // Castling rights are restored by restore_state
             }
             // Handle Captures
             MoveFlag::Capture => {
@@ -495,7 +495,7 @@ impl Board {
                     "undo_move: Capture flag set, but restored state has no captured piece"
                 );
                 self.add_piece(unsafe { captured.unwrap_unchecked() }, to);
-                // Castling rights restored by restore_state()
+                // Castling rights restored by restore_state
             }
             // Handle Enpassant
             MoveFlag::EPCapture => {
@@ -513,7 +513,7 @@ impl Board {
                     "undo_move: EPCapture flag set, but restored state has no captured piece"
                 );
                 self.add_piece(unsafe { captured.unwrap_unchecked() }, cap_sq);
-                // En passant square restored by restore_state()
+                // En passant square restored by restore_state
             }
             // Handle Castling
             MoveFlag::KingCastle | MoveFlag::QueenCastle => {
@@ -524,7 +524,7 @@ impl Board {
                 self.undo_castle(is_king_side);
                 // Place the king down
                 self.add_piece(Piece::from_parts(us, PieceType::King), from);
-                // Castling rights are restored by restore_state()
+                // Castling rights are restored by restore_state
             }
             // Promotion without capture
             MoveFlag::KnightPromo
@@ -535,7 +535,7 @@ impl Board {
                 self.remove_piece(to);
                 // Add the original pawn back to the 'from' square
                 self.add_piece(Piece::from_parts(us, PieceType::Pawn), from);
-                // Castling rights restored by restore_state()
+                // Castling rights restored by restore_state
             }
             // Promotion with capture
             MoveFlag::KnightPromoCapture
@@ -552,11 +552,11 @@ impl Board {
                 self.add_piece(unsafe { captured.unwrap_unchecked() }, to);
                 // Add the original pawn back to the 'from' square
                 self.add_piece(Piece::from_parts(us, PieceType::Pawn), from);
-                // Castling rights restored by restore_state()
+                // Castling rights restored by restore_state
             }
         }
-        // Note: No Zobrist key toggling is needed here, as restore_state() reset the key entirely.
-        // Note: The .unwrap() in restore_state() itself remains, as popping from an empty history
+        // Note: No Zobrist key toggling is needed here, as restore_state reset the key entirely.
+        // Note: The .unwrap() in restore_state itself remains, as popping from an empty history
         // is considered a fatal logic error in the engine's operation (calling undo without a prior make).
     }
 }
@@ -572,32 +572,28 @@ mod tests {
 
     // Helper function to create a board and calculate its keys consistently
     fn board_from_fen(fen: &str) -> Board {
-        let mut board = Board::from_fen(fen).expect("Test FEN should be valid");
+        let board = Board::from_fen(fen).expect("Test FEN should be valid");
         // Ensure the keys stored after parsing match a fresh calculation
         let calculated_key = board.calc_key();
         let calculated_pawn_key = board.calc_pawn_key();
         let calculated_non_pawn_key = board.calc_non_pawn_key();
         assert_eq!(
-            board.state().keys.key,
-            calculated_key,
+            board.state.keys.key, calculated_key,
             "Key mismatch after initial FEN parse for: {}",
             fen
         );
         assert_eq!(
-            board.state().keys.pawn_key,
-            calculated_pawn_key,
+            board.state.keys.pawn_key, calculated_pawn_key,
             "Pawn key mismatch after initial FEN parse for: {}",
             fen
         );
         assert_eq!(
-            board.state().keys.non_pawn_key[0],
-            calculated_non_pawn_key[0],
+            board.state.keys.non_pawn_key[0], calculated_non_pawn_key[0],
             "Pawn key mismatch after initial FEN parse for: {}",
             fen
         );
         assert_eq!(
-            board.state().keys.non_pawn_key[1],
-            calculated_non_pawn_key[1],
+            board.state.keys.non_pawn_key[1], calculated_non_pawn_key[1],
             "Pawn key mismatch after initial FEN parse for: {}",
             fen
         );
@@ -607,15 +603,15 @@ mod tests {
     // Helper function to perform make/undo and check board state + keys consistency
     fn test_make_undo(fen_before: &str, move_to_test: Move, fen_after: &str) {
         let mut board = board_from_fen(fen_before);
-        let key_before = board.state().keys.key;
-        let pawn_key_before = board.state().keys.pawn_key;
-        let non_pawn_key_before = board.state().keys.non_pawn_key;
+        let key_before = board.state.keys.key;
+        let pawn_key_before = board.state.keys.pawn_key;
+        let non_pawn_key_before = board.state.keys.non_pawn_key;
 
         // --- Make Move ---
         board.make_move(move_to_test);
-        let key_after_make = board.state().keys.key;
-        let pawn_key_after_make = board.state().keys.pawn_key;
-        let non_pawn_key_after_make = board.state().keys.non_pawn_key;
+        let key_after_make = board.state.keys.key;
+        let pawn_key_after_make = board.state.keys.pawn_key;
+        let non_pawn_key_after_make = board.state.keys.non_pawn_key;
 
         // Assert board state after make_move
         assert_eq!(
@@ -658,7 +654,7 @@ mod tests {
         };
 
         let affects_pawn_key = piece.pt() == PieceType::Pawn
-            || captured_piece.map_or(false, |p| p.pt() == PieceType::Pawn);
+            || captured_piece.map_or_else(|| false, |p| p.pt() == PieceType::Pawn);
         if affects_pawn_key {
             assert_ne!(
                 pawn_key_before, pawn_key_after_make,
@@ -675,9 +671,9 @@ mod tests {
 
         // --- Undo Move ---
         board.undo_move(move_to_test);
-        let key_after_undo = board.state().keys.key;
-        let pawn_key_after_undo = board.state().keys.pawn_key;
-        let non_pawn_key_after_undo = board.state().keys.non_pawn_key;
+        let key_after_undo = board.state.keys.key;
+        let pawn_key_after_undo = board.state.keys.pawn_key;
+        let non_pawn_key_after_undo = board.state.keys.non_pawn_key;
 
         // Assert board state is restored
         assert_eq!(
@@ -878,32 +874,32 @@ mod tests {
     fn test_fifty_move_counter() {
         // Test that the fifty-move counter resets on pawn moves and captures
         let mut board = board_from_fen(START_FEN);
-        assert_eq!(board.state().fifty_move, 0); // Initial state
+        assert_eq!(board.state.fifty_move, 0); // Initial state
 
         // Quiet pawn move
         board.make_move(Move::new(Square::E2, Square::E4, MoveFlag::DoublePawnPush));
-        assert_eq!(board.state().fifty_move, 0); // Reset on pawn move
+        assert_eq!(board.state.fifty_move, 0); // Reset on pawn move
         board.undo_move(Move::new(Square::E2, Square::E4, MoveFlag::DoublePawnPush));
 
         // Capture
         board.make_move(Move::new(Square::E2, Square::E4, MoveFlag::DoublePawnPush));
         board.make_move(Move::new(Square::D7, Square::D5, MoveFlag::DoublePawnPush));
         board.make_move(Move::new(Square::E4, Square::D5, MoveFlag::Capture));
-        assert_eq!(board.state().fifty_move, 0); // Reset on capture
+        assert_eq!(board.state.fifty_move, 0); // Reset on capture
         board.undo_move(Move::new(Square::E4, Square::D5, MoveFlag::Capture));
         board.undo_move(Move::new(Square::D7, Square::D5, MoveFlag::DoublePawnPush));
         board.undo_move(Move::new(Square::E2, Square::E4, MoveFlag::DoublePawnPush));
 
         // Quiet knight move
         board.make_move(Move::new(Square::G1, Square::F3, MoveFlag::QuietMove));
-        assert_eq!(board.state().fifty_move, 1); // Increment on non-pawn, non-capture
+        assert_eq!(board.state.fifty_move, 1); // Increment on non-pawn, non-capture
         board.undo_move(Move::new(Square::G1, Square::F3, MoveFlag::QuietMove));
 
         // Quiet king move
         board.make_move(Move::new(Square::E2, Square::E4, MoveFlag::DoublePawnPush));
         board.make_move(Move::new(Square::E7, Square::E5, MoveFlag::DoublePawnPush));
         board.make_move(Move::new(Square::E1, Square::E2, MoveFlag::QuietMove));
-        assert_eq!(board.state().fifty_move, 1); // Increment on non-pawn, non-capture
+        assert_eq!(board.state.fifty_move, 1); // Increment on non-pawn, non-capture
     }
 
     #[test]

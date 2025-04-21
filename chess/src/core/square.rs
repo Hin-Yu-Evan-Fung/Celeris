@@ -83,7 +83,7 @@ use super::types::Colour;
 /// Squares can be created from file and rank components using the `From` trait:
 /// 
 /// ```rust,no_run
-/// use sophos::core::{Square, File, Rank};
+/// use chess::core::{Square, File, Rank};
 /// 
 /// let e4 = Square::from_unchecked((File::FileE, Rank::Rank4));
 /// // Or using the more concise into() method:
@@ -93,7 +93,7 @@ use super::types::Colour;
 /// You can extract file and rank components from a square:
 /// 
 /// ```rust,no_run
-/// use sophos::core::{Square, File, Rank};
+/// use chess::core::{Square, File, Rank};
 /// 
 /// let square = Square::E4;
 /// let file = square.file();  // File::FileE
@@ -273,7 +273,7 @@ impl Square {
     ///
     /// # Examples
     /// ```rust,no_run
-    /// use sophos::{Square};
+    /// use chess::{Square};
     ///
     /// let a1 = Square::A1; // Rank 1
     /// let a8 = Square::A8; // Rank 8
@@ -298,7 +298,7 @@ impl Square {
     ///
     /// # Examples
     /// ```rust,no_run
-    /// use sophos::{Square};
+    /// use chess::{Square};
     ///
     /// let a1 = Square::A1; // File A
     /// let h1 = Square::H1; // File H

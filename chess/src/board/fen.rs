@@ -7,7 +7,7 @@ use super::Board;
 // Assuming FenParseError is defined in src/core/errors.rs
 use super::errors::FenParseError;
 // Import necessary core types (Piece, Square, Rank, File, Colour, Castling, etc.)
-use super::movegen::{between_bb, pin_bb};
+use super::movegen::pin_bb;
 use crate::core::*;
 
 /******************************************\
@@ -58,7 +58,7 @@ impl Board {
         *self = Board::new();
 
         // Split the FEN string into its 6 components.
-        let mut parts = fen.trim().split_whitespace();
+        let mut parts = fen.split_whitespace();
 
         // --- 1. Parse Piece Placement ---
         let piece_placement = parts.next().ok_or(FenParseError::InvalidNumberOfFields)?;
@@ -140,7 +140,7 @@ impl Board {
     /// ## Example
     ///
     /// ```
-    /// use sophos::core::*;
+    /// use chess::core::*;
     /// let board = Board::default();
     /// assert_eq!(board.fen(), START_FEN);
     /// ```
@@ -425,7 +425,7 @@ impl Board {
                     (rank, file) = Self::parse_separator(&mut rank_iter, rank, file)?;
                 }
                 // Skip digit: Parse the digit, validate, and advance the file index.
-                skip if skip.is_digit(10) => {
+                skip if skip.is_ascii_digit() => {
                     file += Self::parse_skip(skip, i, rank, file)?;
                 }
                 // Piece character: Parse the piece, place it, and advance the file index by 1.
@@ -698,9 +698,9 @@ mod tests {
         assert_eq!(board.on(Square::D8), Some(Piece::BlackQueen));
         assert_eq!(board.on(Square::E4), None); // Check an empty square
         assert_eq!(board.side_to_move(), Colour::White);
-        assert_eq!(board.state().castle, Castling::ALL);
-        assert_eq!(board.state().enpassant, None);
-        assert_eq!(board.state().fifty_move, 0); // Check parsed fifty_move
+        assert_eq!(board.state.castle, Castling::ALL);
+        assert_eq!(board.state.enpassant, None);
+        assert_eq!(board.state.fifty_move, 0); // Check parsed fifty_move
         assert_eq!(board.half_moves(), 0); // Check calculated ply count (startpos is ply 0)
         assert_eq!(board.fen(), START_FEN.trim());
     }
@@ -711,9 +711,9 @@ mod tests {
         assert!(board.set(EMPTY_FEN).is_ok());
         // Check bitboards directly if accessible, or use helper methods
         assert_eq!(board.side_to_move(), Colour::White);
-        assert_eq!(board.state().castle, Castling::ALL); // FEN specifies KQkq
-        assert_eq!(board.state().enpassant, None);
-        assert_eq!(board.state().fifty_move, 0);
+        assert_eq!(board.state.castle, Castling::ALL); // FEN specifies KQkq
+        assert_eq!(board.state.enpassant, None);
+        assert_eq!(board.state.fifty_move, 0);
         assert_eq!(board.half_moves(), 0); // Empty board, move 1, white to move -> ply 0
         assert_eq!(board.fen(), EMPTY_FEN.trim());
     }
@@ -731,9 +731,9 @@ mod tests {
         assert_eq!(board.on(Square::C3), Some(Piece::WhiteKnight));
         assert_eq!(board.on(Square::H3), Some(Piece::BlackPawn));
         assert_eq!(board.side_to_move(), Colour::White);
-        assert_eq!(board.state().castle, Castling::ALL); // FEN specifies KQkq
-        assert_eq!(board.state().enpassant, None); // FEN has '-', so None
-        assert_eq!(board.state().fifty_move, 0);
+        assert_eq!(board.state.castle, Castling::ALL); // FEN specifies KQkq
+        assert_eq!(board.state.enpassant, None); // FEN has '-', so None
+        assert_eq!(board.state.fifty_move, 0);
         assert_eq!(board.half_moves(), 0); // Tricky pos, move 1, white to move -> ply 0
         assert_eq!(board.fen(), TRICKY_FEN.trim());
     }
@@ -988,8 +988,7 @@ mod tests {
 
 #[cfg(test)]
 mod xfen_tests {
-    use super::*; // Access Board, FenParseError etc. from parent module
-    use crate::core::*; // Access Square, Piece, Castling, Colour etc.
+    use super::*;
 
     // Helper to create a board and check basic parsing success
     fn assert_fen_parses(fen: &str) -> Board {
@@ -1000,11 +999,9 @@ mod xfen_tests {
     // Helper to check castling rights flags
     fn assert_castling_flags(board: &Board, expected_flags: Castling) {
         assert_eq!(
-            board.state().castle,
-            expected_flags,
+            board.state.castle, expected_flags,
             "Expected castling flags {:?}, but got {:?}",
-            expected_flags,
-            board.state().castle
+            expected_flags, board.state.castle
         );
     }
 

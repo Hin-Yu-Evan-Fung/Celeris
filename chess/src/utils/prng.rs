@@ -54,6 +54,8 @@
 ///
 /// ## Example Usage
 /// ```rust, no_run
+/// use chess::utils::PRNG;
+///
 /// // Create a PRNG with default seed
 /// let mut prng = PRNG::default();
 ///
@@ -84,6 +86,7 @@ impl PRNG {
     ///
     /// # Example
     /// ```rust,no_run
+    /// use chess::utils::PRNG;
     /// let mut prng = PRNG::new(0x123456789ABCDEF);
     /// ```
     pub const fn new(seed: u64) -> Self {
@@ -107,6 +110,7 @@ impl PRNG {
     ///
     /// # Example
     /// ```rust, no_run
+    /// use chess::utils::PRNG;
     /// let mut prng = PRNG::default();
     /// let random_value = prng.random_u64();
     /// ```
@@ -135,6 +139,7 @@ impl PRNG {
     ///
     /// # Example
     /// ```rust, no_run
+    /// use chess::utils::PRNG;
     /// let mut prng = PRNG::default();
     /// let sparse_value = prng.random_sparse_u64();
     /// ```
@@ -155,6 +160,7 @@ impl Default for PRNG {
     ///
     /// # Example
     /// ```rust, no_run
+    /// use chess::utils::PRNG;
     /// let mut prng = PRNG::default();
     /// ```
     fn default() -> Self {

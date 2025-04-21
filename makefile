@@ -1,4 +1,4 @@
-EXE := sophos
+EXE := Celeris
 DIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))/build
 
 ifeq ($(OS),Windows_NT)
