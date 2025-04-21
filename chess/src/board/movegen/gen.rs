@@ -242,7 +242,6 @@ pub(crate) fn generate_move<G: GenTypeTrait>(board: &Board, move_list: &mut Move
         gen_knight_moves::<G>(board, move_list);
         gen_diag_slider_moves::<G>(board, move_list); // Bishops + Queen diagonal
         gen_hv_slider_moves::<G>(board, move_list); // Rooks + Queen rank/file
-        gen_remaining_queen_moves::<G>(board, move_list); // Handles non-pinned queens fully
         gen_king_moves::<G>(board, move_list);
 
         // Castling is only possible if not in check and if generating quiet moves.
@@ -435,12 +434,12 @@ fn gen_diag_slider_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveLis
     let all_occ = board.all_occupied_bb();
 
     // Get relevant pieces
-    let queens = board.piece_bb(us, PieceType::Queen);
-    let bishops = board.piece_bb(us, PieceType::Bishop) & !hv_pin;
+    let pieces =
+        (board.piece_bb(us, PieceType::Queen) | board.piece_bb(us, PieceType::Bishop)) & !hv_pin;
 
     // Separate pinned and non-pinned diagonal movers
-    let pinned = (bishops | queens) & diag_pin;
-    let non_pinned = bishops & !diag_pin;
+    let pinned = pieces & diag_pin;
+    let non_pinned = pieces & !diag_pin;
 
     // Generate moves for pinned pieces
     pinned.for_each(|from| {
@@ -467,12 +466,12 @@ fn gen_hv_slider_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList)
     let all_occ = board.all_occupied_bb();
 
     // Get relevant pieces
-    let queens = board.piece_bb(us, PieceType::Queen);
-    let rooks = board.piece_bb(us, PieceType::Rook) & !diag_pin;
+    let pieces =
+        (board.piece_bb(us, PieceType::Queen) | board.piece_bb(us, PieceType::Rook)) & !diag_pin;
 
     // Separate pinned and non-pinned hv movers
-    let pinned = (rooks | queens) & hv_pin;
-    let non_pinned = rooks & !hv_pin;
+    let pinned = pieces & hv_pin;
+    let non_pinned = pieces & !hv_pin;
 
     // Generate moves for pinned pieces
     pinned.for_each(|from| {
@@ -487,27 +486,6 @@ fn gen_hv_slider_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList)
         let dest = slider_attack(PieceType::Rook, from, all_occ) & check_mask;
         add_piece_moves::<G>(board, from, dest, move_list);
     })
-}
-
-/// Generates the remaining moves for Queens that were not handled as part of
-/// purely diagonal or purely horizontal/vertical generation due to pins.
-/// This specifically handles non-pinned queens.
-fn gen_remaining_queen_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
-    let us = board.side_to_move();
-
-    // Board state masks
-    let check_mask = board.check_mask();
-    let pin_mask = board.diag_pin() | board.hv_pin(); // Any pin affects queen movement partially
-    let all_occ = board.all_occupied_bb();
-
-    let non_pinned = board.piece_bb(us, PieceType::Queen) & !pin_mask;
-
-    // Generate full Queen moves for non-pinned queens
-    non_pinned.for_each(|from| {
-        // Attacks considering occupancy, filtered only by check_mask
-        let dest = slider_attack(PieceType::Queen, from, all_occ) & check_mask;
-        add_piece_moves::<G>(board, from, dest, move_list);
-    });
 }
 
 /// Generates legal king moves.

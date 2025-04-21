@@ -52,10 +52,7 @@ mod lookup;
 mod magic;
 mod move_list;
 
-pub(crate) use lookup::{
-    between_bb, check_bb, leaper_attack, line_bb, pawn_attack, pawn_attack_span, pin_bb,
-    slider_attack,
-};
+pub(crate) use lookup::{leaper_attack, pawn_attack, pawn_attack_span, pin_bb, slider_attack};
 
 pub use move_list::MoveList;
 
