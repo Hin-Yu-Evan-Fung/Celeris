@@ -36,11 +36,6 @@ impl<const N: usize> Default for UndoHistory<N> {
             arr: [MaybeUninit::uninit(); N],
             count: 0,
         }
-        // Alternative using unsafe (potentially slightly faster init, but negligible):
-        // Self {
-        //     arr: unsafe { MaybeUninit::<[MaybeUninit<BoardState>; N]>::uninit().assume_init() },
-        //     count: 0,
-        // }
     }
 }
 
@@ -122,6 +117,19 @@ impl<const N: usize> UndoHistory<N> {
         self.count == 0
     }
 
+    /// Removes and returns the most recently pushed state, if any.
+    ///
+    /// Returns `None` if the history is empty.
+    #[inline]
+    pub fn pop(&mut self) -> Option<BoardState> {
+        if self.is_empty() {
+            None
+        } else {
+            // Safe wrapper around pop_unchecked
+            Some(self.pop_unchecked())
+        }
+    }
+
     /// Removes and returns the most recently pushed state without checking if the history is empty.
     ///
     /// # Safety / Panics
@@ -136,7 +144,7 @@ impl<const N: usize> UndoHistory<N> {
     ///
     /// The last pushed `BoardState`. Assumes `BoardState` is `Copy`.
     #[inline]
-    pub fn pop_unchecked(&mut self) -> &BoardState {
+    pub fn pop_unchecked(&mut self) -> BoardState {
         // This debug_assert helps catch misuse during development.
         debug_assert!(!self.is_empty(), "pop_unchecked called on empty history");
 
@@ -149,20 +157,20 @@ impl<const N: usize> UndoHistory<N> {
         // 3. This logical index corresponds to the last pushed, non-overwritten state.
         // 4. Therefore, `self.arr[index]` is guaranteed to be initialized.
         // 5. `assume_init_read()` safely reads the value (assuming BoardState is Copy).
-        unsafe { &self.arr[self.count].assume_init_ref() }
+        unsafe { self.arr[self.count].assume_init_read() }
     }
 
-    /// Removes and returns the most recently pushed state, if any.
-    ///
-    /// Returns `None` if the history is empty.
+    // pop_mut_unchecked needs correction too
     #[inline]
-    pub fn pop(&mut self) -> Option<&BoardState> {
-        if self.is_empty() {
-            None
-        } else {
-            // Safe wrapper around pop_unchecked
-            Some(self.pop_unchecked())
-        }
+    pub fn pop_mut_unchecked(&mut self) -> &mut BoardState {
+        debug_assert!(
+            !self.is_empty(),
+            "pop_mut_unchecked called on empty history"
+        );
+        self.count -= 1;
+        let index = self.count % N; // Correct index for circular buffer
+        // Safety: assume_init_mut is safe as we know it's initialized. Returns mutable ref.
+        unsafe { self.arr[index].assume_init_mut() }
     }
 
     /// Clears the history.
@@ -205,6 +213,8 @@ impl Board {
             !self.history.is_empty(),
             "Attempted to restore state from empty history!"
         );
-        self.state = *self.history.pop_unchecked();
+        // self.state = self.history.pop_unchecked();
+
+        std::mem::swap(&mut self.state, self.history.pop_mut_unchecked());
     }
 }

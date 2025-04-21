@@ -97,24 +97,36 @@ const BENCH_LIST: &[(&str, usize, usize)] = &[
 
 pub fn perft_bench() {
     use std::time::Instant;
+
+    let mut passed = true;
     println!("==========  START BENCH  ===========");
 
     for (fen, depth, expected_nodes) in BENCH_LIST.iter() {
-        let mut start = Instant::now();
+        let start = Instant::now();
         let mut board = Board::from_fen(fen).unwrap();
         let nodes = perft(&mut board, *depth);
 
         let status: &str = if nodes == *expected_nodes {
-            "PASS"
+            "PASSED"
         } else {
-            "FAIL"
+            "FAILED"
         };
+
+        if nodes != *expected_nodes {
+            passed = false;
+        }
 
         let time = start.elapsed().as_millis();
 
         println!(
-            "Testing fen {fen}, status: {status}, time: {time}ms, Mnps: {}Mnps",
+            "status: {status}, time: {time:4}ms, Mnps: {:0.1}, Fen: {fen} )",
             (nodes as f64 / time as f64 / 1000.0)
         )
+    }
+
+    if passed {
+        println!("=====================================");
+        println!("============= ALL PASSED ============");
+        println!("=====================================");
     }
 }
