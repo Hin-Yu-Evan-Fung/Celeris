@@ -245,10 +245,6 @@ impl Board {
             .step_by(2);
 
         for (idx, state) in iterator {
-            println!(
-                "{}, Prev Key: {:#X}, New Key: {:#X}",
-                idx, state.keys.key, self.state.keys.key
-            );
             if state.keys.key == self.state.keys.key {
                 if state.repetitions == 0 {
                     self.state.repetitions = idx as i8;
