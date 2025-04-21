@@ -1,32 +1,13 @@
-[package]
-name = "sophos"
-version = "0.1.0"
-edition = "2024"
-build = "src/build.rs" # Tell Cargo to execute build.rs
-
-[dependencies]
-macros = { path = "./macros" }
-
-[build-dependencies]
-macros = { path = "./macros" }
-
-[lib]
-doctest = false
+[workspace]
+resolver = "2"
+members = ["chess", "macros"]
 
 [profile.release]
-# Optimize for speed
-opt-level = 3
-# Enable link-time optimization
-lto = "fat"
-# Enable codegen units for parallel compilation
-codegen-units = 1
-# Enable CPU-specific optimizations
-target-cpu = "native"
-# Enable aggressive inlining
-incremental = false
-# Enable panic=abort for smaller binary size
-panic = "abort"
-# Enable overflow checks in debug mode
-overflow-checks = false
-# Enable debug mode
-debug = "line-tables-only"
+opt-level = 3              # Optimize for speed
+lto = "fat"                # Heavy link-time optimization
+codegen-units = 1          # Only one codegen unit so we don't miss optimizations
+target-cpu = "native"      # Enable CPU-specific optimizations
+incremental = false        # Enable aggressive inlining
+panic = "abort"            # Enable panic=abort for smaller binary size
+overflow-checks = false    # Enable overflow checks in debug mode
+debug = "line-tables-only" # Enable debug mode

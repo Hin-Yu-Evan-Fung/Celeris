@@ -1,0 +1,11 @@
+[package]
+name = "chess"
+version = "0.1.0"
+edition = "2024"
+build = "src/build.rs"
+
+[dependencies]
+macros = { path = "../macros" }
+
+[build-dependencies]
+macros = { path = "../macros" }
