@@ -76,12 +76,17 @@ fn add_castling_move(index: usize, board: &Board, move_list: &mut MoveList) {
     if board.castling().has(castling) {
         let ksq = board.ksq(board.side_to_move());
         let dest = [Square::G1, Square::C1, Square::G8, Square::C8][index];
+        let rook_dest = [Square::F1, Square::D1, Square::F8, Square::D8][index];
         let flag = [MoveFlag::KingCastle, MoveFlag::QueenCastle][index & 0b1];
-        let king_path = between_bb(ksq, unsafe { board.rook_sq(index) });
-        let between_bb = pin_bb(ksq, dest);
-        if (between_bb & board.attacked()).is_empty()
-            && (king_path & board.all_occupied_bb()).is_empty()
-        {
+
+        let rook_sq = unsafe { board.rook_sq(index) };
+
+        let king_path = pin_bb(ksq, dest);
+        let move_area = king_path | pin_bb(rook_sq, rook_dest);
+
+        let occ = board.all_occupied_bb() ^ rook_sq.bb() ^ ksq.bb();
+
+        if (king_path & board.attacked()).is_empty() && (move_area & occ).is_empty() {
             move_list.add_move(Move::new(ksq, dest, flag));
         }
     }
