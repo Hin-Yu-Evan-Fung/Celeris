@@ -5,9 +5,9 @@ A fast chess engine. (work in progress).
 ## Move generation
 - Fully legal move generator
 - Fancy Magic Bitboards
-- Reaching speeds of up to 600Mnps on a i5-11400H and 320Mnps on a i7-10750H
+- Reaching speeds of up to 600Mnps on a R9 7900 and 320Mnps on a i7-10750H
 <details>
-  <summary>Perft results (For i5-11400H) </summary>
+  <summary>Perft results (For R9 7900) </summary>
   
   ```
   status: PASSED, time:  267ms, Mnps: 445.9, Fen: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 )
