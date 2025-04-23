@@ -95,7 +95,7 @@ const BENCH_LIST: &[(&str, usize, usize)] = &[
     ("qbrnnkbr/pppppppp/8/8/8/8/PPPPPPPP/QBRNNKBR w KQkq - 0 1", 6, 121613156),
 ];
 
-pub fn perft_bench() {
+pub fn perft_bench() -> bool {
     use std::time::Instant;
 
     let mut passed = true;
@@ -124,9 +124,15 @@ pub fn perft_bench() {
         )
     }
 
-    if passed {
-        println!("=====================================");
-        println!("============= ALL PASSED ============");
-        println!("=====================================");
+    passed
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_perft_bench() {
+        assert!(perft_bench());
     }
 }

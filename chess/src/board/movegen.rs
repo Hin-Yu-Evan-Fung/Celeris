@@ -90,10 +90,86 @@ impl GenTypeTrait for CaptureGen {
 }
 
 use super::Board;
+use crate::core::*;
 
 impl Board {
     #[inline]
     pub fn generate_moves<G: GenTypeTrait>(&self, move_list: &mut MoveList) {
         generate_move::<G>(self, move_list);
+    }
+
+    #[inline]
+    pub(crate) fn castling_king_dest(&self, castle: Castling) -> Square {
+        debug_assert!(
+            castle.0.count_ones() == 1,
+            "This function only works for castling on one side (atomic)"
+        );
+
+        match castle {
+            Castling::WK => Square::G1,
+            Castling::WQ => Square::C1,
+            Castling::BK => Square::G8,
+            Castling::BQ => Square::C8,
+            _ => unreachable!(),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn castling_rook_dest(&self, castle: Castling) -> Square {
+        debug_assert!(
+            castle.0.count_ones() == 1,
+            "This function only works for castling on one side (atomic)"
+        );
+
+        match castle {
+            Castling::WK => Square::F1,
+            Castling::WQ => Square::D1,
+            Castling::BK => Square::F8,
+            Castling::BQ => Square::D8,
+            _ => unreachable!(),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn castling_flag(&self, castle: Castling) -> MoveFlag {
+        debug_assert!(
+            castle.0.count_ones() == 1,
+            "This function only works for castling on one side (atomic)"
+        );
+
+        match castle {
+            Castling::WK | Castling::BK => MoveFlag::KingCastle,
+            Castling::WQ | Castling::BQ => MoveFlag::QueenCastle,
+            _ => unreachable!(),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn can_castle(&self, castle: Castling) -> bool {
+        debug_assert!(
+            castle.0.count_ones() == 1,
+            "This function only works for castling on one side (atomic)"
+        );
+
+        let us = self.side_to_move();
+
+        let ksq = self.ksq(us);
+        // Safety: rook_sq lookup is safe if castling rights are present initially.
+        let rook_sq = unsafe { self.rook_sq(castle.0.trailing_zeros() as usize) };
+        // Rook destination (depends on castling rights)
+        let rook_dest = self.castling_rook_dest(castle);
+
+        // Calculate movement paths using pin_bb for convenience (line between squares + target square)
+        // King path: squares the king traverses (e.g., E1->G1 includes F1, G1)
+        let king_path = pin_bb(ksq, self.castling_king_dest(castle));
+        // Rook path: squares the rook traverses (e.g., H1->F1 includes G1, F1)
+        let rook_path = pin_bb(rook_sq, rook_dest);
+        // Combined area that must be empty (excluding king and rook) and king path squares cannot be attacked.
+        let move_area = king_path | rook_path;
+
+        // Occupancy excluding the king and the specific castling rook
+        let occ = self.all_occupied_bb() ^ rook_sq.bb() ^ ksq.bb();
+
+        (king_path & self.attacked()).is_empty() && (move_area & occ).is_empty()
     }
 }

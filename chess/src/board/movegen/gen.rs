@@ -163,39 +163,22 @@ fn add_piece_moves<G: GenTypeTrait>(
 /// * `board` - The current board state.
 /// * `move_list` - The list to add the castling move to if legal.
 #[inline]
-fn add_castling_move(index: usize, board: &Board, move_list: &mut MoveList) {
-    // Map index to Castling right, destination square, rook destination, and flag
-    let castling = [Castling::WK, Castling::WQ, Castling::BK, Castling::BQ][index];
-    let dest = [Square::G1, Square::C1, Square::G8, Square::C8][index];
-    let rook_dest = [Square::F1, Square::D1, Square::F8, Square::D8][index];
-    let flag = [MoveFlag::KingCastle, MoveFlag::QueenCastle][index & 0b1]; // Use modulo 2 for flag
+fn add_castling_move(castle: Castling, board: &Board, move_list: &mut MoveList) {
+    debug_assert!(
+        castle.0.count_ones() == 1,
+        "This function only works for castling on one side (atomic)"
+    );
 
     // Check if the side to move still has this castling right
-    if board.castling().has(castling) {
-        let us = board.side_to_move();
-        let ksq = board.ksq(us);
+    if board.castling().has(castle) && board.can_castle(castle) {
+        let ksq = board.ksq(board.side_to_move());
 
-        // Safety: rook_sq lookup is safe if castling rights are present initially.
-        let rook_sq = unsafe { board.rook_sq(index) };
+        let dest = board.castling_king_dest(castle);
 
-        // Calculate movement paths using pin_bb for convenience (line between squares + target square)
-        // King path: squares the king traverses (e.g., E1->G1 includes F1, G1)
-        let king_path = pin_bb(ksq, dest);
-        // Rook path: squares the rook traverses (e.g., H1->F1 includes G1, F1)
-        let rook_path = pin_bb(rook_sq, rook_dest);
-        // Combined area that must be empty (excluding king and rook) and king path squares cannot be attacked.
-        let move_area = king_path | rook_path;
+        let flag = board.castling_flag(castle);
 
-        // Occupancy excluding the king and the specific castling rook
-        let occ = board.all_occupied_bb() ^ rook_sq.bb() ^ ksq.bb();
-
-        // Legality checks:
-        // 1. King path squares (e.g., F1, G1 for WK) must not be attacked.
-        // 2. All squares in the combined move area (excluding king/rook) must be empty.
-        if (king_path & board.attacked()).is_empty() && (move_area & occ).is_empty() {
-            // Add the castling move (e.g., E1 -> G1 with KingCastle flag)
-            move_list.add_move(Move::new(ksq, dest, flag));
-        }
+        // Add the castling move (e.g., E1 -> G1 with KingCastle flag)
+        move_list.add_move(Move::new(ksq, dest, flag));
     }
 }
 
@@ -514,12 +497,12 @@ fn gen_castling_moves(board: &Board, move_list: &mut MoveList) {
     // The helper checks rights and legality internally.
     match us {
         Colour::White => {
-            add_castling_move(0, board, move_list); // WK index
-            add_castling_move(1, board, move_list); // WQ index
+            add_castling_move(Castling::WK, board, move_list);
+            add_castling_move(Castling::WQ, board, move_list); // WQ index
         }
         Colour::Black => {
-            add_castling_move(2, board, move_list); // BK index
-            add_castling_move(3, board, move_list); // BQ index
+            add_castling_move(Castling::BK, board, move_list); // BK index
+            add_castling_move(Castling::BQ, board, move_list); // BQ index
         }
     }
 }
