@@ -11,22 +11,33 @@ const MAX_PERM: usize = 0x1000; // 2^16
 
 #[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct Magic {
+    #[cfg(not(target_feature = "bmi2"))]
     pub(crate) magic: u64,
-    pub(crate) mask: Bitboard,
-    pub(crate) shift: u8,
-    pub(crate) offset: usize,
+
+    mask: Bitboard,
+    shift: u8,
+    offset: usize,
 }
 
 impl Magic {
-    pub(crate) const EMPTY: Magic = Magic {
-        magic: 0,
-        mask: Bitboard::EMPTY,
-        shift: 0,
-        offset: 0,
-    };
-
+    /// Calculates the index into the precomputed attack table.
+    ///
+    /// `occ` should represent the occupied squares on the board.
+    /// The formula is `((occ & mask) * magic) >> shift + offset`.
+    #[cfg(not(target_feature = "bmi2"))]
+    #[inline]
     pub(crate) const fn index(self, occ: Bitboard) -> usize {
+        // Note: Using wrapping_mul for the multiplication as standard practice in magic bitboards.
         ((occ.bitand(self.mask).0.wrapping_mul(self.magic)) >> self.shift) as usize + self.offset
+    }
+
+    /// Calculates the index into the precomputed attack table. (Using PEXT instruction)
+    ///
+    /// `occ` should represent the occupied squares on the board.
+    /// The formula is `pext(occ, mask) + offset`.
+    #[cfg(target_feature = "bmi2")]
+    pub(crate) const fn index(self, occ: Bitboard) -> usize {
+        occ.pext(self.mask.0) as usize + self.offset
     }
 }
 

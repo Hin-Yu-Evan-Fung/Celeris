@@ -25,7 +25,8 @@
 //!   - Supports iteration with `PieceType::iter()`.
 //!   - Length variable: `PieceType::NUM = 6`.
 
-use super::errors::ParsePieceError;
+use std::fmt;
+
 use crate::core::Colour;
 use macros::{EnumIter, FromPrimitive};
 
@@ -228,6 +229,63 @@ impl std::str::FromStr for Piece {
         Piece::from(index).ok_or(ParsePieceError::InvalidChar(piece_char))
     }
 }
+
+/******************************************\
+|==========================================|
+|            Piece Parse Error             |
+|==========================================|
+\******************************************/
+
+/// Represents errors that can occur when attempting to parse a [`Piece`](crate::core::Piece) from a string.
+///
+/// Typically expects a single character string corresponding to FEN notation (e.g., 'P', 'n', 'K').
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParsePieceError {
+    /// The input string did not have the expected length (usually 1 character).
+    /// Contains the actual length received.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::errors::ParsePieceError;
+    /// # use chess::core::Piece;
+    /// let result = "Pn".parse::<Piece>();
+    /// assert!(matches!(result, Err(ParsePieceError::InvalidLength(2))));
+    /// ```
+    InvalidLength(usize),
+
+    /// The character provided in the input string is not a valid FEN representation
+    /// of any chess piece (e.g., 'x', '1', ' ').
+    /// Contains the invalid character.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::errors::ParsePieceError; // Corrected path
+    /// # use chess::core::Piece; // Assuming Piece is in core
+    /// let result = "X".parse::<Piece>(); // 'X' is not a valid piece character
+    /// assert!(matches!(result, Err(ParsePieceError::InvalidChar('X'))));
+    /// ```
+    InvalidChar(char),
+}
+
+impl fmt::Display for ParsePieceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParsePieceError::InvalidLength(len) => {
+                // Corrected expected length in message
+                write!(f, "Invalid piece string length: {}, expected 1", len)
+            }
+            ParsePieceError::InvalidChar(char) => {
+                write!(
+                    f,
+                    "Invalid FEN character for piece: '{}'", // Adjusted message for clarity
+                    char
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ParsePieceError {}
 
 /******************************************\
 |==========================================|

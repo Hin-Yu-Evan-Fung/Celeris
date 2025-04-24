@@ -80,7 +80,7 @@ const MAX_DEPTH: usize = 256;
 /// - `king_attacks`: A bitboard representing the squares attacked by the friendly king.
 /// - `available`: A bitboard representing all squares not occupied by the side to move (potential destinations, excluding captures).
 /// - `enpassant_pin`: A boolean indicating if the pawn performing an en passant capture is pinned to the king, making the en passant illegal.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default)]
 pub struct BoardState {
     // --- Board State Variables -- //
     /// Stores gaps between last repeat, if negative it means three fold repetition
@@ -95,7 +95,6 @@ pub struct BoardState {
     castle: Castling,
     /// Zobrist keys for the current position
     keys: KeyBundle,
-
     // --- Move generation masks ---
     /// Bitboard mask: squares that block check or capture the checking piece(s). If not in check, all squares (`!0`).
     check_mask: Bitboard,
@@ -107,6 +106,18 @@ pub struct BoardState {
     attacked: Bitboard,
     /// Enpassant pin: whether enpassant pawn is pinned and cannot be taken without revealing a check
     ep_pin: bool,
+}
+
+impl BoardState {
+    pub(super) fn snapshot(&self) -> Self {
+        Self {
+            fifty_move: self.fifty_move,
+            castle: self.castle,
+            keys: self.keys,
+            enpassant: self.enpassant,
+            ..Default::default()
+        }
+    }
 }
 
 /******************************************\

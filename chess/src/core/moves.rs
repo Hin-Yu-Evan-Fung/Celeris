@@ -161,7 +161,7 @@ impl MoveFlag {
 ///
 /// Use the associated methods (`from()`, `to()`, `flag()`, `is_capture()`, etc.) to access
 /// the move's components and properties.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)] // Default makes Move(0) - often represents a null move
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Default)] // Default makes Move(0) - often represents a null move
 pub struct Move {
     data: u16,
 }

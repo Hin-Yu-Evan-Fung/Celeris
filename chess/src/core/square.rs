@@ -35,8 +35,8 @@
 
 use macros::{EnumIter, FromPrimitive};
 
-use super::errors::{ParseFileError, ParseRankError, ParseSquareError};
 use super::types::Colour;
+use std::fmt;
 
 /******************************************\
 |==========================================|
@@ -411,6 +411,129 @@ impl std::str::FromStr for Square {
         Ok(Square::from_parts(file, rank))
     }
 }
+
+/******************************************\
+|==========================================|
+|            Square Parse Errors           |
+|==========================================|
+\******************************************/
+
+/// Represents errors that can occur when attempting to parse a `File` from a string.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseFileError {
+    /// The input string did not have the expected length (usually 1).
+    InvalidLength(usize),
+    /// The character is not a valid file character ('a' through 'h').
+    InvalidChar(char),
+}
+
+impl fmt::Display for ParseFileError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ParseFileError::InvalidLength(l) => {
+                write!(f, "Invalid length for file string: {}, expected 1", l)
+            }
+            ParseFileError::InvalidChar(c) => {
+                write!(
+                    f,
+                    "Invalid character for file string: '{}', expected 'a'-'h'",
+                    c
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ParseFileError {}
+
+/// Represents errors that can occur when attempting to parse a `Rank` from a string.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseRankError {
+    /// The input string did not have the expected length (usually 1).
+    InvalidLength(usize),
+    /// The character is not a valid rank character ('1' through '8').
+    InvalidChar(char),
+}
+
+impl fmt::Display for ParseRankError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ParseRankError::InvalidLength(l) => {
+                write!(f, "Invalid length for rank string: {}, expected 1", l)
+            }
+            ParseRankError::InvalidChar(c) => {
+                write!(
+                    f,
+                    "Invalid character for rank string: '{}', expected '1'-'8'",
+                    c
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ParseRankError {}
+
+/// Represents errors that can occur when attempting to parse a `Square`
+/// from algebraic notation (e.g., "e4", "h8").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseSquareError {
+    /// The input string did not have the expected length of 2 characters.
+    /// Contains the actual length received.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::errors::ParseSquareError; // Corrected path
+    /// # use chess::core::Square; // Assuming Square is in core
+    /// let result = "e4g".parse::<Square>(); // Input is too long
+    /// assert!(matches!(result, Err(ParseSquareError::InvalidLength(3))));
+    /// let result = "e".parse::<Square>(); // Input is too short
+    /// assert!(matches!(result, Err(ParseSquareError::InvalidLength(1))));
+    /// ```
+    InvalidLength(usize),
+
+    /// The first character of the input string was not a valid file character ('a' through 'h').
+    /// Contains the invalid character received.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::errors::ParseSquareError; // Corrected path
+    /// # use chess::core::Square; // Assuming Square is in core
+    /// let result = "z4".parse::<Square>(); // 'z' is not a valid file
+    /// assert!(matches!(result, Err(ParseSquareError::InvalidFileChar('z'))));
+    /// ```
+    InvalidFileChar(char),
+
+    /// The second character of the input string was not a valid rank character ('1' through '8').
+    /// Contains the invalid character received.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::errors::ParseSquareError; // Corrected path
+    /// # use chess::core::Square; // Assuming Square is in core
+    /// let result = "e9".parse::<Square>(); // '9' is not a valid rank
+    /// assert!(matches!(result, Err(ParseSquareError::InvalidRankChar('9'))));
+    /// ```
+    InvalidRankChar(char),
+}
+
+impl fmt::Display for ParseSquareError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParseSquareError::InvalidLength(len) => {
+                write!(f, "Invalid square string length: {}, expected 2", len)
+            }
+            ParseSquareError::InvalidFileChar(c) => {
+                write!(f, "Invalid file character: '{}', expected 'a'-'h'", c)
+            }
+            ParseSquareError::InvalidRankChar(c) => {
+                write!(f, "Invalid rank character: '{}', expected '1'-'8'", c)
+            }
+        }
+    }
+}
+
+impl std::error::Error for ParseSquareError {}
 
 /******************************************\
 |==========================================|

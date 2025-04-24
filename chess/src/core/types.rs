@@ -35,7 +35,8 @@
 //!
 //! These types are used throughout the chess engine to represent the state of the game,
 //! generate moves, and evaluate board positions. They are designed to be efficient and easy to use.
-use super::errors::SquareAddError;
+use std::fmt;
+
 use super::{File, Square};
 use macros::{BitOps, EnumIter, FromPrimitive};
 
@@ -493,6 +494,53 @@ impl std::fmt::Display for Castling {
         write!(f, "{}", s)
     }
 }
+
+/******************************************\
+|==========================================|
+|             Square Add Errors            |
+|==========================================|
+\******************************************/
+
+/// Represents errors that can occur when performing arithmetic operations on a `Square`,
+/// such as adding a direction vector.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SquareAddError {
+    /// The resulting square after the addition would be outside the bounds of the chessboard (0-63).
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::{Square, Direction};
+    /// # use chess::core::errors::SquareAddError;
+    /// # // Dummy Direction enum for example
+    /// # #[derive(PartialEq, Eq, Clone, Copy, Debug)] enum Direction { NORTH, SOUTH, EAST, WEST }
+    /// # // Dummy Square enum for example
+    /// # #[derive(PartialEq, Eq, Clone, Copy, Debug)] enum Square { A1, A2, H8 }
+    /// # impl Square { fn index(&self) -> i8 { *self as i8 } } // Dummy index
+    /// # fn add_direction(sq: Square, dir: Direction) -> Result<Square, SquareAddError> {
+    /// #     // Dummy implementation for example
+    /// #     if sq == Square::H8 && dir == Direction::NORTH { return Err(SquareAddError::OutOfBounds); } // Example failure
+    /// #     if sq == Square::A1 && dir == Direction::SOUTH { return Err(SquareAddError::OutOfBounds); } // Example failure
+    /// #     Ok(Square::A2) // Dummy success case
+    /// # }
+    /// let square = Square::A1;
+    /// let direction = Direction::SOUTH; // Moving south from A1 goes off the board
+    /// let result = add_direction(square, direction);
+    /// assert_eq!(result, Err(SquareAddError::OutOfBounds));
+    /// ```
+    OutOfBounds,
+}
+
+impl fmt::Display for SquareAddError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SquareAddError::OutOfBounds => {
+                write!(f, "Square operation resulted in an out-of-bounds position")
+            } // Slightly more general message
+        }
+    }
+}
+
+impl std::error::Error for SquareAddError {}
 
 #[cfg(test)]
 mod tests {

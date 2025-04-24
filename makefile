@@ -14,7 +14,7 @@ endif
 
 rule:
 	cargo clean
-	cargo rustc --release --package chess --bin chess $(FEATURES_ARG) -- -C target-cpu=native --emit link=$(NAME)
+	cargo rustc --release --package engine --bin engine $(FEATURES_ARG) -- -C target-cpu=native --emit link=$(NAME)
 
 dir:
 	mkdir -p $(DIR)
@@ -24,7 +24,7 @@ clean:
 	rm -f *.pdb
 
 release: dir
-	cargo rustc --release --package chess --bin chess $(FEATURES_ARG) -- -C target-cpu=native -C profile-generate=$(DIR) --emit link=$(NAME)
+	cargo rustc --release --package engine --bin engine $(FEATURES_ARG) -- -C target-cpu=native -C profile-generate=$(DIR) --emit link=$(NAME)
 	./$(NAME) bench
 	llvm-profdata merge -o $(DIR)/merged.profdata $(DIR)
-	cargo rustc --release --package chess --bin chess $(FEATURES_ARG) -- -C target-feature=+crt-static -C target-cpu=native -C profile-use=$(DIR)/merged.profdata --emit link=$(NAME)
+	cargo rustc --release --package engine --bin engine $(FEATURES_ARG) -- -C target-feature=+crt-static -C target-cpu=native -C profile-use=$(DIR)/merged.profdata --emit link=$(NAME)

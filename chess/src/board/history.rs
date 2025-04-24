@@ -33,7 +33,7 @@ impl<const N: usize> Default for UndoHistory<N> {
         // The `[...; N]` syntax relies on `MaybeUninit<T>` being `Copy`, which it is.
         // This allocates the space for `N` `BoardState`s without running `BoardState::default()`.
         Self {
-            arr: [MaybeUninit::uninit(); N],
+            arr: [const { MaybeUninit::uninit() }; N],
             count: 0,
         }
     }
@@ -209,7 +209,9 @@ impl Board {
     /// Stores the current board state in the history stack.
     #[inline]
     pub(super) fn store_state(&mut self) {
-        self.history.push(self.state);
+        let snapshot = self.state.snapshot();
+        let old_state = std::mem::replace(&mut self.state, snapshot);
+        self.history.push(old_state);
     }
 
     /// Restores the board to the previous state by popping from history.
@@ -227,8 +229,7 @@ impl Board {
             !self.history.is_empty(),
             "Attempted to restore state from empty history!"
         );
-        // self.state = self.history.pop_unchecked();
 
-        std::mem::swap(&mut self.state, self.history.pop_mut_unchecked());
+        self.state = self.history.pop_unchecked();
     }
 }

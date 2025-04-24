@@ -275,7 +275,6 @@ impl Board {
     /// # Arguments
     ///
     /// * `move_` - The `Move` to apply. Assumed to be pseudo-legal or legal for the current position.
-    // 5 Branches (Not including update masks)
     pub fn make_move(&mut self, move_: Move) {
         // Cache the current state (becomes the previous state after this function)
         self.store_state();
@@ -287,7 +286,7 @@ impl Board {
         let to = move_.to();
         let us = self.side_to_move;
         let them = !us;
-        debug_assert!(self.on(from).is_some(), "make_move: 'from' square is empty");
+        // debug_assert!(self.on(from).is_some(), "make_move: 'from' square is empty");
         let piece = unsafe { self.on(from).unwrap_unchecked() }; // Piece being moved
         let flag = move_.flag();
 
@@ -486,7 +485,6 @@ impl Board {
     /// - This function should only be called after a move has been made (or else there might be a stack underflow or mismatched moves)
     /// - The `move_` argument *must* be identical to the one passed to `make_move`.
     /// - The board state must not have been modified between the `make_move` and `undo_move` calls.
-    // 0 Branches
     pub fn undo_move(&mut self, move_: Move) {
         // Toggle side to move back to the state *before* the move was made
         self.side_to_move = !self.side_to_move;
