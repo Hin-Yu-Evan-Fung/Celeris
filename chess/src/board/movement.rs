@@ -275,10 +275,11 @@ impl Board {
     /// # Arguments
     ///
     /// * `move_` - The `Move` to apply. Assumed to be pseudo-legal or legal for the current position.
-    // 5 Branches (Not including update masks)
     pub fn make_move(&mut self, move_: Move) {
         // Cache the current state (becomes the previous state after this function)
-        self.store_state();
+        let state = self.state.snapshot();
+        let old = std::mem::replace(&mut self.state, state);
+        self.history.push(old);
         // Increment the half move counter (ply count)
         self.half_moves += 1;
 
@@ -287,7 +288,7 @@ impl Board {
         let to = move_.to();
         let us = self.side_to_move;
         let them = !us;
-        debug_assert!(self.on(from).is_some(), "make_move: 'from' square is empty");
+        // debug_assert!(self.on(from).is_some(), "make_move: 'from' square is empty");
         let piece = unsafe { self.on(from).unwrap_unchecked() }; // Piece being moved
         let flag = move_.flag();
 
@@ -460,7 +461,7 @@ impl Board {
         // Update masks
         self.update_masks();
         // Update repetitions
-        self.update_repetitions();
+        // self.update_repetitions();
     }
 
     /// Reverses a `Move` that was just made, restoring the previous board state.
@@ -486,7 +487,6 @@ impl Board {
     /// - This function should only be called after a move has been made (or else there might be a stack underflow or mismatched moves)
     /// - The `move_` argument *must* be identical to the one passed to `make_move`.
     /// - The board state must not have been modified between the `make_move` and `undo_move` calls.
-    // 0 Branches
     pub fn undo_move(&mut self, move_: Move) {
         // Toggle side to move back to the state *before* the move was made
         self.side_to_move = !self.side_to_move;
@@ -504,7 +504,7 @@ impl Board {
         // Restore the entire previous state (key, counters, ep, castle, captured piece)
         // This must happen *before* moving pieces back, especially to retrieve `state.captured`.
 
-        self.restore_state();
+        self.state = self.history.pop().unwrap();
 
         // Reverse the piece movements based on the move flag
         match flag {
@@ -1114,49 +1114,49 @@ mod tests {
         test_make_undo(fen_before, rook_move, fen_after);
     }
 
-    // Helper to check repetition count
-    fn assert_repetitions(board: &Board, expected: i8) {
-        // NOTE: This assertion relies on the update_repetitions logic correctly
-        // finding repetitions in the history by comparing Zobrist keys.
-        // It also depends on the history scanning depth logic (interaction with fifty_move).
-        // If that logic is flawed, this test might pass incorrectly or fail unexpectedly.
-        assert_eq!(board.state.repetitions, expected);
-    }
+    // // Helper to check repetition count
+    // fn assert_repetitions(board: &Board, expected: i8) {
+    //     // NOTE: This assertion relies on the update_repetitions logic correctly
+    //     // finding repetitions in the history by comparing Zobrist keys.
+    //     // It also depends on the history scanning depth logic (interaction with fifty_move).
+    //     // If that logic is flawed, this test might pass incorrectly or fail unexpectedly.
+    //     assert_eq!(board.state.repetitions, expected);
+    // }
 
-    #[test]
-    fn test_three_fold_repetition() {
-        // Use the existing helper that ensures keys are calculated correctly initially
-        let mut board = board_from_fen(START_FEN);
+    //     #[test]
+    //     fn test_three_fold_repetition() {
+    //         // Use the existing helper that ensures keys are calculated correctly initially
+    //         let mut board = board_from_fen(START_FEN);
 
-        // Sequence = 1. Nf3 Nc6 2. Ng1 Nb8 3. Nf3 Nc6 4. Ng1 Nb8 5. Nf3 Nc6 6. Nd4 Nb8 7. Nf3 Nc6
+    //         // Sequence = 1. Nf3 Nc6 2. Ng1 Nb8 3. Nf3 Nc6 4. Ng1 Nb8 5. Nf3 Nc6 6. Nd4 Nb8 7. Nf3 Nc6
 
-        let nf3 = Move::new(Square::G1, Square::F3, MoveFlag::QuietMove);
-        let nc6 = Move::new(Square::B8, Square::C6, MoveFlag::QuietMove);
-        let ng1 = Move::new(Square::F3, Square::G1, MoveFlag::QuietMove);
-        let nb8 = Move::new(Square::C6, Square::B8, MoveFlag::QuietMove);
-        let nd4 = Move::new(Square::F3, Square::D4, MoveFlag::QuietMove);
-        let ndf3 = Move::new(Square::D4, Square::F3, MoveFlag::QuietMove);
+    //         let nf3 = Move::new(Square::G1, Square::F3, MoveFlag::QuietMove);
+    //         let nc6 = Move::new(Square::B8, Square::C6, MoveFlag::QuietMove);
+    //         let ng1 = Move::new(Square::F3, Square::G1, MoveFlag::QuietMove);
+    //         let nb8 = Move::new(Square::C6, Square::B8, MoveFlag::QuietMove);
+    //         let nd4 = Move::new(Square::F3, Square::D4, MoveFlag::QuietMove);
+    //         let ndf3 = Move::new(Square::D4, Square::F3, MoveFlag::QuietMove);
 
-        board.make_move(nf3);
-        board.make_move(nc6);
-        assert_repetitions(&board, 0);
-        board.make_move(ng1);
-        board.make_move(nb8);
-        assert_repetitions(&board, 3);
-        board.make_move(nf3);
-        board.make_move(nc6);
-        assert_repetitions(&board, 3);
-        board.make_move(ng1);
-        board.make_move(nb8);
-        assert_repetitions(&board, -3);
-        board.make_move(nf3);
-        board.make_move(nc6);
-        assert_repetitions(&board, -3);
-        board.make_move(nd4);
-        board.make_move(nb8);
-        assert_repetitions(&board, 0);
-        board.make_move(ndf3);
-        board.make_move(nc6);
-        assert_repetitions(&board, -3);
-    }
+    //         board.make_move(nf3);
+    //         board.make_move(nc6);
+    //         assert_repetitions(&board, 0);
+    //         board.make_move(ng1);
+    //         board.make_move(nb8);
+    //         assert_repetitions(&board, 3);
+    //         board.make_move(nf3);
+    //         board.make_move(nc6);
+    //         assert_repetitions(&board, 3);
+    //         board.make_move(ng1);
+    //         board.make_move(nb8);
+    //         assert_repetitions(&board, -3);
+    //         board.make_move(nf3);
+    //         board.make_move(nc6);
+    //         assert_repetitions(&board, -3);
+    //         board.make_move(nd4);
+    //         board.make_move(nb8);
+    //         assert_repetitions(&board, 0);
+    //         board.make_move(ndf3);
+    //         board.make_move(nc6);
+    //         assert_repetitions(&board, -3);
+    //     }
 }

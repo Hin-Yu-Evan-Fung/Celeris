@@ -330,6 +330,7 @@ impl Board {
         // Knight checks are direct attacks on the king square.
         let knight_checkers =
             leaper_attack(PieceType::Knight, ksq) & self.piece_bb(them, PieceType::Knight);
+
         // Slider checks use attacks *from* the king square with full occupancy.
         let diag_checkers = slider_attack(PieceType::Bishop, ksq, occ) & self.bishop_queen_bb(them);
         let hv_checkers = slider_attack(PieceType::Rook, ksq, occ) & self.rook_queen_bb(them);
@@ -338,24 +339,24 @@ impl Board {
         let all_checkers = pawn_checkers | knight_checkers | diag_checkers | hv_checkers;
 
         // 3. Count the number of checkers and determine the appropriate mask.
-        match all_checkers.count_bits() {
-            0 => Bitboard::FULL, // No check. All squares are valid targets/origins w.r.t check.
-            1 => {
-                // Single check. Determine if it's a slider or non-slider.
-                let checker_sq = unsafe { all_checkers.lsb_unchecked() }; // Safe because count is 1.
+        if all_checkers.is_empty() {
+            Bitboard::FULL
+        } else if !all_checkers.more_than_one() {
+            // Single check. Determine if it's a slider or non-slider.
+            let checker_sq = unsafe { all_checkers.lsb_unchecked() }; // Safe because count is 1.
 
-                // Check if the single checker is a pawn or knight.
-                if (pawn_checkers | knight_checkers).contains(checker_sq) {
-                    // Pawn or Knight check: Mask is just the checker's square.
-                    // Must capture the checker (or move king).
-                    all_checkers
-                } else {
-                    // Slider (Bishop, Rook, Queen) check: Mask is the ray between king and checker.
-                    // Must capture checker, block along the ray, or move king.
-                    pin_bb(ksq, checker_sq) // Includes checker_sq and squares between.
-                }
+            // Check if the single checker is a pawn or knight.
+            if (pawn_checkers | knight_checkers).contains(checker_sq) {
+                // Pawn or Knight check: Mask is just the checker's square.
+                // Must capture the checker (or move king).
+                all_checkers
+            } else {
+                // Slider (Bishop, Rook, Queen) check: Mask is the ray between king and checker.
+                // Must capture checker, block along the ray, or move king.
+                pin_bb(ksq, checker_sq) // Includes checker_sq and squares between.
             }
-            _ => Bitboard::EMPTY, // Double (or more) check. Only king moves are legal.
+        } else {
+            Bitboard::EMPTY
         }
     }
 

@@ -148,7 +148,6 @@ use macros::{AriOps, BitManiOps, BitOps};
 ///     println!("Square: {:?}", square);
 /// });
 /// ```
-/// ```
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, BitOps, BitManiOps, AriOps)]
 pub struct Bitboard(pub u64);
 
@@ -706,6 +705,14 @@ impl Bitboard {
     #[inline]
     pub const fn more_than_one(&self) -> bool {
         self.0 & (self.0.wrapping_sub(1)) != 0
+    }
+
+    /// Return the extract bits using the intrinsic PEXT instruction
+    #[cfg(target_feature = "bmi2")]
+    #[inline]
+    pub const fn pext(&self, mask: Bitboard) -> Bitboard {
+        use core::arch::x86_64::_pext_u64;
+        unsafe { _pext_u64(self.0, mask.0) }
     }
 }
 

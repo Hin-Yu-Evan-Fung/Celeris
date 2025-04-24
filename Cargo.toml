@@ -1,6 +1,6 @@
 [workspace]
-resolver = "2"
-members = ["chess", "macros"]
+resolver = "3"
+members = ["chess", "macros", "engine"]
 
 [profile.release]
 opt-level = 3              # Optimize for speed

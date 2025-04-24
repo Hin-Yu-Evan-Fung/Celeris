@@ -4,8 +4,6 @@
 
 // Assuming Board is defined in src/core/board.rs which is the parent module
 use super::Board;
-// Assuming FenParseError is defined in src/core/errors.rs
-use super::errors::FenParseError;
 // Import necessary core types (Piece, Square, Rank, File, Colour, Castling, etc.)
 use super::movegen::pin_bb;
 use crate::core::*;
@@ -677,11 +675,194 @@ impl Board {
     }
 }
 
+/******************************************\
+|==========================================|
+|             Fen Parse Errors             |
+|==========================================|
+\******************************************/
+
+/// Represents errors that can occur during the parsing of a Forsyth–Edwards Notation (FEN) string.
+///
+/// A valid FEN string defines a particular board position, side to move, castling rights,
+/// en passant target square, halfmove clock, and fullmove number, all separated by spaces.
+/// Example: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`
+#[derive(Debug, PartialEq, Eq, Clone)] // Added Clone for consistency if needed elsewhere
+pub enum FenParseError {
+    /// The FEN string did not contain exactly 6 fields separated by whitespace.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::Board; // Assuming Board::from_fen exists
+    /// # use chess::core::errors::FenParseError; // Corrected path
+    /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0"; // Missing fullmove number
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidNumberOfFields)));
+    /// ```
+    InvalidNumberOfFields,
+
+    /// An invalid character was encountered in the piece placement field (the first field).
+    /// Valid characters are 'p', 'n', 'b', 'r', 'q', 'k' (case-insensitive), digits '1'-'8', and '/'.
+    /// Contains the invalid character.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
+    /// let fen = "rnbqkbnr/ppppxppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"; // 'x' is invalid
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidPiecePlacementChar('x'))));
+    /// ```
+    InvalidPiecePlacementChar(char),
+
+    /// A rank description within the piece placement field was malformed.
+    /// This usually means the pieces and empty square counts ('1'-'8') for a rank
+    /// do not sum up to exactly 8 files. It can also indicate missing '/' separators,
+    /// too many separators, or invalid skip digits ('0', '9').
+    /// Contains a string describing the specific format error.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
+    /// // Rank 2 specifies 9 files (pppppppp + 1 -> error on '1')
+    /// let fen = "rnbqkbnr/pppppppp1/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidRankFormat(_)))); // Check message if needed
+    ///
+    /// // Missing a rank separator (results in final rank check failure)
+    /// let fen = "rnbqkbnr/pppppppp8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidRankFormat(_)))); // Check message if needed
+    /// ```
+    InvalidRankFormat(String),
+
+    /// The side-to-move field (the second field) contained an invalid character.
+    /// Expected 'w' for White or 'b' for Black.
+    /// Contains the invalid string found.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
+    /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1"; // 'x' is invalid
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidSideToMove(s)) if s == "x"));
+    /// ```
+    InvalidSideToMove(String),
+
+    /// The castling availability field (the third field) contained an invalid character.
+    /// Valid characters are 'K', 'Q', 'k', 'q', or '-' if no castling is possible.
+    /// For Chess960, valid characters are file letters 'A'-'H' and 'a'-'h', or '-'.
+    /// Contains the first invalid character encountered.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
+    /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQXkq - 0 1"; // 'X' is invalid
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidCastlingChar('X'))));
+    /// ```
+    InvalidCastlingChar(char),
+
+    /// The en passant target square field (the fourth field) was not '-' and did not
+    /// represent a valid square in algebraic notation (e.g., "e3", "f6") on the correct rank (3 or 6).
+    /// Contains the invalid string found.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
+    /// let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e9 0 1"; // "e9" is invalid square
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidEnPassantSquare(s)) if s == "e9"));
+    ///
+    /// let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e4 0 1"; // "e4" is invalid rank for EP
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidEnPassantSquare(s)) if s.contains("e4 is not a valid enpassant square"))));
+    /// ```
+    InvalidEnPassantSquare(String), // Contains the invalid string or a more descriptive error
+
+    /// The halfmove clock field (the fifth field) could not be parsed as a non-negative integer (u8).
+    /// This clock counts halfmoves since the last capture or pawn advance, used for the 50-move rule.
+    /// Contains the invalid string found.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
+    /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - fifty 1"; // "fifty" is invalid
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidHalfmoveClock(s)) if s == "fifty"));
+    ///
+    /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - -1 1"; // Negative is invalid
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidHalfmoveClock(s)) if s == "-1"));
+    /// ```
+    InvalidHalfmoveClock(String),
+
+    /// The fullmove number field (the sixth field) could not be parsed as a positive integer (u16, >= 1).
+    /// This number starts at 1 and increments after each Black move.
+    /// Contains the invalid string found.
+    ///
+    /// # Example
+    /// ```
+    /// # use chess::core::Board;
+    /// # use chess::core::errors::FenParseError; // Corrected path
+    /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 zero"; // "zero" is invalid
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidFullmoveNumber(s)) if s == "zero"));
+    ///
+    /// let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0"; // 0 is invalid
+    /// let result = Board::from_fen(fen);
+    /// assert!(matches!(result, Err(FenParseError::InvalidFullmoveNumber(s)) if s.contains("cannot be 0")));
+    /// ```
+    InvalidFullmoveNumber(String),
+}
+
+impl std::fmt::Display for FenParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FenParseError::InvalidNumberOfFields => {
+                write!(f, "FEN string must have 6 fields separated by spaces")
+            }
+            FenParseError::InvalidPiecePlacementChar(c) => {
+                write!(f, "Invalid character in FEN piece placement: '{}'", c)
+            }
+            FenParseError::InvalidRankFormat(reason) => write!(
+                f,
+                "Invalid rank format in FEN piece placement: {}", // Removed 'reason:' prefix as reason is descriptive
+                reason
+            ),
+            FenParseError::InvalidSideToMove(s) => {
+                write!(
+                    f,
+                    "Invalid side to move in FEN: '{}', expected 'w' or 'b'",
+                    s
+                )
+            }
+            FenParseError::InvalidCastlingChar(c) => {
+                write!(f, "Invalid character in FEN castling availability: '{}'", c)
+            }
+            FenParseError::InvalidEnPassantSquare(s) => {
+                write!(f, "Invalid en passant target square in FEN: '{}'", s)
+            }
+            FenParseError::InvalidHalfmoveClock(s) => {
+                write!(f, "Invalid halfmove clock value in FEN: '{}'", s)
+            }
+            FenParseError::InvalidFullmoveNumber(s) => {
+                write!(f, "Invalid fullmove number value in FEN: '{}'", s)
+            }
+        }
+    }
+}
+
+// Implement the Error trait for FenParseError
+impl std::error::Error for FenParseError {}
+
 // Add tests for FEN parsing
 #[cfg(test)]
 mod tests {
-    // Import errors specifically if needed for matching
-    use super::errors::FenParseError;
     // Import everything else from the parent module (fen.rs)
     use super::*;
 

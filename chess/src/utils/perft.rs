@@ -21,6 +21,29 @@ fn perft(board: &mut Board, depth: usize) -> usize {
     nodes
 }
 
+fn perft_with_key_check(board: &mut Board, depth: usize) -> usize {
+    let mut move_list = MoveList::new();
+
+    board.generate_moves::<LegalGen>(&mut move_list);
+
+    if depth == 1 {
+        return move_list.len();
+    }
+
+    let mut nodes = 0;
+
+    for move_ in move_list.iter() {
+        board.make_move(*move_);
+        assert_eq!(board.key(), board.calc_key());
+        assert_eq!(board.pawn_key(), board.calc_pawn_key());
+        assert_eq!(board.non_pawn_keys(), board.calc_non_pawn_key());
+        nodes += perft(board, depth - 1);
+        board.undo_move(*move_);
+    }
+
+    nodes
+}
+
 pub fn perft_test(board: &mut Board, depth: usize) {
     use std::time::Instant;
 
@@ -33,25 +56,37 @@ pub fn perft_test(board: &mut Board, depth: usize) {
         return;
     }
 
+    println!("=============== PERFT TEST ===============");
+    println!("                 Depth: {depth}           ");
+    println!("==========================================");
+
     let mut total_nodes = 0;
 
     let start = Instant::now();
 
     for move_ in move_list.iter() {
         board.make_move(*move_);
+        if depth == 1 {
+            println!("              {move_}: 1");
+            continue;
+        }
         let nodes = perft(board, depth - 1);
         total_nodes += nodes;
         board.undo_move(*move_);
 
-        println!("{move_}: {nodes:?}");
+        println!("              {move_}: {nodes:?}");
     }
 
     let time = start.elapsed().as_millis();
 
+    println!("=========================================");
+    println!("              Nodes: {total_nodes}       ");
+    println!("              Time: {time}ms             ");
     println!(
-        "nodes: {total_nodes}, time: {time}ms, Mnps: {}Mnps",
+        "              Mnps: {:0.1}Mnps",
         (total_nodes as f64 / time as f64 / 1000.0)
-    )
+    );
+    println!("=========================================");
 }
 
 #[rustfmt::skip]
@@ -99,7 +134,7 @@ pub fn perft_bench() -> bool {
     use std::time::Instant;
 
     let mut passed = true;
-    println!("==========  START BENCH  ===========");
+    println!("=============  START BENCH  =============");
 
     for (fen, depth, expected_nodes) in BENCH_LIST.iter() {
         let start = Instant::now();
@@ -127,6 +162,15 @@ pub fn perft_bench() -> bool {
     passed
 }
 
+pub fn perft_bench_with_key_check() {
+    for (fen, depth, expected_nodes) in BENCH_LIST.iter() {
+        let mut board = Board::from_fen(fen).unwrap();
+        let nodes = perft_with_key_check(&mut board, *depth);
+
+        assert!(nodes == *expected_nodes);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,5 +178,10 @@ mod tests {
     #[test]
     fn test_perft_bench() {
         assert!(perft_bench());
+    }
+
+    #[test]
+    fn test_hash_keys() {
+        perft_bench_with_key_check();
     }
 }

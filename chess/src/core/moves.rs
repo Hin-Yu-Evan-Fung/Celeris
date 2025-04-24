@@ -161,9 +161,15 @@ impl MoveFlag {
 ///
 /// Use the associated methods (`from()`, `to()`, `flag()`, `is_capture()`, etc.) to access
 /// the move's components and properties.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)] // Default makes Move(0) - often represents a null move
+#[derive(Debug, PartialEq, Clone, Copy, Eq)] // Default makes Move(0) - often represents a null move
 pub struct Move {
     data: u16,
+}
+
+impl Default for Move {
+    fn default() -> Self {
+        Self::NONE
+    }
 }
 
 impl Move {
@@ -180,8 +186,19 @@ impl Move {
     const FLAG_MASK: u16 = 0xF; // 0b00000000001111
 
     // --- Default Moves ---
+    /// None Move Placeholder
+    pub const NONE: Self = Self::new(Square::A1, Square::A1, MoveFlag::QuietMove);
     /// Null Move Placeholder
-    pub const NULL: Self = Self::new(Square::A1, Square::A1, MoveFlag::QuietMove);
+    pub const NULL: Self = Self::new(Square::A2, Square::A2, MoveFlag::QuietMove);
+
+    /// Creates a new move from the u16 representation
+    ///
+    /// ## Unsafe
+    ///
+    #[inline]
+    pub const unsafe fn new_raw(data: u16) -> Self {
+        Self { data }
+    }
 
     /// Creates a new move from its components.
     ///
@@ -316,6 +333,12 @@ impl Move {
     #[inline(always)]
     pub(crate) const fn is_null(&self) -> bool {
         self.data == Self::NULL.data
+    }
+
+    /// Gets the raw data of the move
+    #[inline(always)]
+    pub const fn raw(&self) -> u16 {
+        self.data
     }
 }
 

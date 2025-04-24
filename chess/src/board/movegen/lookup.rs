@@ -337,7 +337,7 @@ fn rook_attacks(sq: Square, occ: Bitboard) -> Bitboard {
 /// assert_eq!(same_sq, Bitboard::EMPTY);
 /// ```
 #[inline]
-pub(crate) fn line_bb(from: Square, to: Square) -> Bitboard {
+pub fn line_bb(from: Square, to: Square) -> Bitboard {
     unsafe {
         *LINE_BB
             .get_unchecked(from as usize)
@@ -384,7 +384,7 @@ pub(crate) fn line_bb(from: Square, to: Square) -> Bitboard {
 /// assert_eq!(no_line, Bitboard::EMPTY);
 /// ```
 #[inline]
-pub(crate) fn between_bb(from: Square, to: Square) -> Bitboard {
+pub fn between_bb(from: Square, to: Square) -> Bitboard {
     unsafe {
         *BETWEEN_BB
             .get_unchecked(from as usize)
@@ -439,7 +439,7 @@ pub(crate) fn between_bb(from: Square, to: Square) -> Bitboard {
 /// assert!(!pin_mask.get(Square::F6)); // Excludes squares beyond pinner (off the line segment)
 /// ```
 #[inline]
-pub(crate) fn pin_bb(king: Square, pinner: Square) -> Bitboard {
+pub fn pin_bb(king: Square, pinner: Square) -> Bitboard {
     unsafe {
         *PIN_BB
             .get_unchecked(king as usize)
@@ -500,7 +500,7 @@ pub(crate) fn pin_bb(king: Square, pinner: Square) -> Bitboard {
 /// assert!(!check_mask_diag.get(Square::D8)); // Excludes checker
 /// ```
 #[inline]
-pub(crate) fn check_bb(king: Square, checker: Square) -> Bitboard {
+pub fn check_bb(king: Square, checker: Square) -> Bitboard {
     unsafe {
         *CHECK_BB
             .get_unchecked(king as usize)

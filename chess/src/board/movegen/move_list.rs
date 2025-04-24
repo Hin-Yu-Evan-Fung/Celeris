@@ -3,7 +3,7 @@ use std::slice; // Import slice for iter()
 
 use crate::Move;
 
-const MAX_LEGAL_MOVES: usize = 218;
+const MAX_LEGAL_MOVES: usize = 256;
 
 pub struct MoveList {
     // Array of individually uninitialized Moves

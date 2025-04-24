@@ -37,7 +37,7 @@ pub mod movegen;
 pub mod movement;
 pub mod zobrist;
 
-use history::UndoHistory;
+// use history::UndoHistory;
 use zobrist::KeyBundle;
 
 use crate::core::*;
@@ -49,7 +49,7 @@ use fen::*;
 |==========================================|
 \******************************************/
 
-const MAX_DEPTH: usize = 256;
+pub const MAX_MOVES: usize = 256;
 
 /******************************************\
 |==========================================|
@@ -80,7 +80,7 @@ const MAX_DEPTH: usize = 256;
 /// - `king_attacks`: A bitboard representing the squares attacked by the friendly king.
 /// - `available`: A bitboard representing all squares not occupied by the side to move (potential destinations, excluding captures).
 /// - `enpassant_pin`: A boolean indicating if the pawn performing an en passant capture is pinned to the king, making the en passant illegal.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 pub struct BoardState {
     // --- Board State Variables -- //
     /// Stores gaps between last repeat, if negative it means three fold repetition
@@ -95,7 +95,6 @@ pub struct BoardState {
     castle: Castling,
     /// Zobrist keys for the current position
     keys: KeyBundle,
-
     // --- Move generation masks ---
     /// Bitboard mask: squares that block check or capture the checking piece(s). If not in check, all squares (`!0`).
     check_mask: Bitboard,
@@ -107,6 +106,18 @@ pub struct BoardState {
     attacked: Bitboard,
     /// Enpassant pin: whether enpassant pawn is pinned and cannot be taken without revealing a check
     ep_pin: bool,
+}
+
+impl BoardState {
+    pub(super) fn snapshot(&self) -> Self {
+        Self {
+            fifty_move: self.fifty_move,
+            castle: self.castle,
+            keys: self.keys,
+            enpassant: self.enpassant,
+            ..Default::default()
+        }
+    }
 }
 
 /******************************************\
@@ -141,7 +152,7 @@ pub struct BoardState {
 ///   (containing castling rights, en passant square, captured piece, keys, etc., *before* the move)
 ///   is pushed onto this stack. This allows for efficient `unmake_move` operations and tracking game history
 ///   for rules like three-fold repetition.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Board {
     /// Array representing the board, where each element corresponds to a square.
     /// `board[Square::A1 as usize]` holds the `Piece` on A1.
@@ -171,7 +182,8 @@ pub struct Board {
     state: BoardState,
     // /// A stack-like structure storing previous board states (`BoardState`).
     // /// Used to undo moves (`unmake_move`) and track game history (e.g., for repetition checks).
-    history: UndoHistory<MAX_DEPTH>,
+    // history: UndoHistory<MAX_MOVES>,
+    history: Vec<BoardState>,
 }
 
 /******************************************\
@@ -204,7 +216,7 @@ impl Board {
             side_to_move: Colour::White,
             half_moves: 0,
             state: BoardState::default(),
-            history: UndoHistory::default(),
+            history: Vec::with_capacity(MAX_MOVES),
         }
     }
 
@@ -430,6 +442,50 @@ impl Board {
     #[inline]
     pub fn castling(&self) -> Castling {
         self.state.castle
+    }
+
+    /// # Get Hash Key
+    ///
+    /// ## Returns
+    ///
+    /// * `Key` - The zobrist key for this board
+    #[inline]
+    pub fn key(&self) -> u64 {
+        self.state.keys.key
+    }
+
+    /// # Get Pawn Hash Key
+    ///
+    /// ## Returns
+    ///
+    /// * `Key` - The zobrist key for the pawns on this board
+    #[inline]
+    pub fn pawn_key(&self) -> u64 {
+        self.state.keys.pawn_key
+    }
+
+    /// # Get Non Pawn Hash Key
+    ///
+    /// ## Returns
+    ///
+    /// * `[Key; Colour::NUM]` - The zobrist key for the non pawns on this board
+    #[inline]
+    pub fn non_pawn_keys(&self) -> [u64; Colour::NUM] {
+        self.state.keys.non_pawn_key
+    }
+
+    /// # Get Non Pawn Hash Key
+    ///
+    /// ## Arguments
+    ///
+    /// * `col` - Colour of the non pawn key
+    ///
+    /// ## Returns
+    ///
+    /// * `Key` - The zobrist key for the non pawns on this board for the colour in the argument
+    #[inline]
+    pub fn non_pawn_key(&self, col: Colour) -> u64 {
+        self.state.keys.non_pawn_key[col as usize]
     }
 }
 

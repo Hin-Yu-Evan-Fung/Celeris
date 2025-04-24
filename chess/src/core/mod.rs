@@ -2,7 +2,6 @@
 
 // Board representation submodules
 pub mod bitboard;
-pub mod errors;
 pub mod moves;
 pub mod piece;
 pub mod square;
