@@ -33,25 +33,37 @@ pub fn perft_test(board: &mut Board, depth: usize) {
         return;
     }
 
+    println!("=============== PERFT TEST ===============");
+    println!("                 Depth: {depth}           ");
+    println!("==========================================");
+
     let mut total_nodes = 0;
 
     let start = Instant::now();
 
     for move_ in move_list.iter() {
         board.make_move(*move_);
+        if depth == 1 {
+            println!("              {move_}: 1");
+            continue;
+        }
         let nodes = perft(board, depth - 1);
         total_nodes += nodes;
         board.undo_move(*move_);
 
-        println!("{move_}: {nodes:?}");
+        println!("              {move_}: {nodes:?}");
     }
 
     let time = start.elapsed().as_millis();
 
+    println!("=========================================");
+    println!("              Nodes: {total_nodes}       ");
+    println!("              Time: {time}ms             ");
     println!(
-        "nodes: {total_nodes}, time: {time}ms, Mnps: {}Mnps",
+        "              Mnps: {:0.1}Mnps",
         (total_nodes as f64 / time as f64 / 1000.0)
-    )
+    );
+    println!("=========================================");
 }
 
 #[rustfmt::skip]
@@ -99,7 +111,7 @@ pub fn perft_bench() -> bool {
     use std::time::Instant;
 
     let mut passed = true;
-    println!("==========  START BENCH  ===========");
+    println!("=============  START BENCH  =============");
 
     for (fen, depth, expected_nodes) in BENCH_LIST.iter() {
         let start = Instant::now();

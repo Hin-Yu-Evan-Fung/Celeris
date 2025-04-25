@@ -1,24 +1,13 @@
+use super::engine::{Engine, EngineCommand};
 use std::{
     io::BufRead,
-    sync::{
-        Arc,
-        atomic::AtomicBool,
-        mpsc::{self, Receiver, Sender},
-    },
+    sync::{Arc, atomic::AtomicBool, mpsc, mpsc::Sender},
     thread,
 };
 
-use chess::utils::{perft_bench, perft_test};
-
-struct TimeControl {}
-
-mod command;
-use super::engine::Engine;
-pub use command::UCICommand;
-
 pub struct UCI {
     stop: Arc<AtomicBool>,
-    command_tx: Sender<UCICommand>,
+    command_tx: Sender<EngineCommand>,
 }
 
 impl UCI {
@@ -28,7 +17,7 @@ impl UCI {
         let engine_stop = stop.clone();
 
         thread::spawn(move || {
-            Engine::run(rx, engine_stop);
+            Engine::run_uci(rx, engine_stop);
         });
 
         Self {
@@ -40,19 +29,19 @@ impl UCI {
     pub fn run(&self) {
         let stdin = std::io::stdin().lock();
         for line in stdin.lines().map(Result::unwrap) {
-            match line.parse::<UCICommand>() {
+            match line.parse::<EngineCommand>() {
                 Ok(command) => self.handle_command(command),
                 Err(e) => println!("{}", e),
             }
         }
     }
 
-    fn handle_command(&self, command: UCICommand) {
+    fn handle_command(&self, command: EngineCommand) {
         match command {
-            UCICommand::Uci => {}
-            UCICommand::IsReady => println!("readyok"),
-            UCICommand::Quit => self.quit(),
-            UCICommand::Stop => self.stop(),
+            EngineCommand::Uci => {}
+            EngineCommand::IsReady => println!("readyok"),
+            EngineCommand::Quit => self.quit(),
+            EngineCommand::Stop => self.stop(),
             command => self.command_tx.send(command).unwrap(),
         }
     }
