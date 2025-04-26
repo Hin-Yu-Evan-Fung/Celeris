@@ -9,7 +9,7 @@ use chess::{
     utils::{perft_bench, perft_test},
 };
 
-pub use super::UCICommand;
+pub use super::{TimeControl, UCICommand};
 
 mod constants {
     pub const NAME: &str = "Celeris";
@@ -39,6 +39,7 @@ impl Engine {
             UCICommand::UciNewGame => self.new_game(),
             UCICommand::SetOption(name, value) => self.set_option(name, value),
             UCICommand::Position(board) => self.set_position(board),
+            UCICommand::Go(time_control) => self.go(time_control),
             UCICommand::Perft(depth) => self.perft(depth),
             UCICommand::Bench => self.bench(),
             UCICommand::Print => self.print_board(),
@@ -66,6 +67,10 @@ impl Engine {
 
     pub fn set_position(&mut self, board: Board) {
         self.board = board;
+    }
+
+    pub fn go(&mut self, time_control: TimeControl) {
+        println!("go {:?}", time_control);
     }
 
     pub fn bench(&self) {

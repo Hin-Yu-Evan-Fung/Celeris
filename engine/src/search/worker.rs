@@ -5,7 +5,7 @@ use crate::{
 
 #[derive(Debug, Default, Clone)]
 pub struct SearchWorker {
-    thread_id: usize,
+    pub thread_id: usize,
     stack: SearchStack,
 
     nodes: u64,

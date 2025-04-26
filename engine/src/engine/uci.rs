@@ -15,11 +15,13 @@ impl UCI {
 
         let mut engine = Engine::default();
 
-        thread::spawn(move || engine.run_uci(rx));
+        let handle = thread::spawn(move || engine.run_uci(rx));
 
         let uci = Self { command_tx: tx };
 
         uci.run();
+
+        handle.join().unwrap();
     }
 
     pub fn run(&self) {

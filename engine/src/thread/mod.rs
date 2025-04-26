@@ -1,5 +1,5 @@
 mod thread;
 mod threadpool;
 
-// pub use thread::{Job, Thread, ThreadError};
-// pub use threadpool::ThreadPool;
+pub use thread::{BoxedJob, WorkerThread};
+pub use threadpool::ThreadPool;

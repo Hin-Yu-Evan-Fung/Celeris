@@ -99,7 +99,7 @@ impl FromStr for TimeControl {
             Some("nodes") => Ok(TimeControl::FixedNodes(parse(&mut tokens)?)),
             Some("mate") => Ok(TimeControl::Mate(parse(&mut tokens)?)),
             Some("movetime") => Ok(TimeControl::FixedTime(parse(&mut tokens)?)),
-            _ => Self::parse_variable(&mut tokens),
+            _ => Self::parse_variable(&mut s.split_whitespace()),
         }
     }
 }
@@ -206,7 +206,7 @@ mod tests {
             movestogo: None,
         };
         assert_eq!(
-            "go wtime 10000 btime 9000".parse::<TimeControl>(),
+            "wtime 10000 btime 9000".parse::<TimeControl>(),
             Ok(expected)
         );
     }
@@ -220,7 +220,7 @@ mod tests {
             binc: Some(2000),
             movestogo: Some(40),
         };
-        let input = "go wtime 300000 btime 295000 winc 2000 binc 2000 movestogo 40";
+        let input = "wtime 300000 btime 295000 winc 2000 binc 2000 movestogo 40";
         assert_eq!(input.parse::<TimeControl>(), Ok(expected));
     }
 
@@ -234,7 +234,7 @@ mod tests {
             movestogo: Some(40),
         };
         // Same values, different order
-        let input = "go movestogo 40 winc 2000 wtime 300000 binc 2000 btime 295000";
+        let input = "movestogo 40 winc 2000 wtime 300000 binc 2000 btime 295000";
         assert_eq!(input.parse::<TimeControl>(), Ok(expected));
     }
 
@@ -247,7 +247,7 @@ mod tests {
             binc: None,      // binc is missing
             movestogo: None, // movestogo is missing
         };
-        let input = "go wtime 120000 btime 118000 winc 1000";
+        let input = "wtime 120000 btime 118000 winc 1000";
         assert_eq!(input.parse::<TimeControl>(), Ok(expected));
 
         let expected2 = TimeControl::Variable {
@@ -257,7 +257,7 @@ mod tests {
             binc: None,
             movestogo: Some(10), // Only movestogo present
         };
-        let input2 = "go wtime 60000 btime 59000 movestogo 10";
+        let input2 = "wtime 60000 btime 59000 movestogo 10";
         assert_eq!(input2.parse::<TimeControl>(), Ok(expected2));
     }
 
@@ -265,20 +265,20 @@ mod tests {
     fn test_parse_go_variable_missing_required() {
         // These fail in the builder.build() step
         assert_eq!(
-            "go wtime 10000".parse::<TimeControl>(),
+            "wtime 10000".parse::<TimeControl>(),
             Err("Unknown time control command or format")
         );
         assert_eq!(
-            "go btime 9000 winc 100".parse::<TimeControl>(),
+            "btime 9000 winc 100".parse::<TimeControl>(),
             Err("Unknown time control command or format")
         );
         assert_eq!(
-            "go winc 100 binc 100".parse::<TimeControl>(),
+            "winc 100 binc 100".parse::<TimeControl>(),
             Err("Unknown time control command or format")
         );
         assert_eq!(
             "go".parse::<TimeControl>(),
-            Err("Unknown time control command or format")
+            Err("Unknown or unsupported parameter in go command")
         ); // Just "go"
     }
 
@@ -286,19 +286,19 @@ mod tests {
     fn test_parse_go_variable_invalid_value() {
         // These fail in parse_value_after_key
         assert_eq!(
-            "go wtime ten btime 9000".parse::<TimeControl>(),
+            "wtime ten btime 9000".parse::<TimeControl>(),
             Err("Invalid value for time control!")
         );
         assert_eq!(
-            "go wtime 10000 btime 9k".parse::<TimeControl>(),
+            "wtime 10000 btime 9k".parse::<TimeControl>(),
             Err("Invalid value for time control!")
         );
         assert_eq!(
-            "go wtime 10000 btime 9000 movestogo forty".parse::<TimeControl>(),
+            "wtime 10000 btime 9000 movestogo forty".parse::<TimeControl>(),
             Err("Invalid value for time control!")
         );
         assert_eq!(
-            "go wtime 10000 btime 9000 winc -50".parse::<TimeControl>(),
+            "wtime 10000 btime 9000 winc -50".parse::<TimeControl>(),
             Err("Invalid value for time control!")
         );
     }
@@ -307,15 +307,15 @@ mod tests {
     fn test_parse_go_variable_missing_value() {
         // These fail in parse_value_after_key
         assert_eq!(
-            "go wtime 10000 btime".parse::<TimeControl>(),
+            "wtime 10000 btime".parse::<TimeControl>(),
             Err("Missing value for time control!")
         );
         assert_eq!(
-            "go wtime".parse::<TimeControl>(),
+            "wtime".parse::<TimeControl>(),
             Err("Missing value for time control!")
         );
         assert_eq!(
-            "go wtime 10000 btime 9000 winc".parse::<TimeControl>(),
+            "wtime 10000 btime 9000 winc".parse::<TimeControl>(),
             Err("Missing value for time control!")
         );
     }
@@ -324,7 +324,7 @@ mod tests {
     fn test_parse_go_variable_unknown_param() {
         // This fails in the main loop of the 'go' arm
         assert_eq!(
-            "go wtime 10000 btime 9000 unknown 123".parse::<TimeControl>(),
+            "wtime 10000 btime 9000 unknown 123".parse::<TimeControl>(),
             Err("Unknown or unsupported parameter in go command")
         );
         assert_eq!(
@@ -333,7 +333,7 @@ mod tests {
         );
         // Test searchmoves is now treated as unknown
         assert_eq!(
-            "go wtime 10000 btime 9000 searchmoves e2e4".parse::<TimeControl>(),
+            "wtime 10000 btime 9000 searchmoves e2e4".parse::<TimeControl>(),
             Err("Unknown or unsupported parameter in go command")
         );
     }
@@ -351,11 +351,11 @@ mod tests {
     fn test_parse_unknown_command() {
         assert_eq!(
             "ponder".parse::<TimeControl>(),
-            Err("Unknown time control command or format")
+            Err("Unknown or unsupported parameter in go command")
         );
         assert_eq!(
             "startpos".parse::<TimeControl>(),
-            Err("Unknown time control command or format")
+            Err("Unknown or unsupported parameter in go command")
         );
     }
 }

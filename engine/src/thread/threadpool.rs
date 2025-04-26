@@ -1,301 +1,373 @@
-// use std::sync::{
-//     Arc,
-//     atomic::{AtomicBool, AtomicU64, Ordering},
-// };
+use std::{
+    env::current_exe,
+    path::MAIN_SEPARATOR_STR,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+};
 
-// use super::{Job, Thread, ThreadError};
+use crate::search::SearchWorker;
 
-// pub struct ThreadPool {
-//     main_thread: Thread,
-//     workers: Vec<Thread>,
-//     global_stop: Arc<AtomicBool>,
-//     global_nodes: Arc<AtomicU64>,
-// }
+use super::{BoxedJob, WorkerThread};
 
-// impl ThreadPool {
-//     /// Creates a new ThreadPool with the specified number of threads.
-//     /// Threads are initialized but not yet started.
-//     ///
-//     /// # Arguments
-//     ///
-//     /// * `num_threads` - The total number of threads to create in the pool. Must be at least 1.
-//     pub fn new(global_stop: Arc<AtomicBool>) -> Self {
-//         let global_nodes = Arc::new(AtomicU64::new(0));
+pub struct ThreadPool {
+    main_thread: WorkerThread,
+    workers: Vec<WorkerThread>,
+    stop: Arc<AtomicBool>,
+    nodes: Arc<AtomicU64>,
+}
 
-//         Self {
-//             main_thread: Thread::new(0, global_stop.clone()),
-//             workers: Vec::new(),
-//             global_stop,
-//             global_nodes,
-//         }
-//     }
+impl ThreadPool {
+    pub fn new(stop: Arc<AtomicBool>) -> Self {
+        let nodes = Arc::new(AtomicU64::new(0));
 
-//     /// Resizes the thread pool.
-//     /// If growing, new threads are created but not started automatically.
-//     /// If shrinking, excess threads are dropped (which triggers their Drop impl for cleanup).
-//     pub fn resize(&mut self, new_size: usize) {
-//         if new_size < 1 {
-//             eprintln!("Cannot resize thread pool to less than 1 thread!");
-//             return;
-//         }
+        let main_thread = WorkerThread::new(0, Arc::clone(&stop));
 
-//         let current_size = self.workers.len() + 1;
+        Self {
+            main_thread,
+            workers: Vec::new(),
+            stop,
+            nodes,
+        }
+    }
 
-//         if new_size > current_size {
-//             // Grow: Add new threads
-//             for id in current_size..new_size {
-//                 let thread = Thread::new(id, self.global_stop.clone());
-//                 // Note: New threads need to be started explicitly via start_all or individually
-//                 self.workers.push(thread);
-//             }
-//         } else if new_size < current_size {
-//             // Shrink: Truncate the vector. Dropped threads will clean themselves up.
-//             self.workers.truncate(new_size - 1);
-//         }
-//         // If new_size == current_size, do nothing.
-//     }
+    // Dynamically resize the pool, either adding or removing workers
+    pub fn resize(&mut self, new_size: usize) {
+        let new_size = new_size.max(1);
 
-//     /// Starts all the OS threads managed by this pool that haven't been started yet.
-//     ///
-//     /// Returns `Ok(())` if all threads start successfully or were already running.
-//     /// Returns the first `ThreadError` encountered if any thread fails to start.
-//     pub fn start_all(&mut self) {
-//         self.main_thread.start();
+        let current_size = self.workers.len() + 1; // Include the main thread
+        if new_size > current_size {
+            for i in current_size..new_size {
+                let worker = WorkerThread::new(i, Arc::clone(&self.stop));
+                self.workers.push(worker);
+            }
+        } else if new_size < current_size {
+            self.workers.truncate(new_size - 1);
+        }
+    }
 
-//         for thread in self.workers.iter_mut() {
-//             // Attempt to start each thread. Ignore if already started (start returns false).
-//             // If start returned Result, we would handle the error here.
-//             // Since it returns bool, we just call it.
-//             let _ = thread.start(); // Ignore return value for now
-//         }
-//     }
+    /// Executes a single job on the first available worker thread (main or worker).
+    ///
+    /// If all threads are currently busy, this function will block and poll
+    /// until a thread becomes idle to accept the job.
+    ///
+    /// # Arguments
+    ///
+    /// * `job` - The `BoxedJob` to execute. Note this takes a single job,
+    ///           not a factory, as only one thread will execute it.
+    ///
+    pub fn execute_on_first_available(&self, job: BoxedJob) {
+        // Loop until we successfully dispatch the job
+        loop {
+            // Prioritize checking the main thread (arbitrary choice)
+            if self.main_thread.is_idle() {
+                self.main_thread.execute(job);
+                return; // Job dispatched
+            }
 
-//     /// Waits (by calling wait_for_job_finish on each thread) until all threads
-//     /// in the pool finish their current job and become Idle or Killed.
-//     ///
-//     /// # Returns
-//     /// * `Ok(())` - If all threads successfully finished their jobs.
-//     /// * `Err(ThreadError)` - The first error encountered while waiting for a thread
-//     ///   (e.g., LockPoisoned).
-//     pub fn wait_for_all_jobs_finish(&self) -> Result<(), ThreadError> {
-//         self.main_thread.wait_for_job_finish()?;
+            // Check worker threads
+            for worker in &self.workers {
+                if worker.is_idle() {
+                    worker.execute(job);
+                    return; // Job dispatched
+                }
+            }
+            // Alternatively, yield might be slightly better sometimes:
+            std::thread::yield_now();
+        }
+    }
 
-//         for thread in self.workers.iter() {
-//             // Call the per-thread wait function. Propagate the first error.
-//             thread.wait_for_job_finish()?;
-//         }
-//         Ok(()) // All threads finished successfully
-//     }
+    pub fn execute_for_all<F>(&self, job_factory: F)
+    where
+        F: Fn() -> BoxedJob,
+    {
+        self.main_thread.execute(job_factory());
 
-//     /// Waits for all threads to become idle, then assigns a new job (created
-//     /// by the factory) to *every* thread in the pool.
-//     ///
-//     /// # Arguments
-//     ///
-//     /// * `job_factory` - A function that creates a new instance of the job closure for each thread.
-//     ///
-//     /// # Returns
-//     ///
-//     /// * `Ok(())` - If all threads were idle and the job was successfully assigned to all of them.
-//     /// * `Err(ThreadError)` - If waiting for idle failed (e.g. poisoning) or if any thread
-//     ///   failed the assignment. Returns the first error encountered.
-//     pub fn run_job_on_all_when_idle<F>(&self, job_factory: F) -> Result<(), ThreadError>
-//     where
-//         F: Fn() -> Job,
-//     {
-//         // 1. Wait until all threads report being idle. This now returns Result.
-//         self.wait_for_all_jobs_finish()?; // Use the new wait function
+        for worker in &self.workers {
+            worker.execute(job_factory());
+        }
+    }
 
-//         // 2. Attempt to assign the job to main thread
-//         let job = job_factory(); // Create a new job instance for the main thread
-//         self.main_thread.assign_job(job)?;
+    pub fn sync_execute_for_all<F>(&self, job_factory: F)
+    where
+        F: Fn() -> BoxedJob,
+    {
+        self.wait_for_all_idle();
 
-//         // 3. Attempt to assign the job to all threads.
-//         for thread in self.workers.iter() {
-//             let job = job_factory(); // Create a new job instance for this thread
-//             // Try to assign the job. If it fails for any thread, return the error immediately.
-//             thread.assign_job(job)?; // Propagate the error if assign_job fails
-//         }
+        self.execute_for_all(job_factory);
+    }
 
-//         // If the loop completes, all assignments were successful.
-//         Ok(())
-//     }
+    pub fn wait_for_all_idle(&self) {
+        self.main_thread.wait_for_idle();
 
-//     /// Sets the global stop signal to `true`.
-//     /// This requests that ongoing jobs (like search) interrupt themselves.
-//     fn set_stop(&self) {
-//         self.global_stop.store(true, Ordering::Relaxed);
-//     }
+        for worker in &self.workers {
+            worker.wait_for_idle();
+        }
+    }
 
-//     /// Clears the global stop signal (sets it to `false`).
-//     /// Should be called before starting a new batch of work that uses the stop signal.
-//     fn clear_stop(&self) {
-//         self.global_stop.store(false, Ordering::Relaxed);
-//     }
+    pub fn shutdown(&mut self) {
+        self.main_thread.shutdown();
 
-//     /// Signals all threads to terminate and waits for them to finish.
-//     /// This is automatically called when the `ThreadPool` is dropped.
-//     pub fn shutdown(&mut self) {
-//         // Set stop signal to terminate current jobs
-//         self.set_stop();
+        for worker in &mut self.workers {
+            worker.shutdown();
+        }
+    }
 
-//         // Iterate and call wait_to_finish on each thread.
-//         // wait_to_finish handles signaling terminate and joining.
-//         for thread in self.workers.iter_mut() {
-//             thread.wait_to_terminate();
-//         }
-//     }
+    pub fn stop_all(&self) {
+        self.stop.store(true, Ordering::Relaxed);
+    }
+}
 
-//     /// Returns the number of threads in the pool.
-//     pub fn size(&self) -> usize {
-//         self.workers.len() + 1
-//     }
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+        self.wait_for_all_idle();
+        self.shutdown();
+    }
+}
 
-//     /// Gets the current value of the shared node counter.
-//     pub fn get_nodes(&self) -> u64 {
-//         self.global_nodes.load(Ordering::Relaxed)
-//     }
-// }
+#[cfg(test)]
+mod tests {
 
-// // Implement Drop to ensure threads are cleaned up automatically
-// impl Drop for ThreadPool {
-//     fn drop(&mut self) {
-//         // Use the explicit shutdown method
-//         self.shutdown();
-//     }
-// }
+    use super::*;
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use std::sync::atomic::{AtomicBool, Ordering};
-//     use std::thread;
-//     use std::time::Duration;
+    #[test]
+    fn test_single_job_execution() {
+        let stop = Arc::new(AtomicBool::new(false));
+        let mut pool = ThreadPool::new(Arc::clone(&stop));
 
-//     #[test]
-//     fn test_pool_creation_and_start() {
-//         let stop = Arc::new(AtomicBool::new(false));
-//         let mut pool = ThreadPool::new(stop);
-//         pool.resize(4);
-//         assert_eq!(pool.size(), 4);
-//         pool.start_all();
-//         // Drop implicitly calls shutdown
-//     }
+        pool.resize(10);
 
-//     #[test]
-//     fn test_resize_pool() {
-//         let stop = Arc::new(AtomicBool::new(false));
-//         let mut pool = ThreadPool::new(stop);
-//         pool.start_all();
-//         // Grow
-//         pool.resize(2);
-//         assert_eq!(pool.size(), 2);
+        let job_factory = || {
+            let job: BoxedJob = Box::new(|worker, stop| {
+                let mut worker = worker.lock().unwrap();
+                worker.reset(); // Your search logic here
 
-//         // Grow
-//         pool.resize(4);
-//         assert_eq!(pool.size(), 4);
-//         // Note: New threads aren't started automatically by resize in this impl
-//         pool.start_all(); // Start the newly added threads
+                println!("Worker Reset!");
 
-//         // Shrink
-//         pool.resize(1);
-//         assert_eq!(pool.size(), 1);
+                if stop.load(Ordering::Relaxed) {
+                    println!("Stopped search early");
+                }
+            });
 
-//         // Resize to same size
-//         pool.resize(1);
-//         assert_eq!(pool.size(), 1);
+            job
+        };
 
-//         // Grow again
-//         pool.resize(2);
-//         assert_eq!(pool.size(), 2);
-//         pool.start_all();
-//     }
+        pool.sync_execute_for_all(job_factory);
+    }
 
-//     #[test]
-//     fn test_run_job_on_all_and_wait() {
-//         let stop = Arc::new(AtomicBool::new(false));
-//         let mut pool = ThreadPool::new(stop);
-//         pool.start_all();
+    #[test]
+    fn test_multiple_job_execution() {
+        let stop = Arc::new(AtomicBool::new(false));
+        let mut pool = ThreadPool::new(Arc::clone(&stop));
 
-//         let jobs_ran_count = Arc::new(AtomicU64::new(0));
+        pool.resize(10);
 
-//         let factory = || {
-//             let counter_clone = jobs_ran_count.clone();
-//             let job: Job = Box::new(move |_, _| {
-//                 // Simulate some work
-//                 thread::sleep(Duration::from_millis(50));
-//                 counter_clone.fetch_add(1, Ordering::SeqCst);
-//             });
-//             job
-//         };
+        for _ in 0..8 {
+            let job_factory = || {
+                let job: BoxedJob = Box::new(|worker, stop| {
+                    let mut worker = worker.lock().unwrap();
+                    worker.reset(); // Your search logic here
 
-//         // Run the job on all threads
-//         pool.run_job_on_all_when_idle(factory)
-//             .expect("Run job failed");
+                    println!("Worker Reset for thread {}!", worker.thread_id);
 
-//         println!("TEST: Signaling global stop");
+                    if stop.load(Ordering::Relaxed) {
+                        println!("Stopped search early");
+                    }
+                });
 
-//         // Wait for all jobs to finish using the new pool method
-//         pool.wait_for_all_jobs_finish()
-//             .expect("Wait for all jobs failed");
+                job
+            };
 
-//         // Check that all threads ran the job
-//         assert_eq!(jobs_ran_count.load(Ordering::SeqCst), pool.size() as u64);
+            pool.sync_execute_for_all(job_factory);
+        }
+    }
 
-//         // Check they are idle again (redundant after wait_for_all_jobs_finish, but good check)
-//         assert!(pool.workers.iter().all(|t| t.is_idle()));
+    #[test]
+    fn test_clean_shutdown() {
+        let stop = Arc::new(AtomicBool::new(false));
+        let mut pool = ThreadPool::new(Arc::clone(&stop));
 
-//         // Shutdown called implicitly by Drop
-//     }
+        pool.resize(10);
 
-//     // Remove the test `test_run_job_on_all_when_one_busy_initially` as it relied
-//     // on the spinning wait which is now replaced by the Condvar wait inside run_job_on_all_when_idle.
-//     // The new `run_job_on_all_when_idle` inherently waits.
-//     // We could add a test that assigns a job, calls wait_for_all_jobs_finish, then assigns another.
+        let job_factory = || {
+            let job: BoxedJob = Box::new(|worker, stop| {
+                let mut worker = worker.lock().unwrap();
+                worker.reset(); // Your search logic here
 
-//     #[test]
-//     fn test_wait_for_individual_jobs() {
-//         let stop = Arc::new(AtomicBool::new(false));
-//         let mut pool = ThreadPool::new(stop);
-//         pool.resize(2);
-//         assert_eq!(pool.size(), 2);
-//         pool.start_all();
+                println!("Worker Reset!");
 
-//         let job1_finished = Arc::new(AtomicBool::new(false));
-//         let job1_finished_clone = job1_finished.clone();
-//         let job1: Job = Box::new(move |_, _| {
-//             thread::sleep(Duration::from_millis(60));
-//             job1_finished_clone.store(true, Ordering::SeqCst);
-//         });
+                if stop.load(Ordering::Relaxed) {
+                    println!("Stopped search early");
+                }
+            });
 
-//         let job2_finished = Arc::new(AtomicBool::new(false));
-//         let job2_finished_clone = job2_finished.clone();
-//         let job2: Job = Box::new(move |_, _| {
-//             thread::sleep(Duration::from_millis(30));
-//             job2_finished_clone.store(true, Ordering::SeqCst);
-//         });
+            job
+        };
 
-//         pool.main_thread
-//             .assign_job(job1)
-//             .expect("Assign job 1 failed");
-//         pool.workers[0]
-//             .assign_job(job2)
-//             .expect("Assign job 2 failed");
+        pool.sync_execute_for_all(job_factory);
 
-//         // Wait specifically for thread 1 (job 2)
-//         pool.workers[0]
-//             .wait_for_job_finish()
-//             .expect("Wait for thread 1 failed");
-//         assert!(job2_finished.load(Ordering::SeqCst));
-//         assert!(!job1_finished.load(Ordering::SeqCst)); // Job 1 should still be running
-//         assert!(pool.main_thread.is_idle());
-//         assert!(!pool.workers[0].is_idle()); // Still idle
+        // Should shutdown without panic
+        pool.shutdown();
+    }
 
-//         // Wait for all jobs (which now only means waiting for thread 0)
-//         pool.wait_for_all_jobs_finish()
-//             .expect("Wait for all jobs failed");
-//         assert!(job1_finished.load(Ordering::SeqCst));
-//         assert!(pool.main_thread.is_idle());
-//         assert!(pool.workers[0].is_idle()); // Still idle
-//     }
-// }
+    #[test]
+    fn test_stop_signal_respected() {
+        let stop = Arc::new(AtomicBool::new(false));
+        let mut pool = ThreadPool::new(Arc::clone(&stop));
+
+        pool.resize(10);
+
+        let job_factory = || {
+            let job: BoxedJob = Box::new(|_, stop| {
+                while !stop.load(Ordering::Relaxed) {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+            });
+
+            job
+        };
+
+        pool.sync_execute_for_all(job_factory);
+
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
+        pool.stop_all();
+
+        pool.wait_for_all_idle();
+    }
+
+    #[test]
+    fn test_spurious_wakeup_tolerance() {
+        let stop = Arc::new(AtomicBool::new(false));
+        let mut pool = ThreadPool::new(Arc::clone(&stop));
+
+        pool.resize(10);
+
+        let job_factory = || {
+            let job: BoxedJob = Box::new(|_, _| {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            });
+
+            job
+        };
+
+        pool.sync_execute_for_all(job_factory);
+
+        // Early wait, job is not finished yet
+        pool.wait_for_all_idle();
+
+        // After waiting properly, should be idle
+        assert!(pool.main_thread.is_idle());
+        for worker in &pool.workers {
+            assert!(worker.is_idle());
+        }
+    }
+
+    #[test]
+    fn test_stress_many_jobs() {
+        let stop = Arc::new(AtomicBool::new(false));
+        let mut pool = ThreadPool::new(Arc::clone(&stop));
+
+        pool.resize(10);
+
+        let counter = Arc::new(std::sync::Mutex::new(0));
+
+        for _ in 0..100 {
+            let counter_clone = Arc::clone(&counter);
+            let job_factory = move || {
+                let counter_clone = Arc::clone(&counter_clone);
+                let job: BoxedJob = Box::new(move |_worker, _stop| {
+                    let mut count = counter_clone.lock().unwrap();
+                    *count += 1;
+                });
+
+                job
+            };
+            pool.sync_execute_for_all(job_factory);
+            pool.wait_for_all_idle();
+        }
+
+        let count = counter.lock().unwrap();
+        assert_eq!(*count, 1000);
+    }
+
+    #[test]
+    fn test_dynamic_resize() {
+        let stop = Arc::new(AtomicBool::new(false));
+        let mut pool = ThreadPool::new(Arc::clone(&stop));
+
+        // Initial size
+        pool.resize(5);
+        assert_eq!(pool.workers.len(), 4);
+
+        // Increase size
+        pool.resize(10);
+        assert_eq!(pool.workers.len(), 9);
+
+        // Decrease size
+        pool.resize(2);
+        assert_eq!(pool.workers.len(), 1);
+
+        // Resize to 1
+        pool.resize(1);
+        assert_eq!(pool.workers.len(), 0);
+
+        // Resize to 0 (should be 1)
+        pool.resize(0);
+        assert_eq!(pool.workers.len(), 0);
+    }
+
+    #[test]
+    fn test_execute_on_first_available() {
+        let stop = Arc::new(AtomicBool::new(false));
+        let mut pool = ThreadPool::new(Arc::clone(&stop));
+        pool.resize(3); // Main + 2 workers = 3 threads total
+
+        let job_duration = std::time::Duration::from_millis(50);
+        let jobs_executed = Arc::new(AtomicU64::new(0));
+
+        // Make all threads busy initially
+        let initial_job_factory = || {
+            let jobs_executed_clone = Arc::clone(&jobs_executed);
+            let job: BoxedJob = Box::new(move |_, _| {
+                std::thread::sleep(job_duration);
+                jobs_executed_clone.fetch_add(1, Ordering::SeqCst);
+            });
+            job
+        };
+        pool.sync_execute_for_all(initial_job_factory); // Start jobs on all 3 threads
+
+        // Now, submit new jobs using execute_on_first_available while others are busy
+        let num_extra_jobs = 15;
+        for i in 0..num_extra_jobs {
+            let pool_ref = &pool; // Need a reference to satisfy borrow checker in thread
+            let jobs_executed_clone = Arc::clone(&jobs_executed);
+            let job: BoxedJob = Box::new(move |worker, _| {
+                println!(
+                    "Extra job {} running on thread {}",
+                    i,
+                    worker.lock().unwrap().thread_id
+                );
+                std::thread::sleep(job_duration / 2); // Shorter job
+                jobs_executed_clone.fetch_add(1, Ordering::SeqCst);
+            });
+
+            // This call will block until one of the initial 3 jobs finishes
+            pool_ref.execute_on_first_available(job);
+            println!("Extra job {} submitted.", i);
+            // Small sleep to potentially allow threads to become free and test contention
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+
+        // Wait for all pool threads to become idle (ensures all submitted jobs are done)
+        pool.wait_for_all_idle();
+
+        // Verify total jobs executed: 3 initial + 5 extra
+        assert_eq!(
+            jobs_executed.load(Ordering::SeqCst),
+            3 + num_extra_jobs as u64
+        );
+        println!("All jobs completed.");
+    }
+}
