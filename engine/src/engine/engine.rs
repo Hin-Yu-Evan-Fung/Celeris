@@ -1,11 +1,15 @@
-use std::sync::{Arc, atomic::AtomicBool, mpsc::Receiver};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+    mpsc::Receiver,
+};
 
 use chess::{
     board::Board,
     utils::{perft_bench, perft_test},
 };
 
-pub use super::EngineCommand;
+pub use super::UCICommand;
 
 mod constants {
     pub const NAME: &str = "Celeris";
@@ -13,40 +17,34 @@ mod constants {
     pub const AUTHORS: &str = "TheGogy, 0mn1verze";
 }
 
+#[derive(Default)]
 pub struct Engine {
+    is_debug: bool,
     board: Board,
     stop: Arc<AtomicBool>,
 }
 
 impl Engine {
-    pub fn new() -> Self {
-        Self {
-            board: Board::default(),
-            stop: Arc::new(AtomicBool::new(false)),
-        }
-    }
-
-    pub fn run_uci(rx: Receiver<EngineCommand>, stop: Arc<AtomicBool>) {
-        let mut engine = Self {
-            board: Board::default(),
-            stop,
-        };
-
+    pub fn run_uci(&mut self, rx: Receiver<UCICommand>) {
         for command in rx {
-            engine.handle_command(command);
+            self.handle_command(command);
         }
     }
 
-    fn handle_command(&mut self, command: EngineCommand) {
+    fn handle_command(&mut self, command: UCICommand) {
         match command {
-            EngineCommand::Uci => self.introduce(),
-            EngineCommand::UciNewGame => self.new_game(),
-            EngineCommand::Position(board) => self.set_position(board),
-            EngineCommand::Perft(depth) => self.perft(depth),
-            EngineCommand::Bench => self.bench(),
-            EngineCommand::Print => self.print_board(),
-            EngineCommand::Eval => {}
-            _ => {}
+            UCICommand::Uci => self.introduce(),
+            UCICommand::Debug(is_debug) => self.set_debug(is_debug),
+            UCICommand::IsReady => println!("readyok"),
+            UCICommand::UciNewGame => self.new_game(),
+            UCICommand::SetOption(name, value) => self.set_option(name, value),
+            UCICommand::Position(board) => self.set_position(board),
+            UCICommand::Perft(depth) => self.perft(depth),
+            UCICommand::Bench => self.bench(),
+            UCICommand::Print => self.print_board(),
+            UCICommand::Eval => {}
+            UCICommand::Stop => self.stop(),
+            _ => unreachable!(), // UCICommand::Quit is already handled by the UCI struct
         }
     }
 
@@ -56,9 +54,15 @@ impl Engine {
         println!("uciok");
     }
 
+    pub fn set_debug(&mut self, is_debug: bool) {
+        self.is_debug = is_debug;
+    }
+
     pub fn new_game(&mut self) {
         self.board = Board::default();
     }
+
+    pub fn set_option(&mut self, name: String, value: String) {}
 
     pub fn set_position(&mut self, board: Board) {
         self.board = board;
@@ -74,5 +78,9 @@ impl Engine {
 
     pub fn print_board(&self) {
         println!("{}", self.board)
+    }
+
+    pub fn stop(&self) {
+        self.stop.store(true, Ordering::Relaxed);
     }
 }

@@ -1,4 +1,5 @@
-pub mod engine;
-pub mod uci;
+mod engine;
+pub mod search;
+pub mod thread;
 
-pub use engine::{Engine, EngineCommand};
+pub use engine::*;

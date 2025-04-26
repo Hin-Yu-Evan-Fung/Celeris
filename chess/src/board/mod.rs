@@ -49,7 +49,7 @@ use fen::*;
 |==========================================|
 \******************************************/
 
-const MAX_DEPTH: usize = 256;
+pub const MAX_MOVES: usize = 256;
 
 /******************************************\
 |==========================================|
@@ -182,7 +182,7 @@ pub struct Board {
     state: BoardState,
     // /// A stack-like structure storing previous board states (`BoardState`).
     // /// Used to undo moves (`unmake_move`) and track game history (e.g., for repetition checks).
-    history: UndoHistory<MAX_DEPTH>,
+    history: UndoHistory<MAX_MOVES>,
 }
 
 /******************************************\

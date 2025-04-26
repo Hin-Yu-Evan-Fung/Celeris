@@ -1,8 +1,8 @@
-use std::str::FromStr;
+use std::str::{FromStr, SplitWhitespace};
 
 use chess::board::Board;
 
-pub enum EngineCommand {
+pub enum UCICommand {
     // Standard UCI commands from https://www.shredderchess.com/chess-features/uci-universal-chess-interface.html
     Uci,
     Debug(bool),
@@ -21,7 +21,7 @@ pub enum EngineCommand {
     Eval,
 }
 
-impl FromStr for EngineCommand {
+impl FromStr for UCICommand {
     type Err = EngineCommandError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -47,10 +47,8 @@ impl FromStr for EngineCommand {
     }
 }
 
-impl EngineCommand {
-    fn parse_debug<'a>(
-        mut tokens: impl Iterator<Item = &'a str>,
-    ) -> Result<Self, EngineCommandError> {
+impl UCICommand {
+    fn parse_debug<'a>(mut tokens: SplitWhitespace) -> Result<Self, EngineCommandError> {
         match tokens.next() {
             Some("on") => Ok(Self::Debug(true)),
             Some("off") => Ok(Self::Debug(false)),
@@ -58,13 +56,11 @@ impl EngineCommand {
         }
     }
 
-    fn parse_option<'a>(tokens: impl Iterator<Item = &'a str>) -> Result<Self, EngineCommandError> {
+    fn parse_option<'a>(tokens: SplitWhitespace) -> Result<Self, EngineCommandError> {
         Ok(Self::SetOption(String::default(), String::default()))
     }
 
-    fn parse_position<'a>(
-        mut tokens: impl Iterator<Item = &'a str>,
-    ) -> Result<Self, EngineCommandError> {
+    fn parse_position<'a>(mut tokens: SplitWhitespace) -> Result<Self, EngineCommandError> {
         match tokens.next() {
             Some("startpos") => Ok(Self::Position(Board::default())),
             Some("fen") => Self::parse_fen(tokens),
@@ -72,27 +68,25 @@ impl EngineCommand {
         }
     }
 
-    fn parse_fen<'a>(tokens: impl Iterator<Item = &'a str>) -> Result<Self, EngineCommandError> {
+    fn parse_fen<'a>(tokens: SplitWhitespace) -> Result<Self, EngineCommandError> {
         let fen = tokens.collect::<Vec<&str>>().join(" ");
         let board = Board::from_fen(&fen);
         match board {
             Ok(board) => Ok(Self::Position(board)),
-            Err(e) => Err(EngineCommandError(format!("Invalid Fen! Reason: {}", e))),
+            Err(e) => Err(EngineCommandError(format!("Invalid Fen -> {}", e))),
         }
     }
 
-    // fn parse_go<'a>(tokens: impl Iterator<Item = &'a str>) -> Result<Self, UCICommandError> {
+    // fn parse_go<'a>(tokens: SplitWhitespace) -> Result<Self, UCICommandError> {
     //     Ok(Self::Go(TimeControl::default()))
     // }
 
-    fn parse_perft<'a>(
-        mut tokens: impl Iterator<Item = &'a str>,
-    ) -> Result<Self, EngineCommandError> {
+    fn parse_perft<'a>(mut tokens: SplitWhitespace) -> Result<Self, EngineCommandError> {
         match tokens.next() {
             Some(depth) => {
-                let depth_usize = depth.parse::<usize>().map_err(|e| {
-                    EngineCommandError(format!("Invalid perft depth! Reason: {}", e))
-                })?;
+                let depth_usize = depth
+                    .parse::<usize>()
+                    .map_err(|e| EngineCommandError(format!("Invalid perft depth -> {}", e)))?;
                 Ok(Self::Perft(depth_usize))
             }
             _ => Err(EngineCommandError(format!("Invalid perft command"))),
@@ -105,7 +99,7 @@ pub struct EngineCommandError(String);
 
 impl std::fmt::Display for EngineCommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "UCI Command Error! Reason: {}", self.0)
+        write!(f, "UCI Command Error -> {}", self.0)
     }
 }
 
