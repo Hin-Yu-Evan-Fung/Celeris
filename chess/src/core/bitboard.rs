@@ -148,7 +148,6 @@ use macros::{AriOps, BitManiOps, BitOps};
 ///     println!("Square: {:?}", square);
 /// });
 /// ```
-/// ```
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, BitOps, BitManiOps, AriOps)]
 pub struct Bitboard(pub u64);
 

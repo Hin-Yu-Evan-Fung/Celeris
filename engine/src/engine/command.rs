@@ -57,8 +57,24 @@ impl UCICommand {
         }
     }
 
-    fn parse_option<'a>(tokens: SplitWhitespace) -> Result<Self, UCICommandError> {
-        Ok(Self::SetOption(String::default(), String::default()))
+    fn parse_option<'a>(mut tokens: SplitWhitespace) -> Result<Self, UCICommandError> {
+        let name = match tokens.next() {
+            Some("name") => tokens
+                .next()
+                .ok_or(UCICommandError(format!("No option command")))?
+                .to_owned(),
+            _ => return Err(UCICommandError(format!("Invalid option command"))),
+        };
+
+        let value = match tokens.next() {
+            Some("value") => tokens
+                .next()
+                .ok_or(UCICommandError(format!("No option command")))?
+                .to_owned(),
+            _ => return Err(UCICommandError(format!("Invalid option command"))),
+        };
+
+        Ok(UCICommand::SetOption(name, value))
     }
 
     fn parse_position<'a>(mut tokens: SplitWhitespace) -> Result<Self, UCICommandError> {

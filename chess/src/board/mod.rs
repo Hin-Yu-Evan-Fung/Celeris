@@ -37,7 +37,7 @@ pub mod movegen;
 pub mod movement;
 pub mod zobrist;
 
-use history::UndoHistory;
+// use history::UndoHistory;
 use zobrist::KeyBundle;
 
 use crate::core::*;
@@ -182,7 +182,8 @@ pub struct Board {
     state: BoardState,
     // /// A stack-like structure storing previous board states (`BoardState`).
     // /// Used to undo moves (`unmake_move`) and track game history (e.g., for repetition checks).
-    history: UndoHistory<MAX_MOVES>,
+    // history: UndoHistory<MAX_MOVES>,
+    history: Vec<BoardState>,
 }
 
 /******************************************\
@@ -215,7 +216,7 @@ impl Board {
             side_to_move: Colour::White,
             half_moves: 0,
             state: BoardState::default(),
-            history: UndoHistory::default(),
+            history: Vec::with_capacity(MAX_MOVES),
         }
     }
 
@@ -441,6 +442,50 @@ impl Board {
     #[inline]
     pub fn castling(&self) -> Castling {
         self.state.castle
+    }
+
+    /// # Get Hash Key
+    ///
+    /// ## Returns
+    ///
+    /// * `Key` - The zobrist key for this board
+    #[inline]
+    pub fn key(&self) -> u64 {
+        self.state.keys.key
+    }
+
+    /// # Get Pawn Hash Key
+    ///
+    /// ## Returns
+    ///
+    /// * `Key` - The zobrist key for the pawns on this board
+    #[inline]
+    pub fn pawn_key(&self) -> u64 {
+        self.state.keys.pawn_key
+    }
+
+    /// # Get Non Pawn Hash Key
+    ///
+    /// ## Returns
+    ///
+    /// * `[Key; Colour::NUM]` - The zobrist key for the non pawns on this board
+    #[inline]
+    pub fn non_pawn_keys(&self) -> [u64; Colour::NUM] {
+        self.state.keys.non_pawn_key
+    }
+
+    /// # Get Non Pawn Hash Key
+    ///
+    /// ## Arguments
+    ///
+    /// * `col` - Colour of the non pawn key
+    ///
+    /// ## Returns
+    ///
+    /// * `Key` - The zobrist key for the non pawns on this board for the colour in the argument
+    #[inline]
+    pub fn non_pawn_key(&self, col: Colour) -> u64 {
+        self.state.keys.non_pawn_key[col as usize]
     }
 }
 

@@ -13,7 +13,7 @@ impl UCI {
     pub fn init() {
         let (tx, rx) = mpsc::channel();
 
-        let mut engine = Engine::default();
+        let mut engine = Engine::new();
 
         let handle = thread::spawn(move || engine.run_uci(rx));
 

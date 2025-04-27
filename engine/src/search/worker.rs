@@ -1,6 +1,15 @@
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
+
 use crate::{
     Eval, INFINITY,
     search::{PVLine, SearchStack},
+    types::TT,
 };
 
 #[derive(Debug, Default, Clone)]
@@ -37,4 +46,6 @@ impl SearchWorker {
         self.completed_depth = 0;
         self.eval = -INFINITY;
     }
+
+    pub fn search(&mut self, stop: Arc<AtomicBool>, tt: &TT) {}
 }

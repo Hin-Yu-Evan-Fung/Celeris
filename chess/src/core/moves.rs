@@ -191,6 +191,15 @@ impl Move {
     /// Null Move Placeholder
     pub const NULL: Self = Self::new(Square::A2, Square::A2, MoveFlag::QuietMove);
 
+    /// Creates a new move from the u16 representation
+    ///
+    /// ## Unsafe
+    ///
+    #[inline]
+    pub const unsafe fn new_raw(data: u16) -> Self {
+        Self { data }
+    }
+
     /// Creates a new move from its components.
     ///
     /// # Arguments
@@ -324,6 +333,12 @@ impl Move {
     #[inline(always)]
     pub(crate) const fn is_null(&self) -> bool {
         self.data == Self::NULL.data
+    }
+
+    /// Gets the raw data of the move
+    #[inline(always)]
+    pub const fn raw(&self) -> u16 {
+        self.data
     }
 }
 
