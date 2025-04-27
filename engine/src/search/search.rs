@@ -19,7 +19,7 @@ use super::Clock;
 
 #[derive(Debug, Clone)]
 pub struct SearchWorker {
-    clock: Clock,
+    pub clock: Clock,
     board: Board,
 
     thread_id: usize,
@@ -101,6 +101,8 @@ impl SearchWorker {
         self.depth = 1;
 
         while self.should_start_iteration() {
+            println!("Depth: {}", self.depth);
+
             self.search_position(tt);
 
             if self.stop {
@@ -119,6 +121,8 @@ impl SearchWorker {
     }
 
     fn negamax(&mut self, mut alpha: Eval, mut beta: Eval, depth: usize) -> Eval {
+        println!("{}", self.board);
+
         Eval(0)
     }
 }

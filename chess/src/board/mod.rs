@@ -361,7 +361,7 @@ impl Board {
     /// assert_eq!(board.side_to_move(), Colour::White);
     /// ```
     #[inline]
-    pub fn side_to_move(&self) -> Colour {
+    pub fn stm(&self) -> Colour {
         self.side_to_move
     }
 
@@ -513,7 +513,7 @@ impl std::fmt::Display for Board {
         writeln!(f)?;
         writeln!(f, "       A   B   C   D   E   F   G   H")?;
         writeln!(f)?;
-        writeln!(f, "Current Side: {:?}", self.side_to_move())?;
+        writeln!(f, "Current Side: {:?}", self.stm())?;
         writeln!(f, "Castling: {}", self.state.castle)?;
         writeln!(
             f,

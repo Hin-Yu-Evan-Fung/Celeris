@@ -5,7 +5,11 @@ use std::sync::{
 
 use chess::board::Board;
 
-use crate::{search::SearchWorker, types::TT};
+use crate::{
+    TimeControl,
+    search::{Clock, SearchWorker},
+    types::TT,
+};
 
 pub struct ThreadPool {
     main_worker: SearchWorker,
@@ -45,7 +49,17 @@ impl ThreadPool {
         }
     }
 
-    pub fn start_search(&mut self, tt: &TT, board: &Board) {
+    pub fn start_search(&mut self, time_control: TimeControl, tt: &TT, board: &Board) {
+        self.stop.store(false, Ordering::Relaxed);
+        self.nodes.store(0, Ordering::Relaxed);
+
+        self.main_worker.clock = Clock::new(
+            self.stop.clone(),
+            self.nodes.clone(),
+            time_control,
+            board.stm(),
+        );
+
         std::thread::scope(|s| {
             let board_clone = board.clone();
             self.main_worker.setup(board_clone);
@@ -191,7 +205,7 @@ mod tests {
         assert!(!stop.load(Ordering::Relaxed));
 
         // Pass a reference to the TT data (behind the RwLock and Arc)
-        pool.start_search(&tt, &board); // Pass &TT
+        pool.start_search(TimeControl::Infinite, &tt, &board); // Pass &TT
 
         // Because start_search uses thread::scope, it blocks until threads finish.
         // The stop signal is set *within* the scope in the current implementation.

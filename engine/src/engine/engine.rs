@@ -14,7 +14,11 @@ use crate::{thread::ThreadPool, types::TT};
 use super::command::UCIOption;
 pub use super::{TimeControl, UCICommand};
 
-mod constants {
+pub mod constants {
+
+    use crate::Eval;
+    use chess::board::MAX_MOVES;
+
     pub const NAME: &str = "Celeris";
     pub const VERSION: &str = "0.0.1";
     pub const AUTHORS: &str = "0mn1verze, TheGogy";
@@ -22,6 +26,12 @@ mod constants {
     pub const THREADS: usize = 1;
     pub const DEBUG: bool = true;
     pub const TT_SIZE: usize = 64;
+
+    pub const MAX_DEPTH: usize = MAX_MOVES;
+    pub const INFINITY: Eval = Eval(32001);
+    pub const MATE: Eval = Eval(32000);
+    pub const LONGEST_MATE: Eval = Eval(MAX_DEPTH as i16);
+    pub const MATE_BOUND: Eval = MATE.sub(LONGEST_MATE);
 }
 
 pub struct Engine {
@@ -140,7 +150,8 @@ impl Engine {
     }
 
     pub fn go(&mut self, time_control: TimeControl) {
-        println!("go {:?}", time_control);
+        self.thread_pool
+            .start_search(time_control, &self.tt, &self.board);
     }
 
     pub fn bench(&self) {
