@@ -1,9 +1,9 @@
 mod clock;
 mod pv;
+mod search;
 mod stack;
-mod worker;
 
 pub use clock::Clock;
 pub use pv::PVLine;
+pub use search::SearchWorker;
 pub(crate) use stack::SearchStack;
-pub use worker::SearchWorker;

@@ -69,8 +69,6 @@ impl SearchStack {
 #[cfg(test)]
 mod tests {
     use super::*; // Import SearchStack, SearchStackEntry, MAX_DEPTH
-    use crate::Eval;
-    use chess::Move; // Import Move
 
     // Helper to create a distinct SearchStackEntry for testing comparison.
     // We can vary the 'ply' to make entries distinguishable.
@@ -78,10 +76,7 @@ mod tests {
         // Use Move::null() as a placeholder, specific moves aren't crucial for stack logic.
         SearchStackEntry {
             ply,
-            static_eval: Eval((ply as i32) * 10), // Make static_eval distinct too
-            move_count: ply,
-            in_check: ply % 2 == 0, // Vary in_check based on ply
-            ..Default::default()    // Use default for other fields if needed
+            ..Default::default() // Use default for other fields if needed
         }
     }
 

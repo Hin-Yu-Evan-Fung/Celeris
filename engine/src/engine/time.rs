@@ -16,11 +16,11 @@ pub enum TimeControl {
     FixedTime(u64),
     Mate(usize),
     Variable {
-        wtime: u64,
-        btime: u64,
-        winc: Option<u64>,
-        binc: Option<u64>,
-        movestogo: Option<u16>,
+        pub wtime: u64,
+        pub btime: u64,
+        pub winc: Option<u64>,
+        pub binc: Option<u64>,
+        pub movestogo: Option<u16>,
     },
 }
 

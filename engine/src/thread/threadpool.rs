@@ -3,6 +3,8 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
+use chess::board::Board;
+
 use crate::{search::SearchWorker, types::TT};
 
 pub struct ThreadPool {
@@ -15,7 +17,7 @@ pub struct ThreadPool {
 impl ThreadPool {
     pub fn new(stop: Arc<AtomicBool>) -> Self {
         let nodes = Arc::new(AtomicU64::new(0));
-        let main_worker = SearchWorker::new(0);
+        let main_worker = SearchWorker::new(0, stop.clone(), nodes.clone());
 
         Self {
             main_worker,
@@ -35,7 +37,7 @@ impl ThreadPool {
         let current_size = self.workers.len() + 1; // Include the main thread
         if new_size > current_size {
             for i in current_size..new_size {
-                let worker = SearchWorker::new(i);
+                let worker = SearchWorker::new(i, self.stop.clone(), self.nodes.clone());
                 self.workers.push(worker);
             }
         } else if new_size < current_size {
@@ -43,14 +45,17 @@ impl ThreadPool {
         }
     }
 
-    pub fn start_search(&mut self, tt: &TT) {
+    pub fn start_search(&mut self, tt: &TT, board: &Board) {
         std::thread::scope(|s| {
-            self.main_worker.search(Arc::clone(&self.stop), tt);
+            let board_clone = board.clone();
+            self.main_worker.setup(board_clone);
+            self.main_worker.start_search(tt);
 
             for worker in &mut self.workers {
-                let stop_clone = Arc::clone(&self.stop);
+                let board_clone = board.clone();
                 s.spawn(move || {
-                    worker.search(stop_clone, tt);
+                    worker.setup(board_clone);
+                    worker.start_search(tt);
                 });
             }
 
@@ -177,6 +182,7 @@ mod tests {
     fn test_start_search_runs_and_stops() {
         let stop = create_test_stop();
         let tt = create_test_tt(); // Create a dummy TT
+        let board = Board::default();
         let mut pool = ThreadPool::new(Arc::clone(&stop));
         pool.resize(3); // main + 2 workers
 
@@ -185,7 +191,7 @@ mod tests {
         assert!(!stop.load(Ordering::Relaxed));
 
         // Pass a reference to the TT data (behind the RwLock and Arc)
-        pool.start_search(&tt); // Pass &TT
+        pool.start_search(&tt, &board); // Pass &TT
 
         // Because start_search uses thread::scope, it blocks until threads finish.
         // The stop signal is set *within* the scope in the current implementation.
@@ -194,6 +200,9 @@ mod tests {
             stop.load(Ordering::Relaxed),
             "Stop signal should be true after start_search completes"
         );
+
+        std::thread::sleep(Duration::from_millis(50));
+        stop.store(true, Ordering::Relaxed);
     }
 
     // Optional: Test with a slight delay in a test-only search method
