@@ -1,7 +1,7 @@
-use std::sync::{Arc, Mutex, mpsc};
-use std::thread;
-
-use engine::UCI;
+// use engine::{Engine, UCI};
+use chess::Piece;
+use chess::board::{Board, LegalGen, MoveList, TRICKY_FEN};
+use engine::{EngineController, MovePicker, TimeControl, UCI};
 
 fn main() {
     UCI::init();

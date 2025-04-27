@@ -31,6 +31,8 @@ pub const KILLER_FEN: &str = "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQK
 
 /// Implementation block for FEN parsing methods on the `Board` struct.
 impl Board {
+    pub const FEN_SECTIONS: usize = 6;
+
     /// # Set Board State from FEN String
     ///
     /// Parses a FEN string and updates the board state (`self`) accordingly.
@@ -669,7 +671,7 @@ impl Board {
 
         // Calculate ply count (number of half-moves).
         // Ply = (Full Moves - 1) * 2 + (0 if White to move, 1 if Black to move)
-        let ply = (full_move_number - 1) * 2 + (self.side_to_move() as u16); // Assumes Colour::White = 0, Colour::Black = 1
+        let ply = (full_move_number - 1) * 2 + (self.stm() as u16); // Assumes Colour::White = 0, Colour::Black = 1
 
         Ok(ply)
     }
@@ -878,7 +880,7 @@ mod tests {
         assert_eq!(board.on(Square::H8), Some(Piece::BlackRook));
         assert_eq!(board.on(Square::D8), Some(Piece::BlackQueen));
         assert_eq!(board.on(Square::E4), None); // Check an empty square
-        assert_eq!(board.side_to_move(), Colour::White);
+        assert_eq!(board.stm(), Colour::White);
         assert_eq!(board.state.castle, Castling::ALL);
         assert_eq!(board.state.enpassant, None);
         assert_eq!(board.state.fifty_move, 0); // Check parsed fifty_move
@@ -891,7 +893,7 @@ mod tests {
         let mut board = Board::new();
         assert!(board.set(EMPTY_FEN).is_ok());
         // Check bitboards directly if accessible, or use helper methods
-        assert_eq!(board.side_to_move(), Colour::White);
+        assert_eq!(board.stm(), Colour::White);
         assert_eq!(board.state.castle, Castling::ALL); // FEN specifies KQkq
         assert_eq!(board.state.enpassant, None);
         assert_eq!(board.state.fifty_move, 0);
@@ -911,7 +913,7 @@ mod tests {
         assert_eq!(board.on(Square::F3), Some(Piece::WhiteQueen));
         assert_eq!(board.on(Square::C3), Some(Piece::WhiteKnight));
         assert_eq!(board.on(Square::H3), Some(Piece::BlackPawn));
-        assert_eq!(board.side_to_move(), Colour::White);
+        assert_eq!(board.stm(), Colour::White);
         assert_eq!(board.state.castle, Castling::ALL); // FEN specifies KQkq
         assert_eq!(board.state.enpassant, None); // FEN has '-', so None
         assert_eq!(board.state.fifty_move, 0);
@@ -1141,28 +1143,28 @@ mod tests {
         let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
         assert!(board.set(fen).is_ok());
         assert_eq!(board.half_moves(), 1);
-        assert_eq!(board.side_to_move(), Colour::Black);
+        assert_eq!(board.stm(), Colour::Black);
         assert_eq!(board.fen(), fen.trim());
 
         // Position after 1. e4 c5, White to move (move 2) -> ply 2
         let fen = "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2";
         assert!(board.set(fen).is_ok());
         assert_eq!(board.half_moves(), 2);
-        assert_eq!(board.side_to_move(), Colour::White);
+        assert_eq!(board.stm(), Colour::White);
         assert_eq!(board.fen(), fen.trim());
 
         // Position after 10 moves (e.g. 9...Nc6), White to move (move 10) -> ply 18
         let fen = "r1bqkbnr/pp1ppppp/2n5/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 1 10";
         assert!(board.set(fen).is_ok());
         assert_eq!(board.half_moves(), 18);
-        assert_eq!(board.side_to_move(), Colour::White);
+        assert_eq!(board.stm(), Colour::White);
         assert_eq!(board.fen(), fen.trim());
 
         // Position after 10 moves (e.g. 10. d4), Black to move (move 10) -> ply 19
         let fen = "r1bqkbnr/pp1ppppp/2n5/2p5/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq d3 0 10";
         assert!(board.set(fen).is_ok());
         assert_eq!(board.half_moves(), 19);
-        assert_eq!(board.side_to_move(), Colour::Black);
+        assert_eq!(board.stm(), Colour::Black);
         assert_eq!(board.fen(), fen.trim());
     }
 }

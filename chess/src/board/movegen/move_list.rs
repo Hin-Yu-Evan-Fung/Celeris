@@ -11,6 +11,32 @@ pub struct MoveList {
     num_moves: usize,
 }
 
+impl std::ops::Index<usize> for MoveList {
+    type Output = Move;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        // Bounds check is crucial for safety here.
+        debug_assert!(index < self.num_moves, "MoveList index out of bounds");
+
+        // Safety:
+        // 1. We asserted `index < self.num_moves`, ensuring the element at `index` was initialized.
+        // 2. `assume_init_read()` is safe because the invariant guarantees initialization.
+        unsafe { self.moves[index].assume_init_ref() }
+    }
+}
+
+impl std::ops::IndexMut<usize> for MoveList {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        // Bounds check is crucial for safety here.
+        debug_assert!(index < self.num_moves, "MoveList index out of bounds");
+
+        // Safety:
+        // 1. We asserted `index < self.num_moves`, ensuring the element at `index` was initialized.
+        // 2. `assume_init_read()` is safe because the invariant guarantees initialization.
+        unsafe { self.moves[index].assume_init_mut() }
+    }
+}
+
 // Safety invariant: `num_moves` accurately tracks the number of initialized
 // elements in the `moves` array. Any index `< num_moves` corresponds to an
 // element where `.write()` has been called, making it safe to `assume_init*`.
@@ -69,14 +95,8 @@ impl MoveList {
     }
 
     #[inline]
-    pub fn get_move(&self, index: usize) -> Move {
-        // Bounds check is crucial for safety here.
-        assert!(index < self.num_moves, "MoveList index out of bounds");
-
-        // Safety:
-        // 1. We asserted `index < self.num_moves`, ensuring the element at `index` was initialized.
-        // 2. `assume_init_read()` is safe because the invariant guarantees initialization.
-        unsafe { self.moves[index].assume_init_read() }
+    pub fn swap(&mut self, index1: usize, index2: usize) {
+        self.moves.swap(index1, index2);
     }
 
     #[inline]

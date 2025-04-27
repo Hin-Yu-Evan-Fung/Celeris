@@ -1,3 +1,3 @@
-mod threadpool;
+mod thread;
 
-pub use threadpool::ThreadPool;
+pub use thread::ThreadPool;

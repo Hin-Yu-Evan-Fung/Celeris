@@ -2,12 +2,12 @@ use chess::Move;
 
 use chess::board::MAX_MOVES;
 
-use crate::Eval;
+use crate::eval::Eval;
+
+use super::PVLine;
 
 #[derive(Debug, Default, Copy, Clone)]
 pub(crate) struct SearchStackEntry {
-    pv_move: Move,
-    ply: u8, // MAX_DEPTH = 256
     curr_move: Move,
     excl_move: Move,
     static_eval: Eval,
@@ -69,20 +69,10 @@ impl SearchStack {
 #[cfg(test)]
 mod tests {
     use super::*; // Import SearchStack, SearchStackEntry, MAX_DEPTH
-    use crate::Eval;
-    use chess::Move; // Import Move
 
     // Helper to create a distinct SearchStackEntry for testing comparison.
-    // We can vary the 'ply' to make entries distinguishable.
-    fn create_test_entry(ply: u8) -> SearchStackEntry {
-        // Use Move::null() as a placeholder, specific moves aren't crucial for stack logic.
-        SearchStackEntry {
-            ply,
-            static_eval: Eval((ply as i32) * 10), // Make static_eval distinct too
-            move_count: ply,
-            in_check: ply % 2 == 0, // Vary in_check based on ply
-            ..Default::default()    // Use default for other fields if needed
-        }
+    fn create_test_entry() -> SearchStackEntry {
+        Default::default() // Use default for other fields if needed
     }
 
     #[test]
@@ -101,7 +91,7 @@ mod tests {
     #[test]
     fn test_push_single() {
         let mut stack = SearchStack::default();
-        let entry = create_test_entry(1);
+        let entry = create_test_entry();
 
         stack.push(entry);
 
@@ -119,7 +109,7 @@ mod tests {
     #[test]
     fn test_push_pop_single() {
         let mut stack = SearchStack::default();
-        let entry_in = create_test_entry(5);
+        let entry_in = create_test_entry();
 
         stack.push(entry_in);
         assert_eq!(stack.top, 1, "Top should be 1 before pop");
@@ -134,7 +124,6 @@ mod tests {
 
         // Verify the popped element is the one we pushed.
         // Comparing specific fields as SearchStackEntry doesn't derive PartialEq.
-        assert_eq!(entry_out.ply, entry_in.ply, "Popped entry ply mismatch");
         assert_eq!(
             entry_out.static_eval, entry_in.static_eval,
             "Popped entry static_eval mismatch"
@@ -148,7 +137,6 @@ mod tests {
             "Popped entry in_check mismatch"
         );
         // We could compare moves too if needed, but null() == null()
-        assert_eq!(entry_out.pv_move, entry_in.pv_move);
         assert_eq!(entry_out.curr_move, entry_in.curr_move);
         assert_eq!(entry_out.excl_move, entry_in.excl_move);
     }
@@ -156,9 +144,9 @@ mod tests {
     #[test]
     fn test_push_pop_multiple_lifo() {
         let mut stack = SearchStack::default();
-        let entry1 = create_test_entry(1);
-        let entry2 = create_test_entry(2);
-        let entry3 = create_test_entry(3);
+        let entry1 = create_test_entry();
+        let entry2 = create_test_entry();
+        let entry3 = create_test_entry();
 
         stack.push(entry1);
         stack.push(entry2);
@@ -169,11 +157,9 @@ mod tests {
         // Pop and check LIFO (Last In, First Out)
         let popped3 = stack.pop();
         assert_eq!(stack.top, 2, "Top should be 2 after first pop");
-        assert_eq!(popped3.ply, entry3.ply, "Popped entry 3 ply mismatch");
 
         let popped2 = stack.pop();
         assert_eq!(stack.top, 1, "Top should be 1 after second pop");
-        assert_eq!(popped2.ply, entry2.ply, "Popped entry 2 ply mismatch");
 
         let popped1 = stack.pop();
         assert_eq!(stack.top, 0, "Top should be 0 after third pop");
@@ -181,25 +167,22 @@ mod tests {
             stack.is_empty(),
             "Stack should be empty after popping all elements"
         );
-        assert_eq!(popped1.ply, entry1.ply, "Popped entry 1 ply mismatch");
     }
 
     #[test]
     fn test_top_method() {
         let mut stack = SearchStack::default();
-        let entry1 = create_test_entry(10);
-        let entry2 = create_test_entry(20);
+        let entry1 = create_test_entry();
+        let entry2 = create_test_entry();
 
         stack.push(entry1);
         // Get reference to top element
         let top_ref1 = stack.top();
-        assert_eq!(top_ref1.ply, entry1.ply, "Top ref 1 should point to entry1");
         assert_eq!(stack.top, 1, "Calling top() should not change stack size");
 
         stack.push(entry2);
         // Get reference to new top element
         let top_ref2 = stack.top();
-        assert_eq!(top_ref2.ply, entry2.ply, "Top ref 2 should point to entry2");
         assert_eq!(
             stack.top, 2,
             "Calling top() again should not change stack size"
@@ -208,10 +191,6 @@ mod tests {
         // Pop and check top again
         let _popped = stack.pop();
         let top_ref_after_pop = stack.top();
-        assert_eq!(
-            top_ref_after_pop.ply, entry1.ply,
-            "Top ref after pop should point back to entry1"
-        );
         assert_eq!(stack.top, 1, "Stack size should be 1 after pop");
     }
 
@@ -234,8 +213,8 @@ mod tests {
     #[test]
     fn test_clear() {
         let mut stack = SearchStack::default();
-        stack.push(create_test_entry(1));
-        stack.push(create_test_entry(2));
+        stack.push(create_test_entry());
+        stack.push(create_test_entry());
         assert_eq!(stack.top, 2);
         assert!(!stack.is_empty());
 
@@ -284,7 +263,7 @@ mod tests {
                 i,
                 i + 1
             );
-            stack.push(create_test_entry(i as u8));
+            stack.push(create_test_entry());
         }
 
         assert_eq!(
@@ -324,11 +303,11 @@ mod tests {
         let mut stack = SearchStack::default();
         // Fill the stack
         for i in 0..MAX_MOVES {
-            stack.push(create_test_entry(i as u8));
+            stack.push(create_test_entry());
         }
         assert!(stack.is_full());
 
         // This push should panic
-        stack.push(create_test_entry(MAX_MOVES as u8));
+        stack.push(create_test_entry());
     }
 }

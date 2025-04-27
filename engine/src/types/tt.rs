@@ -7,7 +7,7 @@ use std::{
 
 use chess::Move;
 
-use crate::{Eval, thread::ThreadPool};
+use crate::{eval::Eval, thread::ThreadPool};
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Debug, Default)]
@@ -60,14 +60,14 @@ impl TTEntry {
     }
 
     pub fn unpack_eval(data: u64) -> Eval {
-        Eval(((data & Self::EVAL_MASK) >> 32) as i32)
+        Eval(((data & Self::EVAL_MASK) >> 32) as i16)
     }
 
     pub fn unpack_value(data: u64) -> Eval {
-        Eval(((data & Self::VALUE_MASK) >> 48) as i32)
+        Eval(((data & Self::VALUE_MASK) >> 48) as i16)
     }
 
-    pub(super) fn pack(&self) -> PackedTTEntry {
+    fn pack(&self) -> PackedTTEntry {
         let mut data = 0;
         data |= (self.age as u64) & TTEntry::AGE_MASK;
         data |= ((self.depth as u64) << 7) & TTEntry::DEPTH_MASK;

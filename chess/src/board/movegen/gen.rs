@@ -39,7 +39,7 @@
 use super::*;
 use crate::board::Board;
 use crate::core::*;
-use moves::{Move, MoveFlag};
+use crate::{Move, MoveFlag};
 
 /******************************************\
 |==========================================|
@@ -137,16 +137,18 @@ fn add_piece_moves<G: GenTypeTrait>(
     dest: Bitboard,
     move_list: &mut MoveList,
 ) {
-    let us = board.side_to_move();
+    let us = board.stm();
     let them = !us;
 
     let enemy_bb = board.occupied_bb(them);
     let empty_bb = !board.all_occupied_bb();
 
-    // Add captures (always generated unless G is specifically Quiet, but filtering happens later if needed)
-    (dest & enemy_bb).for_each(|to| {
-        move_list.add_move(Move::new(from, to, MoveFlag::Capture));
-    });
+    if G::gen_type() != MoveGenType::Quiet {
+        // Add captures (always generated unless G is specifically Quiet, but filtering happens later if needed)
+        (dest & enemy_bb).for_each(|to| {
+            move_list.add_move(Move::new(from, to, MoveFlag::Capture));
+        });
+    }
 
     // Add quiet moves only if G is not Capture-only
     if G::gen_type() != MoveGenType::Capture {
@@ -171,7 +173,7 @@ fn add_castling_move(castle: Castling, board: &Board, move_list: &mut MoveList) 
 
     // Check if the side to move still has this castling right
     if board.castling().has(castle) && board.can_castle(castle) {
-        let ksq = board.ksq(board.side_to_move());
+        let ksq = board.ksq(board.stm());
 
         let dest = board.castling_king_dest(castle);
 
@@ -251,7 +253,7 @@ fn gen_pawn_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
 /// Generates quiet pawn moves (single pushes, double pushes, quiet promotions).
 /// Considers pins and checks.
 fn gen_pawn_quiets(board: &Board, move_list: &mut MoveList) {
-    let us = board.side_to_move();
+    let us = board.stm();
 
     // Directions and Ranks
     let push = us.forward();
@@ -305,7 +307,7 @@ fn gen_pawn_quiets(board: &Board, move_list: &mut MoveList) {
 /// Generates pawn captures (normal captures, promotion captures, en passant).
 /// Considers pins and checks.
 fn gen_pawn_captures(board: &Board, move_list: &mut MoveList) {
-    let us = board.side_to_move();
+    let us = board.stm();
     let them = !us;
 
     // Push and double push directions
@@ -388,7 +390,7 @@ fn gen_pawn_captures(board: &Board, move_list: &mut MoveList) {
 /// Knights cannot be pinned partially, so they only move if not pinned at all.
 /// Moves must land on a square within the `check_mask` if the king is in check.
 fn gen_knight_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
-    let us = board.side_to_move();
+    let us = board.stm();
 
     // Board state masks
     let check_mask = board.check_mask();
@@ -408,7 +410,7 @@ fn gen_knight_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
 }
 
 fn gen_diag_slider_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
-    let us = board.side_to_move();
+    let us = board.stm();
 
     // Board state masks
     let check_mask = board.check_mask();
@@ -440,7 +442,7 @@ fn gen_diag_slider_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveLis
 }
 
 fn gen_hv_slider_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
-    let us = board.side_to_move();
+    let us = board.stm();
 
     // Board state masks
     let check_mask = board.check_mask();
@@ -474,7 +476,7 @@ fn gen_hv_slider_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList)
 /// Generates legal king moves.
 /// The king cannot move into squares attacked by the opponent. Castling is handled separately.
 fn gen_king_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
-    let us = board.side_to_move();
+    let us = board.stm();
 
     let from = board.ksq(us);
     // Get potential destinations using precomputed king attacks
@@ -489,7 +491,7 @@ fn gen_king_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
 /// Called only when the king is not in check and `GenType` allows quiet moves.
 /// Legality checks (rights, empty squares, no attacks on path) are done in `add_castling_move`.
 fn gen_castling_moves(board: &Board, move_list: &mut MoveList) {
-    let us = board.side_to_move();
+    let us = board.stm();
 
     // Call the helper for each potential castling move.
     // The helper checks rights and legality internally.

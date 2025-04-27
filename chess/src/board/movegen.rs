@@ -151,7 +151,7 @@ impl Board {
             "This function only works for castling on one side (atomic)"
         );
 
-        let us = self.side_to_move();
+        let us = self.stm();
 
         let ksq = self.ksq(us);
         // Safety: rook_sq lookup is safe if castling rights are present initially.

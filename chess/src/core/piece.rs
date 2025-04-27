@@ -93,7 +93,7 @@ pub enum Piece {
 }
 
 impl Piece {
-    pub const NUM: usize = 16;
+    pub const NUM: usize = 14;
 }
 
 /******************************************\

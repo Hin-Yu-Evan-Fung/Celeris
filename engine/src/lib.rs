@@ -1,6 +1,9 @@
 mod engine;
-pub mod search;
-pub mod thread;
-pub mod types;
+mod eval;
+mod movepick;
+mod search;
+mod thread;
+mod types;
 
 pub use engine::*;
+pub use movepick::*;
