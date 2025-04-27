@@ -80,7 +80,7 @@ pub const MAX_MOVES: usize = 256;
 /// - `king_attacks`: A bitboard representing the squares attacked by the friendly king.
 /// - `available`: A bitboard representing all squares not occupied by the side to move (potential destinations, excluding captures).
 /// - `enpassant_pin`: A boolean indicating if the pawn performing an en passant capture is pinned to the king, making the en passant illegal.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct BoardState {
     // --- Board State Variables -- //
     /// Stores gaps between last repeat, if negative it means three fold repetition
@@ -152,7 +152,7 @@ impl BoardState {
 ///   (containing castling rights, en passant square, captured piece, keys, etc., *before* the move)
 ///   is pushed onto this stack. This allows for efficient `unmake_move` operations and tracking game history
 ///   for rules like three-fold repetition.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Board {
     /// Array representing the board, where each element corresponds to a square.
     /// `board[Square::A1 as usize]` holds the `Piece` on A1.

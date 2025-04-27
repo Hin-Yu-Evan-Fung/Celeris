@@ -3,12 +3,18 @@ use std::str::{FromStr, SplitWhitespace};
 use super::TimeControl;
 use chess::board::Board;
 
+pub enum UCIOption {
+    ClearHash(),
+    ResizeHash(usize),
+    ResizeThreads(usize),
+}
+
 pub enum UCICommand {
     // Standard UCI commands from https://www.shredderchess.com/chess-features/uci-universal-chess-interface.html
     Uci,
     Debug(bool),
     IsReady,
-    SetOption(String, String),
+    SetOption(UCIOption),
     UciNewGame,
     Position(Board),
     Go(TimeControl),
@@ -74,7 +80,20 @@ impl UCICommand {
             _ => return Err(UCICommandError(format!("Invalid option command"))),
         };
 
-        Ok(UCICommand::SetOption(name, value))
+        let option = match name.to_ascii_lowercase().as_str() {
+            "clear" => UCIOption::ClearHash(),
+            "hash" => UCIOption::ResizeHash(Self::parse_value(value)?),
+            "threads" => UCIOption::ResizeThreads(Self::parse_value(value)?),
+            _ => return Err(UCICommandError(format!("Invalid option name"))),
+        };
+
+        Ok(UCICommand::SetOption(option))
+    }
+
+    fn parse_value<T: FromStr>(value: String) -> Result<T, UCICommandError> {
+        value
+            .parse::<T>()
+            .map_err(|_| UCICommandError(format!("Invalid value type")))
     }
 
     fn parse_position<'a>(mut tokens: SplitWhitespace) -> Result<Self, UCICommandError> {

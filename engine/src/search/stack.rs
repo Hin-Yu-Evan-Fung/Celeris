@@ -78,7 +78,7 @@ mod tests {
         // Use Move::null() as a placeholder, specific moves aren't crucial for stack logic.
         SearchStackEntry {
             ply,
-            static_eval: Eval((ply as i16) * 10), // Make static_eval distinct too
+            static_eval: Eval((ply as i32) * 10), // Make static_eval distinct too
             move_count: ply,
             in_check: ply % 2 == 0, // Vary in_check based on ply
             ..Default::default()    // Use default for other fields if needed

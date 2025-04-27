@@ -26,8 +26,8 @@ pub struct TTEntry {
     depth: u8,       //  7 bits
     bound: TTBound,  //  2 bits
     best_move: Move, // 16 bits
-    eval: Eval,      // 16 bits
-    value: Eval,     // 16 bits
+    eval: Eval,      // 16 bits - truncated
+    value: Eval,     // 16 bits - truncated
 }
 
 impl TTEntry {
@@ -60,11 +60,11 @@ impl TTEntry {
     }
 
     pub fn unpack_eval(data: u64) -> Eval {
-        Eval(((data & Self::EVAL_MASK) >> 32) as i16)
+        Eval(((data & Self::EVAL_MASK) >> 32) as i32)
     }
 
     pub fn unpack_value(data: u64) -> Eval {
-        Eval(((data & Self::VALUE_MASK) >> 48) as i16)
+        Eval(((data & Self::VALUE_MASK) >> 48) as i32)
     }
 
     pub(super) fn pack(&self) -> PackedTTEntry {
@@ -224,6 +224,10 @@ impl TT {
     pub fn resize(&mut self, mb: usize) {
         self.table
             .resize_with(Self::calc_no_of_entries(mb), PackedTTEntry::default);
+    }
+
+    pub fn size(&self) -> usize {
+        self.table.len()
     }
 
     pub fn get(&self, pos_key: u64) -> Option<TTEntry> {

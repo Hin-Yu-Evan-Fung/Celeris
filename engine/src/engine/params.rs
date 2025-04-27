@@ -3,7 +3,7 @@ use chess::board::MAX_MOVES;
 use macros::AriOps;
 
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, AriOps)]
-pub struct Eval(pub i16);
+pub struct Eval(pub i32);
 
 impl std::ops::Neg for Eval {
     type Output = Self;
@@ -31,5 +31,5 @@ impl std::fmt::Display for Eval {
 pub const MAX_DEPTH: u16 = MAX_MOVES as u16;
 pub const INFINITY: Eval = Eval(32001);
 pub const MATE: Eval = Eval(32000);
-pub const LONGEST_MATE: Eval = Eval(MAX_DEPTH as i16);
+pub const LONGEST_MATE: Eval = Eval(MAX_DEPTH as i32);
 pub const MATE_BOUND: Eval = MATE.sub(LONGEST_MATE);

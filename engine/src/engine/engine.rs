@@ -11,6 +11,7 @@ use chess::{
 
 use crate::{thread::ThreadPool, types::TT};
 
+use super::command::UCIOption;
 pub use super::{TimeControl, UCICommand};
 
 mod constants {
@@ -19,7 +20,7 @@ mod constants {
     pub const AUTHORS: &str = "0mn1verze, TheGogy";
 
     pub const THREADS: usize = 1;
-    pub const DEBUG: bool = false;
+    pub const DEBUG: bool = true;
     pub const TT_SIZE: usize = 64;
 }
 
@@ -40,7 +41,7 @@ impl Engine {
         thread_pool.resize(constants::THREADS);
 
         Self {
-            is_debug: false,
+            is_debug: constants::DEBUG,
             board: Board::default(),
             tt,
             thread_pool,
@@ -60,7 +61,7 @@ impl Engine {
             UCICommand::Debug(is_debug) => self.set_debug(is_debug),
             UCICommand::IsReady => println!("readyok"),
             UCICommand::UciNewGame => self.new_game(),
-            UCICommand::SetOption(name, value) => self.set_option(name, value),
+            UCICommand::SetOption(option) => self.set_option(option),
             UCICommand::Position(board) => self.set_position(board),
             UCICommand::Go(time_control) => self.go(time_control),
             UCICommand::Perft(depth) => self.perft(depth),
@@ -95,6 +96,7 @@ impl Engine {
 
         if self.is_debug {
             println!("info string Hash resized to {} MB.", size_mb);
+            println!("info string Hash entries: {}.", self.tt.size());
         }
     }
 
@@ -125,24 +127,12 @@ impl Engine {
         }
     }
 
-    pub fn set_option(&mut self, name: String, value: String) {
-        match name.to_ascii_lowercase().as_str() {
-            "threads" => {
-                if let Ok(value) = value.parse::<usize>() {
-                    self.resize_threads(value);
-                }
-            }
-            "hash" => {
-                if let Ok(value) = value.parse::<usize>() {
-                    self.resize_hash(value);
-                }
-            }
-            _ => {
-                if self.is_debug {
-                    println!("info string Unknown option: {}", name)
-                }
-            }
-        };
+    pub fn set_option(&mut self, option: UCIOption) {
+        match option {
+            UCIOption::ClearHash() => self.clear_hash(),
+            UCIOption::ResizeHash(size_mb) => self.resize_hash(size_mb),
+            UCIOption::ResizeThreads(threads) => self.resize_threads(threads),
+        }
     }
 
     pub fn set_position(&mut self, board: Board) {

@@ -83,7 +83,8 @@ mod tests {
 
         assert_eq!(pool.size(), 1, "New pool should have size 1");
         assert_eq!(
-            pool.main_worker.thread_id, 0,
+            pool.main_worker.thread_id(),
+            0,
             "Main worker should have ID 0"
         );
         assert!(
@@ -108,9 +109,9 @@ mod tests {
         assert_eq!(pool.workers.len(), 3, "Should have 3 workers after resize");
 
         // Check worker IDs
-        assert_eq!(pool.workers[0].thread_id, 1, "Worker 0 should have ID 1");
-        assert_eq!(pool.workers[1].thread_id, 2, "Worker 1 should have ID 2");
-        assert_eq!(pool.workers[2].thread_id, 3, "Worker 2 should have ID 3");
+        assert_eq!(pool.workers[0].thread_id(), 1, "Worker 0 should have ID 1");
+        assert_eq!(pool.workers[1].thread_id(), 2, "Worker 1 should have ID 2");
+        assert_eq!(pool.workers[2].thread_id(), 3, "Worker 2 should have ID 3");
     }
 
     #[test]
@@ -125,7 +126,8 @@ mod tests {
         assert_eq!(pool.size(), 2, "Pool size should be 2 after decrease");
         assert_eq!(pool.workers.len(), 1, "Should have 1 worker after decrease");
         assert_eq!(
-            pool.workers[0].thread_id, 1,
+            pool.workers[0].thread_id(),
+            1,
             "Remaining worker should have ID 1"
         );
     }
@@ -203,9 +205,9 @@ mod tests {
     impl SearchWorker {
         // Test-only search method
         pub fn test_search_with_delay(&mut self, _tt: &TT) {
-            println!("Test search running for thread {}", self.thread_id);
+            println!("Test search running for thread {}", self.thread_id());
             std::thread::sleep(Duration::from_millis(20));
-            println!("Test search finished for thread {}", self.thread_id);
+            println!("Test search finished for thread {}", self.thread_id());
         }
     }
     */

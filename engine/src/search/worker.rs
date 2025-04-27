@@ -6,6 +6,8 @@ use std::{
     time::Duration,
 };
 
+use chess::board::Board;
+
 use crate::{
     Eval, INFINITY,
     search::{PVLine, SearchStack},
@@ -14,7 +16,9 @@ use crate::{
 
 #[derive(Debug, Default, Clone)]
 pub struct SearchWorker {
-    pub thread_id: usize,
+    board: Board,
+
+    thread_id: usize,
     stack: SearchStack,
 
     nodes: u64,
@@ -34,6 +38,10 @@ impl SearchWorker {
             eval: -INFINITY,
             ..Default::default()
         }
+    }
+
+    pub fn thread_id(&self) -> usize {
+        self.thread_id
     }
 
     pub fn reset(&mut self) {
