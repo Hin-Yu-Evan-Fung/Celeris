@@ -1,11 +1,11 @@
 // Core module exports
 
 // Board representation submodules
-pub mod bitboard;
-pub mod moves;
-pub mod piece;
-pub mod square;
-pub mod types;
+mod bitboard;
+mod moves;
+mod piece;
+mod square;
+mod types;
 
 // Re-export common types for easier access
 pub use bitboard::Bitboard;

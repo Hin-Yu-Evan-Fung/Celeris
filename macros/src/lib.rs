@@ -265,7 +265,7 @@ pub fn derive_from_primitive(input: TokenStream) -> TokenStream {
             /// * `Some(Self)` if `value` is a valid discriminant for this enum.
             /// * `None` if `value` does not correspond to any variant.
             #[inline]
-            pub fn from(value: #repr_type) -> Option<Self> {
+            pub const fn from(value: #repr_type) -> Option<Self> {
                 match value {
                     // Expand the generated match arms: e.g., `0 => Some(Self::VariantA), ...`
                     #(#from_arms),*,

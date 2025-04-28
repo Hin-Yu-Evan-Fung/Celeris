@@ -7,7 +7,7 @@ use std::{
 
 use chess::Move;
 
-use crate::{Eval, thread::ThreadPool};
+use crate::{eval::Eval, thread::ThreadPool};
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Debug, Default)]

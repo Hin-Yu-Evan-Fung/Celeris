@@ -16,7 +16,7 @@ pub use super::{TimeControl, UCICommand};
 
 pub mod constants {
 
-    use crate::Eval;
+    use crate::eval::Eval;
     use chess::board::MAX_MOVES;
 
     pub const NAME: &str = "Celeris";

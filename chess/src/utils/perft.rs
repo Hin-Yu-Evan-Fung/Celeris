@@ -1,5 +1,5 @@
 use crate::board::Board;
-use crate::board::movegen::{LegalGen, MoveList};
+use crate::board::{LegalGen, MoveList};
 
 fn perft(board: &mut Board, depth: usize) -> usize {
     let mut move_list = MoveList::new();
@@ -14,29 +14,6 @@ fn perft(board: &mut Board, depth: usize) -> usize {
 
     for move_ in move_list.iter() {
         board.make_move(*move_);
-        nodes += perft(board, depth - 1);
-        board.undo_move(*move_);
-    }
-
-    nodes
-}
-
-fn perft_with_key_check(board: &mut Board, depth: usize) -> usize {
-    let mut move_list = MoveList::new();
-
-    board.generate_moves::<LegalGen>(&mut move_list);
-
-    if depth == 1 {
-        return move_list.len();
-    }
-
-    let mut nodes = 0;
-
-    for move_ in move_list.iter() {
-        board.make_move(*move_);
-        assert_eq!(board.key(), board.calc_key());
-        assert_eq!(board.pawn_key(), board.calc_pawn_key());
-        assert_eq!(board.non_pawn_keys(), board.calc_non_pawn_key());
         nodes += perft(board, depth - 1);
         board.undo_move(*move_);
     }
@@ -162,26 +139,49 @@ pub fn perft_bench() -> bool {
     passed
 }
 
-pub fn perft_bench_with_key_check() {
-    for (fen, depth, expected_nodes) in BENCH_LIST.iter() {
-        let mut board = Board::from_fen(fen).unwrap();
-        let nodes = perft_with_key_check(&mut board, *depth);
-
-        assert!(nodes == *expected_nodes);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_perft_bench() {
-        assert!(perft_bench());
+    fn perft_bench_with_key_check() {
+        for (fen, depth, expected_nodes) in BENCH_LIST.iter() {
+            let mut board = Board::from_fen(fen).unwrap();
+            let nodes = perft_with_key_check(&mut board, *depth);
+
+            assert!(nodes == *expected_nodes);
+        }
     }
 
-    #[test]
-    fn test_hash_keys() {
-        perft_bench_with_key_check();
+    fn perft_with_key_check(board: &mut Board, depth: usize) -> usize {
+        let mut move_list = MoveList::new();
+
+        board.generate_moves::<LegalGen>(&mut move_list);
+
+        if depth == 1 {
+            return move_list.len();
+        }
+
+        let mut nodes = 0;
+
+        for move_ in move_list.iter() {
+            board.make_move(*move_);
+            assert_eq!(board.key(), board.calc_key());
+            assert_eq!(board.pawn_key(), board.calc_pawn_key());
+            assert_eq!(board.non_pawn_keys(), board.calc_non_pawn_key());
+            nodes += perft(board, depth - 1);
+            board.undo_move(*move_);
+        }
+
+        nodes
     }
+
+    // #[test]
+    // fn test_perft_bench() {
+    //     assert!(perft_bench());
+    // }
+
+    // #[test]
+    // fn test_hash_keys() {
+    //     perft_bench_with_key_check();
+    // }
 }

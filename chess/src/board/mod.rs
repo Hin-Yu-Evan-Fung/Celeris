@@ -30,18 +30,18 @@
 //! - **State Management**: `Board::store_state()` and `Board::restore_state()` manage the move history, allowing for undoing moves.
 //! - **Piece Access**: `Board::on()` retrieves the piece on a given square.
 //! - **Bitboard Access**: `Board::piecetype_bb()`, `Board::occupied_bb()`, `Board::all_occupied_bb()
-pub mod fen;
-pub mod history;
-pub mod mask;
-pub mod movegen;
-pub mod movement;
-pub mod zobrist;
+mod fen;
+mod history;
+mod mask;
+mod movegen;
+mod movement;
+mod zobrist;
 
-// use history::UndoHistory;
-use zobrist::KeyBundle;
+pub use fen::{KILLER_FEN, START_FEN, TRICKY_FEN};
+pub use movegen::{CaptureGen, LegalGen, MoveList, QuietGen};
+pub use zobrist::KeyBundle;
 
 use crate::core::*;
-use fen::*;
 
 /******************************************\
 |==========================================|
@@ -95,6 +95,7 @@ pub struct BoardState {
     castle: Castling,
     /// Zobrist keys for the current position
     keys: KeyBundle,
+
     // --- Move generation masks ---
     /// Bitboard mask: squares that block check or capture the checking piece(s). If not in check, all squares (`!0`).
     check_mask: Bitboard,
@@ -294,7 +295,7 @@ impl Board {
     ///     Square::A7, Square::B7, Square::C7, Square::D7, Square::E7, Square::F7, Square::G7, Square::H7,
     /// ]));
     #[inline]
-    pub(crate) fn occupied_bb(&self, colour: Colour) -> Bitboard {
+    pub fn occupied_bb(&self, colour: Colour) -> Bitboard {
         unsafe { *self.occupied.get_unchecked(colour as usize) }
     }
 
@@ -318,7 +319,7 @@ impl Board {
     /// ]));
     /// ```
     #[inline]
-    pub(crate) fn all_occupied_bb(&self) -> Bitboard {
+    pub fn all_occupied_bb(&self) -> Bitboard {
         self.occupied_bb(Colour::White) | self.occupied_bb(Colour::Black)
     }
 
@@ -343,7 +344,7 @@ impl Board {
     ///     Square::A8, Square::H8,
     /// ]));
     #[inline]
-    pub(crate) fn piece_bb(&self, col: Colour, pt: PieceType) -> Bitboard {
+    pub fn piece_bb(&self, col: Colour, pt: PieceType) -> Bitboard {
         self.piecetype_bb(pt) & self.occupied_bb(col)
     }
 
@@ -486,6 +487,24 @@ impl Board {
     #[inline]
     pub fn non_pawn_key(&self, col: Colour) -> u64 {
         self.state.keys.non_pawn_key[col as usize]
+    }
+
+    /// # Returns whether the king is in check
+    #[inline]
+    pub fn in_check(&self) -> bool {
+        self.state.check_mask != Bitboard::FULL
+    }
+
+    /// # Returns whether the position is a draw
+    #[inline]
+    pub fn is_draw(&self, ply: u16) -> bool {
+        let move_list = MoveList::new();
+
+        if self.state.fifty_move > 99 && (!self.in_check() || move_list.len() == 0) {
+            return true;
+        }
+
+        return self.state.repetitions != 0 && self.state.repetitions < (ply as i8);
     }
 }
 

@@ -39,7 +39,7 @@
 use super::*;
 use crate::board::Board;
 use crate::core::*;
-use moves::{Move, MoveFlag};
+use crate::{Move, MoveFlag};
 
 /******************************************\
 |==========================================|
@@ -143,10 +143,12 @@ fn add_piece_moves<G: GenTypeTrait>(
     let enemy_bb = board.occupied_bb(them);
     let empty_bb = !board.all_occupied_bb();
 
-    // Add captures (always generated unless G is specifically Quiet, but filtering happens later if needed)
-    (dest & enemy_bb).for_each(|to| {
-        move_list.add_move(Move::new(from, to, MoveFlag::Capture));
-    });
+    if G::gen_type() != MoveGenType::Quiet {
+        // Add captures (always generated unless G is specifically Quiet, but filtering happens later if needed)
+        (dest & enemy_bb).for_each(|to| {
+            move_list.add_move(Move::new(from, to, MoveFlag::Capture));
+        });
+    }
 
     // Add quiet moves only if G is not Capture-only
     if G::gen_type() != MoveGenType::Capture {
