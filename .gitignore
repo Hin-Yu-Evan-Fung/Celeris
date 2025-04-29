@@ -1,9 +1,4 @@
 /target
 /.vscode
-
-# ignores all .exe and .pdb files
-.exe
-.pdb
-
 /build
 
