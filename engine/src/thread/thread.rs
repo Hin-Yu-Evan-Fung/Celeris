@@ -59,22 +59,28 @@ impl ThreadPool {
             time_control,
             board.stm(),
         );
-
         std::thread::scope(|s| {
             let board_clone = board.clone();
-            self.main_worker.setup(board_clone);
-            self.main_worker.start_search(tt);
+            let main_worker = &mut self.main_worker;
+            let workers = &mut self.workers;
 
-            for worker in &mut self.workers {
+            main_worker.reset();
+            s.spawn(move || {
+                main_worker.setup(board_clone);
+                main_worker.start_search(tt);
+            });
+
+            for worker in workers {
+                worker.reset();
                 let board_clone = board.clone();
                 s.spawn(move || {
                     worker.setup(board_clone);
                     worker.start_search(tt);
                 });
             }
+        });
 
-            self.stop.store(true, Ordering::Relaxed);
-        })
+        self.stop.store(true, Ordering::Relaxed);
     }
 }
 

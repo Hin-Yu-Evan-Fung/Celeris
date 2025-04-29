@@ -31,6 +31,8 @@ pub const KILLER_FEN: &str = "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQK
 
 /// Implementation block for FEN parsing methods on the `Board` struct.
 impl Board {
+    pub const FEN_SECTIONS: usize = 6;
+
     /// # Set Board State from FEN String
     ///
     /// Parses a FEN string and updates the board state (`self`) accordingly.

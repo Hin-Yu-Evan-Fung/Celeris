@@ -497,14 +497,14 @@ impl Board {
 
     /// # Returns whether the position is a draw
     #[inline]
-    pub fn is_draw(&self, ply: u16) -> bool {
+    pub fn is_draw(&self) -> bool {
         let move_list = MoveList::new();
 
         if self.state.fifty_move > 99 && (!self.in_check() || move_list.len() == 0) {
             return true;
         }
 
-        return self.state.repetitions != 0 && self.state.repetitions < (ply as i8);
+        return self.state.repetitions != 0 && self.state.repetitions < (self.half_moves as i8);
     }
 }
 

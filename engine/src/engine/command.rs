@@ -1,21 +1,24 @@
 use std::str::{FromStr, SplitWhitespace};
 
 use super::TimeControl;
-use chess::board::Board;
+use chess::{
+    Move,
+    board::{Board, LegalGen, MoveList},
+};
 
-pub enum UCIOption {
+pub enum EngineOption {
     ClearHash(),
     ResizeHash(usize),
     ResizeThreads(usize),
 }
 
-pub enum UCICommand {
+pub enum Command {
     // Standard UCI commands from https://www.shredderchess.com/chess-features/uci-universal-chess-interface.html
     Uci,
     Debug(bool),
     IsReady,
-    SetOption(UCIOption),
-    UciNewGame,
+    SetOption(EngineOption),
+    NewGame,
     Position(Board),
     Go(TimeControl),
     Stop,
@@ -28,7 +31,7 @@ pub enum UCICommand {
     Eval,
 }
 
-impl FromStr for UCICommand {
+impl FromStr for Command {
     type Err = UCICommandError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -39,7 +42,7 @@ impl FromStr for UCICommand {
             Some("debug") => Self::parse_debug(tokens),
             Some("isready") => Ok(Self::IsReady),
             Some("setoption") => Self::parse_option(tokens),
-            Some("ucinewgame") => Ok(Self::UciNewGame),
+            Some("ucinewgame") => Ok(Self::NewGame),
             Some("position") => Self::parse_position(tokens),
             Some("go") => Self::parse_go(tokens),
             Some("stop") => Ok(Self::Stop),
@@ -54,7 +57,7 @@ impl FromStr for UCICommand {
     }
 }
 
-impl UCICommand {
+impl Command {
     fn parse_debug<'a>(mut tokens: SplitWhitespace) -> Result<Self, UCICommandError> {
         match tokens.next() {
             Some("on") => Ok(Self::Debug(true)),
@@ -64,30 +67,63 @@ impl UCICommand {
     }
 
     fn parse_option<'a>(mut tokens: SplitWhitespace) -> Result<Self, UCICommandError> {
-        let name = match tokens.next() {
-            Some("name") => tokens
-                .next()
-                .ok_or(UCICommandError(format!("No option command")))?
-                .to_owned(),
-            _ => return Err(UCICommandError(format!("Invalid option command"))),
+        // Expect "name"
+        if tokens.next() != Some("name") {
+            return Err(UCICommandError(
+                "Expected 'name' after setoption".to_string(),
+            ));
+        }
+
+        // Collect words until "value" is found (option names can have spaces)
+        let mut name_parts = Vec::new();
+        let mut next_token = tokens.next();
+        while let Some(token) = next_token {
+            if token == "value" {
+                break; // Found "value", stop collecting name parts
+            }
+            name_parts.push(token);
+            next_token = tokens.next();
+        }
+
+        // Check if we actually found "value"
+        if next_token != Some("value") {
+            return Err(UCICommandError(
+                "Expected 'value' after option name".to_string(),
+            ));
+        }
+
+        let option_name = name_parts.join(" ");
+        if option_name.is_empty() {
+            return Err(UCICommandError("Missing option name".to_string()));
+        }
+
+        // Collect the rest as value (values can also have spaces, though less common for standard UCI options)
+        let value_str = tokens.collect::<Vec<&str>>().join(" ");
+        if value_str.is_empty() {
+            return Err(UCICommandError(format!(
+                "Missing value for option '{}'",
+                option_name
+            )));
+        }
+
+        // --- Standard UCI Options ---
+        // Note: UCI option names are case-sensitive according to some sources,
+        // but often treated case-insensitively. Using lowercase matching here for robustness.
+        let option = match option_name.to_ascii_lowercase().as_str() {
+            // --- Custom/Non-standard Options ---
+            "clear hash" => EngineOption::ClearHash(), // Assuming "Clear Hash" is the name
+            "hash" => EngineOption::ResizeHash(Self::parse_value(value_str)?),
+            "threads" => EngineOption::ResizeThreads(Self::parse_value(value_str)?),
+            // Add other standard options like "Ponder", "OwnBook", "UCI_Chess960" if needed
+            _ => {
+                return Err(UCICommandError(format!(
+                    "Unknown option name: '{}'",
+                    option_name
+                )));
+            }
         };
 
-        let value = match tokens.next() {
-            Some("value") => tokens
-                .next()
-                .ok_or(UCICommandError(format!("No option command")))?
-                .to_owned(),
-            _ => return Err(UCICommandError(format!("Invalid option command"))),
-        };
-
-        let option = match name.to_ascii_lowercase().as_str() {
-            "clear" => UCIOption::ClearHash(),
-            "hash" => UCIOption::ResizeHash(Self::parse_value(value)?),
-            "threads" => UCIOption::ResizeThreads(Self::parse_value(value)?),
-            _ => return Err(UCICommandError(format!("Invalid option name"))),
-        };
-
-        Ok(UCICommand::SetOption(option))
+        Ok(Command::SetOption(option))
     }
 
     fn parse_value<T: FromStr>(value: String) -> Result<T, UCICommandError> {
@@ -97,20 +133,57 @@ impl UCICommand {
     }
 
     fn parse_position<'a>(mut tokens: SplitWhitespace) -> Result<Self, UCICommandError> {
+        // 1. Determine initial board state (startpos or fen)
+        let mut board = match tokens.next() {
+            Some("startpos") => Board::default(),
+            Some("fen") => {
+                // Consume "fen", then collect exactly 6 FEN parts
+                let fen_parts: Vec<&str> = tokens.by_ref().take(Board::FEN_SECTIONS).collect();
+
+                Self::parse_fen(fen_parts)?
+            }
+            _ => return Err(UCICommandError(format!("Invalid position command"))),
+        };
+
+        // 2. Check if the *next* token is "moves"
         match tokens.next() {
-            Some("startpos") => Ok(Self::Position(Board::default())),
-            Some("fen") => Self::parse_fen(tokens),
-            _ => Err(UCICommandError(format!("Invalid position command"))),
-        }
+            Some("moves") => {
+                // 3. Process remaining tokens as moves
+                for move_str in tokens {
+                    let move_ = Self::parse_move(move_str, &board)?;
+                    board.make_move(move_);
+                }
+            }
+            // If the token after position setup wasn't "moves", or if there were no more tokens,
+            // we just stop. The board remains as set initially.
+            // Any remaining tokens after position setup but before "moves" are ignored.
+            _ => {}
+        };
+
+        Ok(Command::Position(board))
     }
 
-    fn parse_fen<'a>(tokens: SplitWhitespace) -> Result<Self, UCICommandError> {
-        let fen = tokens.collect::<Vec<&str>>().join(" ");
-        let board = Board::from_fen(&fen);
-        match board {
-            Ok(board) => Ok(Self::Position(board)),
-            Err(e) => Err(UCICommandError(format!("Invalid Fen -> {}", e))),
+    fn parse_fen<'a>(fen_parts: Vec<&str>) -> Result<Board, UCICommandError> {
+        if fen_parts.len() < 6 {
+            return Err(UCICommandError(
+                "Incomplete FEN string provided. Expected 6 fields.".to_string(),
+            ));
         }
+
+        let fen_str = fen_parts.join(" ");
+        Ok(Board::from_fen(&fen_str)
+            .map_err(|e| UCICommandError(format!("Invalid FEN string -> {}", e)))?)
+    }
+
+    fn parse_move<'a>(move_str: &str, board: &Board) -> Result<Move, UCICommandError> {
+        let mut move_list = MoveList::new();
+        board.generate_moves::<LegalGen>(&mut move_list);
+
+        move_list
+            .iter()
+            .find(|&move_| move_.to_string() == move_str)
+            .ok_or_else(|| UCICommandError(format!("Invalid move: {}", move_str)))
+            .copied()
     }
 
     fn parse_go<'a>(tokens: SplitWhitespace) -> Result<Self, UCICommandError> {

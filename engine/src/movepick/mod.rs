@@ -3,12 +3,13 @@ mod movepick;
 
 pub use movepick::MovePicker;
 
-use crate::eval::{EVAL_ZERO, Eval};
+use crate::eval::Eval;
 use chess::{
     Move,
     board::{Board, CaptureGen, MoveList, QuietGen},
 };
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MoveStage {
     TTMove,
     GenCaptures,
@@ -28,7 +29,7 @@ impl ScoredMoveList {
     pub fn new() -> Self {
         Self {
             move_list: MoveList::new(),
-            scores: [EVAL_ZERO; 256],
+            scores: [Eval::ZERO; 256],
             index: 0,
         }
     }
@@ -41,12 +42,8 @@ impl ScoredMoveList {
         board.generate_moves::<QuietGen>(&mut self.move_list);
     }
 
-    pub fn partial_sort(&mut self, start: usize, end: usize, threshold: Eval) {
+    pub fn partial_sort(&mut self, start: usize, end: usize) {
         for i in start..end {
-            if self.scores[i] < threshold {
-                continue;
-            }
-
             let mut j = i;
             let move_ = self.move_list[j];
             let score = self.scores[j];
@@ -64,6 +61,10 @@ impl ScoredMoveList {
 
     pub fn set_index(&mut self, index: usize) {
         self.index = index;
+    }
+
+    pub fn set_score(&mut self, index: usize, score: Eval) {
+        self.scores[index] = score;
     }
 
     pub fn next(&mut self, end: usize) -> Option<Move> {

@@ -24,7 +24,7 @@ pub struct Clock {
 
 impl Clock {
     pub const FREQUENCY: u64 = 2048;
-    pub const OVERHEAD: u64 = 100;
+    pub const OVERHEAD: u64 = 50;
 
     pub fn new(
         global_stop: Arc<AtomicBool>,
@@ -43,6 +43,12 @@ impl Clock {
             } => Self::calc_variable_time(stm, wtime, btime, winc, binc, movestogo),
             _ => (Duration::ZERO, Duration::ZERO),
         };
+
+        println!(
+            "opt time: {}, max time: {}",
+            opt_time.as_millis(),
+            max_time.as_millis()
+        );
 
         Self {
             global_stop,
@@ -145,7 +151,7 @@ impl Clock {
             return false;
         }
 
-        // at least depth 1
+        // at least depth 3
         if depth == 1 {
             return true;
         }

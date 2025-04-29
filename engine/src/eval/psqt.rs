@@ -1,6 +1,6 @@
 use super::S;
 
-use super::{Eval, SCORE_ZERO, Score};
+use super::{Eval, Score};
 
 use chess::{Colour, Piece, PieceType, Square, board::Board};
 
@@ -108,7 +108,7 @@ const fn neg(a: Score) -> Score {
 }
 
 const fn init_psqt() -> [[Score; Square::NUM]; Piece::NUM] {
-    let mut psqt = [[SCORE_ZERO; Square::NUM]; Piece::NUM];
+    let mut psqt = [[Score::ZERO; Square::NUM]; Piece::NUM];
 
     let mut i = 0;
     while i < PieceType::NUM {
@@ -132,7 +132,7 @@ const fn init_psqt() -> [[Score; Square::NUM]; Piece::NUM] {
 }
 
 pub fn calc_psqt(board: &Board) -> Score {
-    let mut psq = SCORE_ZERO;
+    let mut psq = Score::ZERO;
 
     for stm in [Colour::White, Colour::Black] {
         for pt in PieceType::iter() {

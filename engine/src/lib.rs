@@ -6,3 +6,4 @@ mod thread;
 mod types;
 
 pub use engine::*;
+pub use movepick::*;
