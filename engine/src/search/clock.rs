@@ -10,6 +10,8 @@ use chess::{Colour, Move, Square};
 
 use crate::engine::TimeControl;
 
+use super::MIN_DEPTH;
+
 #[derive(Clone, Debug)]
 pub struct Clock {
     global_stop: Arc<AtomicBool>,
@@ -152,7 +154,7 @@ impl Clock {
         }
 
         // at least depth 1
-        if depth == 1 {
+        if depth <= MIN_DEPTH {
             return true;
         }
 

@@ -14,7 +14,7 @@ use crate::{
     types::TT,
 };
 
-use super::{Clock, NodeType, NodeTypeTrait, PVNode, RootNode};
+use super::{Clock, MIN_DEPTH, NodeType, NodeTypeTrait, PVNode, RootNode};
 
 #[derive(Debug, Clone)]
 pub struct SearchWorker {
@@ -95,7 +95,9 @@ impl SearchWorker {
     }
 
     pub fn should_stop_search(&mut self) -> bool {
-        let should_stop = self.depth > 0 && (self.stop || !self.clock.continue_search(self.nodes));
+        // Search up to at least depth 3
+        let should_stop =
+            self.depth >= MIN_DEPTH && (self.stop || !self.clock.continue_search(self.nodes));
         if should_stop {
             self.stop = true;
         }
