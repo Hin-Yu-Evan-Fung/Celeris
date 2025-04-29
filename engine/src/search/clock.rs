@@ -151,7 +151,7 @@ impl Clock {
             return false;
         }
 
-        // at least depth 3
+        // at least depth 1
         if depth == 1 {
             return true;
         }

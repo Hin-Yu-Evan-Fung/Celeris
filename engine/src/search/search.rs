@@ -265,10 +265,10 @@ impl SearchWorker {
             // would have already had a better alternative than allowing this position.
             // Therefore, exploring further sibling moves at this node is unnecessary.
             if value >= beta {
-                // if move_count == 1 {
-                //     self.immediate_cut_offs += 1;
-                // }
-                // self.cut_offs += 1;
+                if move_count == 1 {
+                    self.immediate_cut_offs += 1;
+                }
+                self.cut_offs += 1;
                 best_value = beta;
                 break;
             }
