@@ -1,5 +1,6 @@
 /target
 /.vscode
-build
-*.exe
-*.pdb
+/build
+
+Celeris
+

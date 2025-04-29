@@ -3,7 +3,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
-use chess::board::Board;
+use chess::Board;
 
 use crate::{
     TimeControl,
@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub struct ThreadPool {
-    main_worker: SearchWorker,
+    pub main_worker: SearchWorker,
     workers: Vec<SearchWorker>,
     stop: Arc<AtomicBool>,
     nodes: Arc<AtomicU64>,
@@ -81,6 +81,11 @@ impl ThreadPool {
         });
 
         self.stop.store(true, Ordering::Relaxed);
+    }
+
+    /// Get the total nodes searched
+    pub fn nodes(&self) -> u64 {
+        self.nodes.load(Ordering::Relaxed)
     }
 }
 

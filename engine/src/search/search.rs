@@ -3,21 +3,21 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64},
 };
 
-use chess::{Move, board::Board};
+use chess::{Board, Move};
 
 use crate::{
     INFINITY,
     engine::MAX_DEPTH,
-    eval::{self, Eval, evaluate},
+    eval::{self, Eval, PawnTable, evaluate},
     movepick::{MovePicker, MoveStage},
     search::{PVLine, SearchStack},
     types::TT,
 };
 
-use super::{Clock, NodeType, NodeTypeTrait, PVNode, RootNode};
+use super::{Clock, MIN_DEPTH, NodeType, NodeTypeTrait, PVNode, RootNode};
 
 #[derive(Debug, Clone)]
-pub struct SearchWorker {
+pub(crate) struct SearchWorker {
     pub clock: Clock,
     board: Board,
 
@@ -34,6 +34,9 @@ pub struct SearchWorker {
     eval: Eval,
 
     stop: bool,
+
+    // Tables
+    pub pawn_table: PawnTable,
 
     // Search statistics
     cut_offs: usize,
@@ -57,6 +60,7 @@ impl SearchWorker {
             stop: false,
             cut_offs: 0,
             immediate_cut_offs: 0,
+            pawn_table: PawnTable::new(),
         }
     }
 
@@ -82,8 +86,8 @@ impl SearchWorker {
         self.board = board;
     }
 
-    pub const fn best_move(&self) -> Move {
-        self.pv.moves[0]
+    pub fn best_move(&self) -> Move {
+        self.pv[0]
     }
 
     // Search control
@@ -95,7 +99,9 @@ impl SearchWorker {
     }
 
     pub fn should_stop_search(&mut self) -> bool {
-        let should_stop = self.depth > 0 && (self.stop || !self.clock.continue_search(self.nodes));
+        // Search up to at least depth 3
+        let should_stop =
+            self.depth >= MIN_DEPTH && (self.stop || !self.clock.continue_search(self.nodes));
         if should_stop {
             self.stop = true;
         }
@@ -265,10 +271,10 @@ impl SearchWorker {
             // would have already had a better alternative than allowing this position.
             // Therefore, exploring further sibling moves at this node is unnecessary.
             if value >= beta {
-                // if move_count == 1 {
-                //     self.immediate_cut_offs += 1;
-                // }
-                // self.cut_offs += 1;
+                if move_count == 1 {
+                    self.immediate_cut_offs += 1;
+                }
+                self.cut_offs += 1;
                 best_value = beta;
                 break;
             }
@@ -326,7 +332,7 @@ impl SearchWorker {
 
         // Check ply limit to prevent infinite recursion in rare cases
         if self.ply >= MAX_DEPTH as u16 {
-            return evaluate(&self.board); // Return static eval if too deep
+            return evaluate(&self.board, &mut self.pawn_table); // Return static eval if too deep
         }
 
         // Check for draws (Repetition, 50-move rule)
@@ -339,7 +345,7 @@ impl SearchWorker {
         // --- Stand Pat Score ---
         // Get the static evaluation of the current position.
         // This score assumes no further captures are made (the "stand pat" score).
-        let stand_pat = evaluate(&self.board);
+        let stand_pat = evaluate(&self.board, &mut self.pawn_table);
 
         // --- Alpha-Beta Pruning based on Stand Pat ---
         // If the static evaluation is already >= beta, the opponent won't allow this position.

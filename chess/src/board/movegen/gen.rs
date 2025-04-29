@@ -8,7 +8,7 @@
 //! ## Core Concepts
 //!
 //! - **Bitboards**: Used extensively to represent piece locations, attack sets, and masks.
-//! - **Precomputed Lookups**: Relies on tables for piece attacks (`leaper_attack`, `slider_attack`),
+//! - **Precomputed Lookups**: Relies on tables for piece attacks (`attacks`, `attacks`),
 //!   lines between squares (`line_bb`, `between_bb`), pin masks (`pin_bb`), and check masks (`check_bb`).
 //! - **Pins and Checks**: Move generation correctly handles absolute pins and checks. Pinned pieces
 //!   have restricted movement, and when in check, only moves that resolve the check (blocking,
@@ -37,7 +37,7 @@
 //! - The main [`generate_move`] function that calls the appropriate piece generators based on
 //!   the check state and `GenType`.
 use super::*;
-use crate::board::Board;
+use crate::Board;
 use crate::core::*;
 use crate::{Move, MoveFlag};
 
@@ -403,7 +403,7 @@ fn gen_knight_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
     knights.for_each(|from| {
         // Get potential destinations using precomputed attacks
         // Filter destinations by the check_mask (must block check or capture checker if checked)
-        let dest = leaper_attack(PieceType::Knight, from) & check_mask;
+        let dest = attacks(us, PieceType::Knight, from, Bitboard::EMPTY) & check_mask;
         // Add captures and/or quiet moves based on GenType G
         add_piece_moves::<G>(board, from, dest, move_list);
     })
@@ -429,14 +429,14 @@ fn gen_diag_slider_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveLis
     // Generate moves for pinned pieces
     pinned.for_each(|from| {
         // Attacks considering occupancy, filtered by check_mask AND the pin line itself
-        let dest = slider_attack(PieceType::Bishop, from, all_occ) & check_mask & diag_pin;
+        let dest = attacks(us, PieceType::Bishop, from, all_occ) & check_mask & diag_pin;
         add_piece_moves::<G>(board, from, dest, move_list);
     });
 
     // Generate moves for non-pinned pieces
     non_pinned.for_each(|from| {
         // Attacks considering occupancy, filtered only by check_mask
-        let dest = slider_attack(PieceType::Bishop, from, all_occ) & check_mask;
+        let dest = attacks(us, PieceType::Bishop, from, all_occ) & check_mask;
         add_piece_moves::<G>(board, from, dest, move_list);
     })
 }
@@ -461,14 +461,14 @@ fn gen_hv_slider_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList)
     // Generate moves for pinned pieces
     pinned.for_each(|from| {
         // Attacks considering occupancy, filtered by check_mask AND the pin line itself
-        let dest = slider_attack(PieceType::Rook, from, all_occ) & check_mask & hv_pin;
+        let dest = attacks(us, PieceType::Rook, from, all_occ) & check_mask & hv_pin;
         add_piece_moves::<G>(board, from, dest, move_list);
     });
 
     // Generate moves for non-pinned pieces
     non_pinned.for_each(|from| {
         // Attacks considering occupancy, filtered only by check_mask
-        let dest = slider_attack(PieceType::Rook, from, all_occ) & check_mask;
+        let dest = attacks(us, PieceType::Rook, from, all_occ) & check_mask;
         add_piece_moves::<G>(board, from, dest, move_list);
     })
 }
@@ -481,7 +481,7 @@ fn gen_king_moves<G: GenTypeTrait>(board: &Board, move_list: &mut MoveList) {
     let from = board.ksq(us);
     // Get potential destinations using precomputed king attacks
     // Filter destinations: must NOT be attacked by the opponent
-    let dest = leaper_attack(PieceType::King, from) & !board.attacked();
+    let dest = attacks(us, PieceType::King, from, Bitboard::EMPTY) & !board.attacked();
     // Add captures and/or quiet moves based on GenType G
     // Note: King moves don't use check_mask directly; the attacked squares check handles legality.
     add_piece_moves::<G>(board, from, dest, move_list);

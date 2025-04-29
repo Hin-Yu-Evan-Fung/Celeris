@@ -10,6 +10,8 @@ use chess::{Colour, Move, Square};
 
 use crate::engine::TimeControl;
 
+use super::MIN_DEPTH;
+
 #[derive(Clone, Debug)]
 pub struct Clock {
     global_stop: Arc<AtomicBool>,
@@ -122,14 +124,14 @@ impl Clock {
             // Formula from Crippa by Svart
             // https://github.com/crippa1337/svart/blob/master/engine/src/uci/timeman.rs
             let scale = 0.7 / (moves.min(50) as f64);
-            let eight = 0.8 * time as f64;
-            let opt_time = (scale * time as f64).min(eight);
+            let five = 0.5 * time as f64;
+            let opt_time = (scale * time as f64).min(five);
 
-            (opt_time, (5.0 * opt_time).min(eight))
+            (opt_time, (5.0 * opt_time).min(five))
         } else {
             let total = ((time / 20) + (inc * 3 / 4)) as f64;
 
-            (0.6 * total, (2.0 * total).min(time as f64))
+            (0.6 * total, (2.0 * total).min(0.5 * time as f64))
         };
 
         (
@@ -151,8 +153,8 @@ impl Clock {
             return false;
         }
 
-        // at least depth 3
-        if depth == 1 {
+        // at least depth 1
+        if depth <= MIN_DEPTH {
             return true;
         }
 
@@ -160,17 +162,24 @@ impl Clock {
             TimeControl::FixedDepth(d) => depth <= d,
             TimeControl::FixedNodes(n) => self.global_nodes() <= n,
             TimeControl::FixedTime(_) | TimeControl::Variable { .. } => {
-                let opt_scale = if best_move != Move::NULL && nodes != 0 {
-                    let bm_nodes =
-                        self.node_count[best_move.from() as usize][best_move.to() as usize];
-                    let bm_fraction = bm_nodes as f64 / nodes as f64;
+                // let opt_scale = if best_move.is_valid() && nodes != 0 {
+                //     let bm_nodes =
+                //         self.node_count[best_move.from() as usize][best_move.to() as usize];
+                //     let bm_fraction = bm_nodes as f64 / nodes as f64;
 
-                    (0.4 + (1.0 - bm_fraction) * 2.0 as f64).max(0.5)
-                } else {
-                    1.0
-                };
+                //     (0.4 + (1.0 - bm_fraction) * 2.0 as f64).max(0.5)
+                // } else {
+                //     1.0
+                // };
 
-                self.elapsed() < self.opt_time.mul_f64(opt_scale)
+                println!(
+                    "opt scale: 1, elapsed: {:#?}, max time: {:#?}",
+                    self.elapsed(),
+                    self.max_time
+                );
+
+                // self.elapsed() < self.opt_time.mul_f64(opt_scale)
+                self.elapsed() < self.opt_time
             }
             _ => true,
         };

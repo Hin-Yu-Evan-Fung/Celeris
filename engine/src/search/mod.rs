@@ -5,8 +5,10 @@ mod stack;
 
 pub use clock::Clock;
 pub use pv::PVLine;
-pub use search::SearchWorker;
+pub(crate) use search::SearchWorker;
 pub(crate) use stack::SearchStack;
+
+const MIN_DEPTH: usize = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum NodeType {

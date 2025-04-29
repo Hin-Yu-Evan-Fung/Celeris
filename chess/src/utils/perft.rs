@@ -1,4 +1,4 @@
-use crate::board::Board;
+use crate::Board;
 use crate::board::{LegalGen, MoveList};
 
 fn perft(board: &mut Board, depth: usize) -> usize {
@@ -114,9 +114,12 @@ pub fn perft_bench() -> bool {
     println!("=============  START BENCH  =============");
 
     for (fen, depth, expected_nodes) in BENCH_LIST.iter() {
-        let start = Instant::now();
         let mut board = Board::from_fen(fen).unwrap();
+
+        let start = Instant::now();
         let nodes = perft(&mut board, *depth);
+
+        let time = start.elapsed().as_millis();
 
         let status: &str = if nodes == *expected_nodes {
             "PASSED"
@@ -127,8 +130,6 @@ pub fn perft_bench() -> bool {
         if nodes != *expected_nodes {
             passed = false;
         }
-
-        let time = start.elapsed().as_millis();
 
         println!(
             "status: {status}, time: {time:4}ms, Mnps: {:0.1}, Fen: {fen} )",

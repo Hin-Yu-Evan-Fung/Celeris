@@ -321,6 +321,19 @@ impl Square {
     }
 }
 
+impl Rank {
+    pub const fn flip(&self) -> Self {
+        unsafe { Self::from_unchecked(7 - (*self as u8)) }
+    }
+
+    pub const fn relative(&self, col: Colour) -> Self {
+        match col {
+            Colour::White => *self,
+            Colour::Black => self.flip(),
+        }
+    }
+}
+
 /******************************************\
 |==========================================|
 |                 Display                  |

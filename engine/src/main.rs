@@ -1,8 +1,9 @@
-// use engine::{Engine, UCI};
-use chess::Piece;
-use chess::board::{Board, LegalGen, MoveList, TRICKY_FEN};
-use engine::{EngineController, MovePicker, TimeControl, UCI};
+use engine::{UCI, run_bench};
+use std::env::args;
 
 fn main() {
-    UCI::init();
+    match args().nth(1).as_deref() {
+        Some("bench") => run_bench(),
+        _ => UCI::init(),
+    }
 }

@@ -144,40 +144,11 @@ const DIST: DistanceTable = init_dist_table();
 /// assert_eq!(black_pawn_attacks_d5, Bitboard::from([Square::C4, Square::E4]));
 /// ```
 #[inline]
-pub(crate) fn pawn_attack(col: Colour, sq: Square) -> Bitboard {
+fn pawn_attack(col: Colour, sq: Square) -> Bitboard {
     unsafe {
         *PAWN_ATTACKS
             .get_unchecked(col as usize)
             .get_unchecked(sq as usize)
-    }
-}
-
-/// Gets the precomputed attack span `Bitboard` for a bitboard of pawns
-///
-/// This returns the squares a pawn of the given `Colour` on the given `Bitboard`
-/// would attack (i.e., the squares it could capture on). It does not consider
-/// whether pieces are present on the target squares.
-///
-/// # Arguments
-/// * `col`: The `Colour` of the pawn.
-/// * `bb`: The `Bitboard` the pawns are on.
-///
-/// # Returns
-/// A `Bitboard` representing the squares attacked by the pawns.
-///
-/// # Example
-/// ```rust
-/// use chess::core::{Bitboard, Colour, Square};
-/// use chess::movegen::lookup::pawn_attack_span;
-///
-/// let white_pawn_attacks = pawn_attack_span(Colour::White, Bitboard::from_square(Square::E4) | Bitboard::from_square(Square::D5));
-/// assert_eq!(white_pawn_attacks, Bitboard::from([Square::D5, Square::F5]) | Bitboard::from([Square::C6, Square::E6]));
-/// ```
-#[inline]
-pub(crate) fn pawn_attack_span(col: Colour, bb: Bitboard) -> Bitboard {
-    match col {
-        Colour::White => bb.shift(Direction::NE) | bb.shift(Direction::NW),
-        Colour::Black => bb.shift(Direction::SE) | bb.shift(Direction::SW),
     }
 }
 
@@ -219,7 +190,7 @@ pub(crate) fn pawn_attack_span(col: Colour, bb: Bitboard) -> Bitboard {
 /// assert!(king_attacks_e1.get(Square::F1));
 /// ```
 #[inline]
-pub(crate) fn leaper_attack(pt: PieceType, sq: Square) -> Bitboard {
+fn leaper_attack(pt: PieceType, sq: Square) -> Bitboard {
     // Safety (The arrays are intialise at constant time and the input types already constrain access enough)
     match pt {
         PieceType::Knight => KNIGHT_ATTACKS[sq as usize],
@@ -273,13 +244,45 @@ pub(crate) fn leaper_attack(pt: PieceType, sq: Square) -> Bitboard {
 /// assert!(queen_attacks.get(Square::G1)); // Diagonal
 /// ```
 #[inline]
-pub(crate) fn slider_attack(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
+fn slider_attack(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
     // Magic bitboard lookups are designed to be safe.
     match pt {
         PieceType::Bishop => bishop_attacks(sq, occ),
         PieceType::Rook => rook_attacks(sq, occ),
         PieceType::Queen => bishop_attacks(sq, occ).bitor(rook_attacks(sq, occ)),
         _ => unreachable!(),
+    }
+}
+
+/// Gets the attack `Bitboard` for a piece
+///
+/// # Arguments
+/// * `col`: The `Colour` of the attacking piece.
+/// * `pt`: The `PieceType` of the attacking piece.
+/// * `sq`: The `Square` the attacking piece is on.
+/// * `occ`: A `Bitboard` representing all occupied squares on the board.
+///
+/// # Returns
+/// A `Bitboard` representing the squares attacked by the piece.
+///
+/// # Example
+/// ```rust
+/// use chess::core::{Bitboard, Colour, PieceType, Square};
+/// use chess::movegen::lookup::attacks;
+///
+/// let occ = Bitboard::from_square(Square::A4);
+/// let rook_attacks = attacks(Colour::White, PieceType::Rook, Square::A1, occ);
+/// assert!(rook_attacks.get(Square::A2));
+/// assert!(rook_attacks.get(Square::A3));
+/// assert!(rook_attacks.get(Square::A4));
+/// assert!(!rook_attacks.get(Square::A5));
+/// assert!(!rook_attacks.get(Square::B1));
+#[inline]
+pub fn attacks(col: Colour, pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
+    match pt {
+        PieceType::Pawn => pawn_attack(col, sq),
+        PieceType::Knight | PieceType::King => leaper_attack(pt, sq),
+        PieceType::Bishop | PieceType::Rook | PieceType::Queen => slider_attack(pt, sq, occ),
     }
 }
 
@@ -533,7 +536,7 @@ pub fn check_bb(king: Square, checker: Square) -> Bitboard {
 /// assert_eq!(dist(Square::H1, Square::A2), 7); // max(abs(0-1), abs(7-0)) = max(1, 7) = 7
 /// ```
 #[inline]
-pub fn dist(sq1: Square, sq2: Square) -> u8 {
+pub fn sq_dist(sq1: Square, sq2: Square) -> u8 {
     unsafe { *DIST.get_unchecked(sq1 as usize).get_unchecked(sq2 as usize) }
 }
 
@@ -944,9 +947,9 @@ mod test {
     #[test]
     fn test_sq_dist() {
         // ensure_init(); // Removed call
-        assert_eq!(dist(Square::A1, Square::A6), 5);
-        assert_eq!(dist(Square::E5, Square::F6), 1);
-        assert_eq!(dist(Square::H1, Square::A8), 7);
-        assert_eq!(dist(Square::C3, Square::C3), 0);
+        assert_eq!(sq_dist(Square::A1, Square::A6), 5);
+        assert_eq!(sq_dist(Square::E5, Square::F6), 1);
+        assert_eq!(sq_dist(Square::H1, Square::A8), 7);
+        assert_eq!(sq_dist(Square::C3, Square::C3), 0);
     }
 }

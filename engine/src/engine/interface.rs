@@ -1,4 +1,4 @@
-use chess::board::Board;
+use chess::Board;
 
 use super::{
     TimeControl,

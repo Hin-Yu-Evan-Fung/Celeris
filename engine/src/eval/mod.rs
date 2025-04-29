@@ -1,7 +1,9 @@
 mod eval;
+mod pawns;
 mod psqt;
 
 pub use eval::evaluate;
+pub use pawns::{PawnEntry, PawnTable};
 pub use psqt::calc_psqt;
 
 use crate::{MATE, MATE_BOUND};
@@ -21,6 +23,14 @@ impl Eval {
         MATE - Eval(ply as i16)
     }
 }
+
+macro_rules! E {
+    ($mg:expr) => {
+        Eval($mg)
+    };
+}
+
+pub(crate) use E;
 
 impl std::ops::Neg for Eval {
     type Output = Self;

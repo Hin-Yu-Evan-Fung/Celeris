@@ -1,11 +1,11 @@
 use std::sync::{
     Arc,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64},
     mpsc::Receiver,
 };
 
 use chess::{
-    board::Board,
+    Board,
     utils::{perft_bench, perft_test},
 };
 
@@ -38,7 +38,7 @@ pub mod constants {
     pub const MATE_BOUND: Eval = MATE.sub(LONGEST_MATE);
 }
 
-pub struct EngineController {
+pub(super) struct EngineController {
     is_debug: bool,
     board: Board,
     tt: TT,
@@ -49,6 +49,7 @@ pub struct EngineController {
 impl EngineController {
     pub fn new(stop: Arc<AtomicBool>) -> Self {
         let tt = TT::default();
+        let nodes = Arc::new(AtomicU64::new(0));
         let mut thread_pool = ThreadPool::new(Arc::clone(&stop));
 
         thread_pool.resize(constants::THREADS);
@@ -80,7 +81,7 @@ impl EngineController {
             Command::Perft(depth) => self.perft(depth),
             Command::Bench => self.bench(),
             Command::Print => self.print_board(),
-            Command::Eval => println!("{}", evaluate(&self.board)),
+            Command::Eval => self.evaluate(),
             _ => unreachable!(), // UCICommand::Quit and UCICommand::Stop is already handled by the UCI struct
         }
     }
@@ -166,11 +167,17 @@ impl EngineController {
 
     fn print_board(&self) {
         println!("{}", self.board);
+    }
+
+    fn evaluate(&mut self) {
         println!(
             "PSQ: {} {}",
             calc_psqt(&self.board).0,
             calc_psqt(&self.board).1
         );
-        println!("Eval {}", evaluate(&self.board));
+        println!(
+            "{}",
+            evaluate(&self.board, &mut self.thread_pool.main_worker.pawn_table)
+        )
     }
 }

@@ -714,6 +714,68 @@ impl Bitboard {
         use core::arch::x86_64::_pext_u64;
         unsafe { _pext_u64(self.0, mask.0) }
     }
+
+    #[inline]
+    pub fn forward_ranks(col: Colour, sq: Square) -> Bitboard {
+        match col {
+            Colour::White => !Self::RANK_1 << 8 * (sq.relative(col).rank() as u8),
+            Colour::Black => !Self::RANK_8 >> 8 * (sq.relative(col).rank() as u8),
+        }
+    }
+
+    /// Return the forward file of the sq relative to a colour
+    #[inline]
+    pub fn forward_file(col: Colour, sq: Square) -> Bitboard {
+        Self::forward_ranks(col, sq) & sq.file().bb()
+    }
+
+    /// Return the adjacent files of the sq
+    #[inline]
+    pub fn adjacent_files(sq: Square) -> Bitboard {
+        let bb = sq.file().bb();
+        bb.shift(Direction::E) | bb.shift(Direction::W)
+    }
+
+    /// Return the pawn attack span of the sq
+    #[inline]
+    pub fn pawn_attack_span(col: Colour, sq: Square) -> Bitboard {
+        Self::forward_ranks(col, sq) & Self::adjacent_files(sq)
+    }
+
+    /// Return the passed pawn span of the sq
+    #[inline]
+    pub fn passed_pawn_span(col: Colour, sq: Square) -> Bitboard {
+        Self::forward_file(col, sq) | Self::pawn_attack_span(col, sq)
+    }
+
+    /// Gets the precomputed attack span `Bitboard` for a bitboard of pawns
+    ///
+    /// This returns the squares a pawn of the given `Colour` on the given `Bitboard`
+    /// would attack (i.e., the squares it could capture on). It does not consider
+    /// whether pieces are present on the target squares.
+    ///
+    /// # Arguments
+    /// * `col`: The `Colour` of the pawn.
+    /// * `bb`: The `Bitboard` the pawns are on.
+    ///
+    /// # Returns
+    /// A `Bitboard` representing the squares attacked by the pawns.
+    ///
+    /// # Example
+    /// ```rust
+    /// use chess::core::{Bitboard, Colour, Square};
+    /// use chess::movegen::lookup::pawn_attack_span;
+    ///
+    /// let white_pawn_attacks = pawn_attack_span(Colour::White, Bitboard::from_square(Square::E4) | Bitboard::from_square(Square::D5));
+    /// assert_eq!(white_pawn_attacks, Bitboard::from([Square::D5, Square::F5]) | Bitboard::from([Square::C6, Square::E6]));
+    /// ```
+    #[inline]
+    pub fn pawn_attacks(col: Colour, bb: Bitboard) -> Bitboard {
+        match col {
+            Colour::White => bb.shift(Direction::NE) | bb.shift(Direction::NW),
+            Colour::Black => bb.shift(Direction::SE) | bb.shift(Direction::SW),
+        }
+    }
 }
 
 /******************************************\
