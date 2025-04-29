@@ -84,7 +84,7 @@ pub const MAX_MOVES: usize = 256;
 pub struct BoardState {
     // --- Board State Variables -- //
     /// Stores gaps between last repeat, if negative it means three fold repetition
-    repetitions: i8,
+    pub repetitions: i8,
     /// Counter for the fifty-move rule (plies since last pawn move or capture).
     fifty_move: u8,
     /// The piece that was captured on the move leading to this state. `Piece::None` if no capture.
@@ -180,7 +180,7 @@ pub struct Board {
     side_to_move: Colour,
 
     /// Current board state
-    state: BoardState,
+    pub state: BoardState,
     // /// A stack-like structure storing previous board states (`BoardState`).
     // /// Used to undo moves (`unmake_move`) and track game history (e.g., for repetition checks).
     // history: UndoHistory<MAX_MOVES>,
@@ -497,14 +497,14 @@ impl Board {
 
     /// # Returns whether the position is a draw
     #[inline]
-    pub fn is_draw(&self) -> bool {
+    pub fn is_draw(&self, ply: u16) -> bool {
         let move_list = MoveList::new();
 
         if self.state.fifty_move > 99 && (!self.in_check() || move_list.len() == 0) {
             return true;
         }
 
-        return self.state.repetitions != 0 && self.state.repetitions < (self.half_moves as i8);
+        return self.state.repetitions != 0 && self.state.repetitions < (ply as i8);
     }
 }
 

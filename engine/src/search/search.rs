@@ -95,7 +95,11 @@ impl SearchWorker {
     }
 
     pub fn should_stop_search(&mut self) -> bool {
-        self.stop || !self.clock.continue_search(self.nodes)
+        let should_stop = self.depth > 0 && (self.stop || !self.clock.continue_search(self.nodes));
+        if should_stop {
+            self.stop = true;
+        }
+        should_stop
     }
 
     pub fn start_search(&mut self, tt: &TT) {
@@ -207,33 +211,27 @@ impl SearchWorker {
         pv: &mut PVLine,
         mut alpha: Eval,
         beta: Eval,
-        depth: usize,
+        mut depth: usize,
     ) -> Eval {
         if self.should_stop_search() {
-            self.stop = true;
             return Eval::ZERO;
-        }
-
-        if depth == 0 {
-            return self.quiescence::<NT>(pv, alpha, beta);
         }
 
         let in_check = self.board.in_check();
 
-        self.seldepth = if NT::node_type() == NodeType::Root {
-            0
-        } else {
-            self.seldepth.max(self.ply as usize)
-        };
+        // --- Quiescence search in base case ---
+        if depth == 0 && !in_check {
+            return self.quiescence::<NT>(pv, alpha, beta);
+        }
 
+        // --- Set up Search ---
+        depth = depth.max(1);
+        self.update_seldepth::<NT>();
+        let mut child_pv = PVLine::default();
         pv.clear();
 
-        let mut child_pv = PVLine::default();
-
-        if NT::node_type() != NodeType::Root {
-            if self.board.is_draw() {
-                return Eval::ZERO;
-            }
+        if self.is_draw::<NT>() {
+            return Eval::ZERO;
         }
 
         let mut best_value = -INFINITY;
@@ -261,6 +259,20 @@ impl SearchWorker {
                 best_value = value; // Update the best score found locally at this node.
             }
 
+            // Beta Cutoff (Fail-High): Check if our guaranteed score (`alpha`)
+            // meets or exceeds the opponent's limit (`beta`).
+            // This move is "too good". The opponent (at a higher node)
+            // would have already had a better alternative than allowing this position.
+            // Therefore, exploring further sibling moves at this node is unnecessary.
+            if value >= beta {
+                // if move_count == 1 {
+                //     self.immediate_cut_offs += 1;
+                // }
+                // self.cut_offs += 1;
+                best_value = beta;
+                break;
+            }
+
             // Alpha Update: Check if this move's score (`value`) is better than the
             // best score we are *already guaranteed* (`alpha`) from other parts of the tree.
             if value > alpha {
@@ -268,20 +280,6 @@ impl SearchWorker {
                 pv.update_line(move_, &child_pv); // Update the Principal Variation (best move sequence).
 
                 alpha = value; // Update alpha: Raise the lower bound of our guaranteed score.
-            }
-
-            // Beta Cutoff (Fail-High): Check if our guaranteed score (`alpha`)
-            // meets or exceeds the opponent's limit (`beta`).
-            // This move is "too good". The opponent (at a higher node)
-            // would have already had a better alternative than allowing this position.
-            // Therefore, exploring further sibling moves at this node is unnecessary.
-            if value >= beta {
-                if move_count == 1 {
-                    self.immediate_cut_offs += 1;
-                }
-                self.cut_offs += 1;
-                best_value = beta;
-                break;
             }
         }
 
@@ -319,11 +317,10 @@ impl SearchWorker {
         beta: Eval,
     ) -> Eval {
         if self.should_stop_search() {
-            self.stop = true;
             return Eval::ZERO;
         }
 
-        self.seldepth = self.seldepth.max(self.ply as usize);
+        self.update_seldepth::<NT>();
 
         pv.clear();
 
@@ -333,7 +330,7 @@ impl SearchWorker {
         }
 
         // Check for draws (Repetition, 50-move rule)
-        if self.board.is_draw() {
+        if self.is_draw::<NT>() {
             return Eval::ZERO;
         }
 
@@ -417,5 +414,17 @@ impl SearchWorker {
     fn undo_move(&mut self, move_: Move) {
         self.board.undo_move(move_);
         self.ply -= 1;
+    }
+
+    fn update_seldepth<NT: NodeTypeTrait>(&mut self) {
+        self.seldepth = if NT::node_type() == NodeType::Root {
+            0
+        } else {
+            self.seldepth.max(self.ply as usize)
+        };
+    }
+
+    fn is_draw<NT: NodeTypeTrait>(&mut self) -> bool {
+        NT::node_type() != NodeType::Root && self.board.is_draw(self.ply)
     }
 }

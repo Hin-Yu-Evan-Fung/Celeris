@@ -461,7 +461,7 @@ impl Board {
         // Update masks
         self.update_masks();
         // Update repetitions
-        // self.update_repetitions();
+        self.update_repetitions();
     }
 
     /// Reverses a `Move` that was just made, restoring the previous board state.
