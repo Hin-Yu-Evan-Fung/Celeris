@@ -29,19 +29,21 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
     }
 
     fn score_captures(&mut self, board: &Board) {
-        // const MVV: [i16; PieceType::NUM] = [0, 2400, 2400, 4800, 9600, 0];
-        // const PROMO_SCORE: Eval = Eval(MVV[PieceType::Queen as usize] + 1);
-
         for i in 0..self.capture_end {
             let move_ = self.scored_move_list.move_list[i];
 
-            let attacker = unsafe { board.on(move_.from()).unwrap_unchecked() };
-            let captured = unsafe { board.on(move_.to()).unwrap_unchecked() };
-
-            let score = match move_.flag() {
-                MoveFlag::QueenPromoCapture => Eval(10000 + 100 + (captured.pt() as i16) * 100),
-                _ => Eval(100 + (captured.pt() as i16) * 100 + 5 - (attacker.pt() as i16)),
+            let mut score = match move_.flag() {
+                MoveFlag::EPCapture => Eval(105),
+                _ => {
+                    let attacker = unsafe { board.on(move_.from()).unwrap_unchecked() };
+                    let captured = unsafe { board.on(move_.to()).unwrap_unchecked() };
+                    Eval(100 + (captured.pt() as i16) * 100 + 5 - (attacker.pt() as i16))
+                }
             };
+
+            if move_.is_promotion() {
+                score += Eval(10000 + (move_.promotion_pt() as i16) * 1000);
+            }
 
             self.scored_move_list.set_score(i, score);
         }
