@@ -4,7 +4,6 @@ mod interface;
 mod time;
 
 pub use command::Command;
-pub use engine::EngineController;
 pub use engine::constants::*;
-pub use interface::UCI;
+pub use interface::{Engine, UCI};
 pub use time::TimeControl;

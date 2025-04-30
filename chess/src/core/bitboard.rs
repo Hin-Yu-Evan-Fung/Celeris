@@ -745,7 +745,7 @@ impl Bitboard {
     /// Return the passed pawn span of the sq
     #[inline]
     pub fn passed_pawn_span(col: Colour, sq: Square) -> Bitboard {
-        Self::forward_file(col, sq) & Self::pawn_attack_span(col, sq)
+        Self::forward_file(col, sq) | Self::pawn_attack_span(col, sq)
     }
 
     /// Gets the precomputed attack span `Bitboard` for a bitboard of pawns

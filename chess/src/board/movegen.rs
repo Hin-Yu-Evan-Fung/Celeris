@@ -52,7 +52,7 @@ mod lookup;
 mod magic;
 mod move_list;
 
-pub use lookup::{attacks, pin_bb};
+pub use lookup::{attacks, pin_bb, sq_dist};
 
 pub use move_list::MoveList;
 

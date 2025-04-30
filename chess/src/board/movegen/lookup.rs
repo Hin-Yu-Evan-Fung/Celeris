@@ -536,7 +536,7 @@ pub fn check_bb(king: Square, checker: Square) -> Bitboard {
 /// assert_eq!(dist(Square::H1, Square::A2), 7); // max(abs(0-1), abs(7-0)) = max(1, 7) = 7
 /// ```
 #[inline]
-pub fn dist(sq1: Square, sq2: Square) -> u8 {
+pub fn sq_dist(sq1: Square, sq2: Square) -> u8 {
     unsafe { *DIST.get_unchecked(sq1 as usize).get_unchecked(sq2 as usize) }
 }
 
@@ -947,9 +947,9 @@ mod test {
     #[test]
     fn test_sq_dist() {
         // ensure_init(); // Removed call
-        assert_eq!(dist(Square::A1, Square::A6), 5);
-        assert_eq!(dist(Square::E5, Square::F6), 1);
-        assert_eq!(dist(Square::H1, Square::A8), 7);
-        assert_eq!(dist(Square::C3, Square::C3), 0);
+        assert_eq!(sq_dist(Square::A1, Square::A6), 5);
+        assert_eq!(sq_dist(Square::E5, Square::F6), 1);
+        assert_eq!(sq_dist(Square::H1, Square::A8), 7);
+        assert_eq!(sq_dist(Square::C3, Square::C3), 0);
     }
 }

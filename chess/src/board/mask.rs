@@ -49,7 +49,7 @@ impl Board {
     /// Panics in debug mode if no king is found for the given colour.
     /// Behavior is undefined in release mode if no king is found (due to `lsb_unchecked`).
     #[inline]
-    pub(crate) fn ksq(&self, col: Colour) -> Square {
+    pub fn ksq(&self, col: Colour) -> Square {
         // This assertion is crucial for safety when using lsb_unchecked
         debug_assert!(
             !self.piece_bb(col, PieceType::King).is_empty(),

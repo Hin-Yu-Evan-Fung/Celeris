@@ -459,6 +459,24 @@ impl Castling {
     pub const fn mask(&mut self, mask: Castling) {
         self.0 &= mask.0;
     }
+
+    /// ### King side for a colour
+    #[inline]
+    pub const fn king_side(colour: Colour) -> Self {
+        match colour {
+            Colour::White => Castling::WK,
+            Colour::Black => Castling::BK,
+        }
+    }
+
+    /// ### Queen side for a colour
+    #[inline]
+    pub const fn queen_side(colour: Colour) -> Self {
+        match colour {
+            Colour::White => Castling::WQ,
+            Colour::Black => Castling::BQ,
+        }
+    }
 }
 
 // Override the Not implementation to only affect the lower 4 bits

@@ -82,6 +82,11 @@ impl ThreadPool {
 
         self.stop.store(true, Ordering::Relaxed);
     }
+
+    /// Get the total nodes searched
+    pub fn nodes(&self) -> u64 {
+        self.nodes.load(Ordering::Relaxed)
+    }
 }
 
 #[cfg(test)]

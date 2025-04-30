@@ -17,7 +17,7 @@ use crate::{
 use super::{Clock, MIN_DEPTH, NodeType, NodeTypeTrait, PVNode, RootNode};
 
 #[derive(Debug, Clone)]
-pub struct SearchWorker {
+pub(crate) struct SearchWorker {
     pub clock: Clock,
     board: Board,
 

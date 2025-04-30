@@ -38,8 +38,8 @@ mod movement;
 mod zobrist;
 
 pub use fen::{KILLER_FEN, START_FEN, TRICKY_FEN};
-pub use movegen::attacks;
 pub use movegen::{CaptureGen, LegalGen, MoveList, QuietGen};
+pub use movegen::{attacks, sq_dist};
 pub use zobrist::KeyBundle;
 
 use crate::core::*;
@@ -446,6 +446,20 @@ impl Board {
         self.state.castle
     }
 
+    /// # Get Castling Rights for one side
+    ///
+    /// ## Returns
+    ///
+    /// * `Castling` - The castling rights for the current position for the side
+    #[inline]
+    pub fn castling_side(&self, side: Colour) -> Castling {
+        self.state.castle
+            & match side {
+                Colour::White => Castling::WHITE_CASTLING,
+                Colour::Black => Castling::BLACK_CASTLING,
+            }
+    }
+
     /// # Get Hash Key
     ///
     /// ## Returns
@@ -490,13 +504,13 @@ impl Board {
         self.state.keys.non_pawn_key[col as usize]
     }
 
-    /// # Returns whether the king is in check
+    /// Returns whether the king is in check
     #[inline]
     pub fn in_check(&self) -> bool {
         self.state.check_mask != Bitboard::FULL
     }
 
-    /// # Returns whether the position is a draw
+    /// Returns whether the position is a draw
     #[inline]
     pub fn is_draw(&self, ply: u16) -> bool {
         let move_list = MoveList::new();
@@ -506,6 +520,18 @@ impl Board {
         }
 
         return self.state.repetitions != 0 && self.state.repetitions < (ply as i8);
+    }
+
+    /// Returns whether the file is semi open
+    #[inline]
+    pub fn is_semi_open_file(&self, col: Colour, sq: Square) -> bool {
+        (sq.file().bb() & self.piece_bb(col, PieceType::Pawn)).is_empty()
+    }
+
+    /// Returns whether the file is open
+    #[inline]
+    pub fn is_open_file(&self, col: Colour, sq: Square) -> bool {
+        (sq.file().bb() & self.piecetype_bb(PieceType::Pawn)).is_empty()
     }
 }
 

@@ -1,6 +1,6 @@
 use std::sync::{
     Arc,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64},
     mpsc::Receiver,
 };
 
@@ -38,7 +38,7 @@ pub mod constants {
     pub const MATE_BOUND: Eval = MATE.sub(LONGEST_MATE);
 }
 
-pub struct EngineController {
+pub(super) struct EngineController {
     is_debug: bool,
     board: Board,
     tt: TT,
@@ -49,6 +49,7 @@ pub struct EngineController {
 impl EngineController {
     pub fn new(stop: Arc<AtomicBool>) -> Self {
         let tt = TT::default();
+        let nodes = Arc::new(AtomicU64::new(0));
         let mut thread_pool = ThreadPool::new(Arc::clone(&stop));
 
         thread_pool.resize(constants::THREADS);
