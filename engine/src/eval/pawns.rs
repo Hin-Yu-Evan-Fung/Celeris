@@ -1,8 +1,8 @@
 use chess::board::{attacks, sq_dist};
-use chess::{Bitboard, Castling, Colour, PieceType, Square, board};
-use chess::{Board, File, Rank};
+use chess::{Bitboard, Castling, Colour, PieceType, Square};
+use chess::{Board, Rank};
 
-use super::{E, Eval, S, Score};
+use super::{Eval, S, Score};
 
 #[derive(Debug, Clone)]
 pub struct PawnTable {
@@ -66,12 +66,12 @@ const ISOLATED: Score = S!(5, 5);
 const BACKWARD: Score = S!(5, 5);
 const PASSED: [Score; Rank::NUM] = [
     S!(0, 0),
-    S!(2, 5),
-    S!(5, 7),
-    S!(10, 15),
-    S!(20, 20),
-    S!(40, 50),
-    S!(80, 100),
+    S!(5, 10),
+    S!(7, 10),
+    S!(20, 30),
+    S!(40, 40),
+    S!(90, 100),
+    S!(130, 150),
     S!(0, 0),
 ];
 const CONNECTED: [i16; Rank::NUM] = [0, 0, 2, 5, 5, 10, 25, 40];
@@ -217,7 +217,7 @@ impl PawnEntry {
             safety_score -= OPEN_FILE_ADJACENT_KING;
         }
 
-        safety_score - S!(0, 8 * min_pawn_dist as i16)
+        safety_score - S!(0, min_pawn_dist as i16)
     }
 
     pub fn king_safety(&mut self, board: &Board, us: Colour) -> Score {

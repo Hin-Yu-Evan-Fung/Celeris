@@ -1,5 +1,7 @@
 use std::str::{FromStr, SplitWhitespace};
 
+/// Helper function to parse the next token in a `SplitWhitespace` iterator
+/// into a specified type `T` that implements `FromStr`.
 fn parse<T: FromStr>(tokens: &mut SplitWhitespace) -> Result<T, &'static str> {
     tokens
         .next()
@@ -8,15 +10,23 @@ fn parse<T: FromStr>(tokens: &mut SplitWhitespace) -> Result<T, &'static str> {
         .map_err(|_| "Invalid value for time control!")
 }
 
+/// Represents the different time control modes for the engine's search.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TimeControl {
+    /// Search indefinitely until stopped.
     Infinite,
+    /// Search up to a fixed depth.
     FixedDepth(usize),
+    /// Search up to a fixed number of nodes.
     FixedNodes(u64),
+    /// Search for a fixed amount of time (in milliseconds).
     FixedTime(u64),
+    /// Search specifically for a checkmate within a certain number of moves.
     Mate(usize),
+    /// Standard UCI time control with remaining time and optional increments/moves to go.
     Variable {
         wtime: u64,
+        // Time remaining for white/black in milliseconds.
         btime: u64,
         winc: Option<u64>,
         binc: Option<u64>,
@@ -26,6 +36,7 @@ pub enum TimeControl {
 
 // --- Builder for TimeControl::Variable ---
 
+/// A builder pattern helper for constructing `TimeControl::Variable`.
 #[derive(Debug, Default)] // Default initializes all Options to None
 struct TimeControlBuilder {
     wtime: Option<u64>,
@@ -89,6 +100,7 @@ impl TimeControlBuilder {
 
 impl FromStr for TimeControl {
     type Err = &'static str;
+    /// Parses a string slice (typically from the "go" command) into a `TimeControl` variant.
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut tokens = s.split_whitespace();
@@ -99,11 +111,13 @@ impl FromStr for TimeControl {
             Some("nodes") => Ok(TimeControl::FixedNodes(parse(&mut tokens)?)),
             Some("mate") => Ok(TimeControl::Mate(parse(&mut tokens)?)),
             Some("movetime") => Ok(TimeControl::FixedTime(parse(&mut tokens)?)),
+            // If none of the specific keywords match, attempt to parse as Variable time control.
             _ => Self::parse_variable(&mut s.split_whitespace()),
         }
     }
 }
 
+/// Parses the parameters for `TimeControl::Variable` (wtime, btime, winc, binc, movestogo).
 impl TimeControl {
     fn parse_variable(tokens: &mut SplitWhitespace) -> Result<TimeControl, &'static str> {
         // Initialize optional fields to None. These will be "built" up.
