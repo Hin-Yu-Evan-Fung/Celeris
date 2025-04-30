@@ -716,7 +716,7 @@ impl Bitboard {
     }
 
     #[inline]
-    pub fn forward_rank(col: Colour, sq: Square) -> Bitboard {
+    pub fn forward_ranks(col: Colour, sq: Square) -> Bitboard {
         match col {
             Colour::White => !Self::RANK_1 << 8 * (sq.relative(col).rank() as u8),
             Colour::Black => !Self::RANK_8 >> 8 * (sq.relative(col).rank() as u8),
@@ -726,7 +726,7 @@ impl Bitboard {
     /// Return the forward file of the sq relative to a colour
     #[inline]
     pub fn forward_file(col: Colour, sq: Square) -> Bitboard {
-        Self::forward_rank(col, sq) & sq.file().bb()
+        Self::forward_ranks(col, sq) & sq.file().bb()
     }
 
     /// Return the adjacent files of the sq
@@ -739,7 +739,7 @@ impl Bitboard {
     /// Return the pawn attack span of the sq
     #[inline]
     pub fn pawn_attack_span(col: Colour, sq: Square) -> Bitboard {
-        Self::forward_rank(col, sq) & Self::adjacent_files(sq)
+        Self::forward_ranks(col, sq) & Self::adjacent_files(sq)
     }
 
     /// Return the passed pawn span of the sq

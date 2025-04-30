@@ -8,7 +8,7 @@ use chess::{Board, Move};
 use crate::{
     INFINITY,
     engine::MAX_DEPTH,
-    eval::{self, Eval, evaluate},
+    eval::{self, Eval, PawnTable, evaluate},
     movepick::{MovePicker, MoveStage},
     search::{PVLine, SearchStack},
     types::TT,
@@ -35,6 +35,9 @@ pub struct SearchWorker {
 
     stop: bool,
 
+    // Tables
+    pub pawn_table: PawnTable,
+
     // Search statistics
     cut_offs: usize,
     immediate_cut_offs: usize,
@@ -57,6 +60,7 @@ impl SearchWorker {
             stop: false,
             cut_offs: 0,
             immediate_cut_offs: 0,
+            pawn_table: PawnTable::new(),
         }
     }
 
@@ -328,7 +332,7 @@ impl SearchWorker {
 
         // Check ply limit to prevent infinite recursion in rare cases
         if self.ply >= MAX_DEPTH as u16 {
-            return evaluate(&self.board); // Return static eval if too deep
+            return evaluate(&self.board, &mut self.pawn_table); // Return static eval if too deep
         }
 
         // Check for draws (Repetition, 50-move rule)
@@ -341,7 +345,7 @@ impl SearchWorker {
         // --- Stand Pat Score ---
         // Get the static evaluation of the current position.
         // This score assumes no further captures are made (the "stand pat" score).
-        let stand_pat = evaluate(&self.board);
+        let stand_pat = evaluate(&self.board, &mut self.pawn_table);
 
         // --- Alpha-Beta Pruning based on Stand Pat ---
         // If the static evaluation is already >= beta, the opponent won't allow this position.

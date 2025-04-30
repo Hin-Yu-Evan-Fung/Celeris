@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub struct ThreadPool {
-    main_worker: SearchWorker,
+    pub main_worker: SearchWorker,
     workers: Vec<SearchWorker>,
     stop: Arc<AtomicBool>,
     nodes: Arc<AtomicU64>,

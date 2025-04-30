@@ -238,7 +238,7 @@ pub fn derive_from_primitive(input: TokenStream) -> TokenStream {
             ///
             /// Panics in debug builds if `value` is not a valid discriminant.
             #[inline]
-            pub(crate) const unsafe fn from_unchecked(value: #repr_type) -> Self {
+            pub const unsafe fn from_unchecked(value: #repr_type) -> Self {
                 // Check validity ONLY in debug builds. This compiles away in release.
                 debug_assert!(
                     #check_expression,

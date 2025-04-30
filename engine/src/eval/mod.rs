@@ -24,6 +24,14 @@ impl Eval {
     }
 }
 
+macro_rules! E {
+    ($mg:expr) => {
+        Eval($mg)
+    };
+}
+
+pub(crate) use E;
+
 impl std::ops::Neg for Eval {
     type Output = Self;
 
