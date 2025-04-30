@@ -1,4 +1,4 @@
-use chess::{Move, MoveFlag, PieceType};
+use chess::{Move, MoveFlag};
 
 use crate::eval::Eval;
 
