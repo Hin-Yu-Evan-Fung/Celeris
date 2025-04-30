@@ -150,13 +150,15 @@ mod tests {
         stack.push(entry2);
         stack.push(entry3);
 
+        // stack.pop(); // Pop and check LIFO (Last In, First Out)
         assert_eq!(stack.top, 3, "Top should be 3 after pushes");
+        stack.pop(); // Pop and check LIFO (Last In, First Out)
 
         // Pop and check LIFO (Last In, First Out)
         assert_eq!(stack.top, 2, "Top should be 2 after first pop");
-
+        stack.pop(); // Pop and check LIFO (Last In, First Out)
         assert_eq!(stack.top, 1, "Top should be 1 after second pop");
-
+        stack.pop(); // Pop and check LIFO (Last In, First Out)
         assert_eq!(stack.top, 0, "Top should be 0 after third pop");
         assert!(
             stack.is_empty(),

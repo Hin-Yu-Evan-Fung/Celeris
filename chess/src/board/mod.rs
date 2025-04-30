@@ -31,7 +31,6 @@
 //! - **Piece Access**: `Board::on()` retrieves the piece on a given square.
 //! - **Bitboard Access**: `Board::piecetype_bb()`, `Board::occupied_bb()`, `Board::all_occupied_bb()
 mod fen;
-mod history;
 mod mask;
 mod movegen;
 mod movement;
