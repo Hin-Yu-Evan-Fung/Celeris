@@ -1,6 +1,5 @@
 use std::sync::{
     Arc,
-    // Atomic types for thread-safe sharing of stop signals and node counts.
     atomic::{AtomicBool, AtomicU64},
     mpsc::Receiver,
 };
@@ -10,7 +9,6 @@ use chess::{
     utils::{perft_bench, perft_test},
 };
 
-// Import local modules (evaluation, threading, transposition table).
 use crate::{
     eval::{calc_psqt, evaluate},
     thread::ThreadPool,
@@ -18,12 +16,10 @@ use crate::{
 };
 
 use super::command::EngineOption;
-// Re-export Command and TimeControl for easier use by the interface module.
 pub use super::{Command, TimeControl};
 
-/// Defines constants used by the engine controller and potentially other parts.
 pub mod constants {
-    // Import necessary types for constants.
+
     use crate::eval::Eval;
     use chess::board::MAX_MOVES;
 
@@ -31,42 +27,26 @@ pub mod constants {
     pub const VERSION: &str = "0.0.1";
     pub const AUTHORS: &str = "0mn1verze, TheGogy";
 
-    // Default configuration values.
     pub const THREADS: usize = 1;
     pub const DEBUG: bool = true;
     pub const TT_SIZE: usize = 64;
 
-    // Search-related constants.
     pub const MAX_DEPTH: usize = MAX_MOVES;
-    /// Represents an infinitely high evaluation score (e.g., for alpha-beta bounds).
     pub const INFINITY: Eval = Eval(32001);
-    /// Represents a checkmate score.
     pub const MATE: Eval = Eval(32000);
-    /// The maximum number of plies to mate used for score adjustments.
     pub const LONGEST_MATE: Eval = Eval(MAX_DEPTH as i16);
-    /// The evaluation score threshold below which a score is considered a mate.
     pub const MATE_BOUND: Eval = MATE.sub(LONGEST_MATE);
 }
 
-/// The core engine controller that manages the board state, search threads, and handles commands.
-///
-/// This struct runs in a dedicated thread and receives commands via a channel.
 pub(super) struct EngineController {
-    /// Flag indicating whether debug information should be printed.
     is_debug: bool,
-    /// The current state of the chess board.
     board: Board,
-    /// The transposition table for storing search results.
     tt: TT,
-    /// Manages the pool of search worker threads.
     thread_pool: ThreadPool,
-    /// Shared atomic boolean used to signal the search threads to stop.
     stop: Arc<AtomicBool>,
 }
 
 impl EngineController {
-    /// Creates a new `EngineController`.
-    /// `stop`: A shared `AtomicBool` used to signal termination.
     pub fn new(stop: Arc<AtomicBool>) -> Self {
         let tt = TT::default();
         let nodes = Arc::new(AtomicU64::new(0));
@@ -83,15 +63,12 @@ impl EngineController {
         }
     }
 
-    /// Runs the main loop of the engine controller, listening for commands on the receiver channel.
     pub fn run(&mut self, rx: Receiver<Command>) {
         for command in rx {
             self.handle_command(command);
         }
     }
 
-    /// Dispatches received commands to the appropriate handler methods.
-    /// Note: `Stop` and `Quit` are handled by the `UCI` struct before reaching here.
     fn handle_command(&mut self, command: Command) {
         match command {
             Command::Uci => self.introduce(),
@@ -109,7 +86,6 @@ impl EngineController {
         }
     }
 
-    /// Handles the "uci" command: Prints engine identification and options.
     fn introduce(&self) {
         println!("id name {} {}", constants::NAME, constants::VERSION);
         println!("id author {}", constants::AUTHORS);
@@ -120,12 +96,10 @@ impl EngineController {
         self.is_debug = is_debug;
     }
 
-    /// Handles the "ucinewgame" command: Resets the board to the default starting position.
     fn new_game(&mut self) {
         self.board = Board::default();
     }
 
-    /// Resizes the transposition table.
     fn resize_hash(&mut self, size_mb: usize) {
         if self.is_debug {
             println!("info string Attempting to resize hash to {} MB...", size_mb);
@@ -139,7 +113,6 @@ impl EngineController {
         }
     }
 
-    /// Clears all entries from the transposition table.
     fn clear_hash(&mut self) {
         if self.is_debug {
             println!("info string Attempting to clear hash table...");
@@ -152,7 +125,6 @@ impl EngineController {
         }
     }
 
-    /// Resizes the number of search threads in the thread pool.
     fn resize_threads(&mut self, threads: usize) {
         if self.is_debug {
             println!(
@@ -168,7 +140,6 @@ impl EngineController {
         }
     }
 
-    /// Handles the "setoption" command by dispatching to specific option handlers.
     fn set_option(&mut self, option: EngineOption) {
         match option {
             EngineOption::ClearHash() => self.clear_hash(),
@@ -177,33 +148,27 @@ impl EngineController {
         }
     }
 
-    /// Handles the "position" command: Sets the internal board state.
     fn set_position(&mut self, board: Board) {
         self.board = board;
     }
 
-    /// Handles the "go" command: Starts the search process with the given time control.
     fn go(&mut self, time_control: TimeControl) {
         self.thread_pool
             .start_search(time_control, &self.tt, &self.board);
     }
 
-    /// Handles the "bench" command (custom): Runs a standard benchmark suite.
     fn bench(&self) {
         perft_bench();
     }
 
-    /// Handles the "perft" command (custom): Runs a performance test for move generation.
     fn perft(&mut self, depth: usize) {
         perft_test(&mut self.board, depth);
     }
 
-    /// Handles the "print" or "b" command (custom): Prints the current board to the console.
     fn print_board(&self) {
         println!("{}", self.board);
     }
 
-    /// Handles the "eval" command (custom): Calculates and prints the static evaluation of the current position.
     fn evaluate(&mut self) {
         println!(
             "PSQ: {} {}",
