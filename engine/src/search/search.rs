@@ -8,8 +8,8 @@ use chess::{Board, Move};
 use crate::{
     INFINITY,
     engine::MAX_DEPTH,
-    eval::{self, Eval, PawnTable, evaluate},
-    movepick::{MovePicker, MoveStage},
+    eval::{Eval, PawnTable, evaluate},
+    movepick::MovePicker,
     search::{PVLine, SearchStack},
     types::TT,
 };

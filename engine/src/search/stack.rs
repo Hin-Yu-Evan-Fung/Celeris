@@ -4,8 +4,6 @@ use chess::board::MAX_MOVES;
 
 use crate::eval::Eval;
 
-use super::PVLine;
-
 #[derive(Debug, Default, Copy, Clone)]
 pub(crate) struct SearchStackEntry {
     curr_move: Move,
@@ -155,13 +153,10 @@ mod tests {
         assert_eq!(stack.top, 3, "Top should be 3 after pushes");
 
         // Pop and check LIFO (Last In, First Out)
-        let popped3 = stack.pop();
         assert_eq!(stack.top, 2, "Top should be 2 after first pop");
 
-        let popped2 = stack.pop();
         assert_eq!(stack.top, 1, "Top should be 1 after second pop");
 
-        let popped1 = stack.pop();
         assert_eq!(stack.top, 0, "Top should be 0 after third pop");
         assert!(
             stack.is_empty(),
@@ -177,12 +172,10 @@ mod tests {
 
         stack.push(entry1);
         // Get reference to top element
-        let top_ref1 = stack.top();
         assert_eq!(stack.top, 1, "Calling top() should not change stack size");
 
         stack.push(entry2);
         // Get reference to new top element
-        let top_ref2 = stack.top();
         assert_eq!(
             stack.top, 2,
             "Calling top() again should not change stack size"
@@ -190,7 +183,6 @@ mod tests {
 
         // Pop and check top again
         let _popped = stack.pop();
-        let top_ref_after_pop = stack.top();
         assert_eq!(stack.top, 1, "Stack size should be 1 after pop");
     }
 
@@ -302,7 +294,7 @@ mod tests {
 
         let mut stack = SearchStack::default();
         // Fill the stack
-        for i in 0..MAX_MOVES {
+        for _ in 0..MAX_MOVES {
             stack.push(create_test_entry());
         }
         assert!(stack.is_full());

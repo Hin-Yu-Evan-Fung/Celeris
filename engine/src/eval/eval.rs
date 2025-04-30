@@ -1,8 +1,7 @@
-use chess::board::attacks;
-use chess::{Bitboard, Board, Colour, Direction, File, PieceType, Rank, Square};
+use chess::{Board, Colour};
 
 use super::psqt::{calc_game_phase, calc_psqt};
-use super::{Eval, PawnTable, S, Score};
+use super::{Eval, PawnTable};
 use crate::MATE;
 
 pub fn evaluate(board: &Board, pawn_table: &mut PawnTable) -> Eval {
@@ -20,7 +19,7 @@ pub fn evaluate(board: &Board, pawn_table: &mut PawnTable) -> Eval {
     let weighted_mg = (score.0.0 as i64) * (mg_phase as i64);
     let weighted_eg = (score.1.0 as i64) * (eg_phase as i64);
 
-    let eval = ((weighted_mg + weighted_eg) / 24);
+    let eval = (weighted_mg + weighted_eg) / 24;
 
     let v = Eval(eval.clamp(-MATE.0 as i64, MATE.0 as i64) as i16);
 
