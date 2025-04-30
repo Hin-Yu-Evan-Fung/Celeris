@@ -1,7 +1,9 @@
 mod eval;
+mod pawns;
 mod psqt;
 
 pub use eval::evaluate;
+pub use pawns::{PawnEntry, PawnTable};
 pub use psqt::calc_psqt;
 
 use crate::{MATE, MATE_BOUND};

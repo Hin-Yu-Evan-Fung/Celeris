@@ -329,6 +329,12 @@ impl Move {
         self.is_king_castle() || self.is_queen_castle()
     }
 
+    /// Checks if the move is a none move
+    #[inline(always)]
+    pub const fn is_none(&self) -> bool {
+        self.data == Self::NONE.data
+    }
+
     /// Checks if the move is a null move
     #[inline(always)]
     pub const fn is_null(&self) -> bool {
@@ -339,6 +345,12 @@ impl Move {
     #[inline(always)]
     pub const fn raw(&self) -> u16 {
         self.data
+    }
+
+    /// Checks wether the move is valid
+    #[inline(always)]
+    pub const fn is_valid(&self) -> bool {
+        !self.is_none() && !self.is_null()
     }
 }
 

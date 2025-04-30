@@ -1,5 +1,5 @@
 use chess::Colour;
-use chess::board::Board;
+use chess::Board;
 
 use super::Eval;
 

@@ -5,7 +5,7 @@ use std::sync::{
 };
 
 use chess::{
-    board::Board,
+    Board,
     utils::{perft_bench, perft_test},
 };
 

@@ -38,6 +38,7 @@ mod movement;
 mod zobrist;
 
 pub use fen::{KILLER_FEN, START_FEN, TRICKY_FEN};
+pub use movegen::attacks;
 pub use movegen::{CaptureGen, LegalGen, MoveList, QuietGen};
 pub use zobrist::KeyBundle;
 
@@ -327,7 +328,7 @@ impl Board {
     ///
     /// ## Argument
     ///
-    /// * `piece` - The piece to get the bitboard of    ///
+    /// * `piece` - The piece to get the bitboard of
     /// ## Returns
     ///
     /// * `Bitboard` - The bitboard of the piece

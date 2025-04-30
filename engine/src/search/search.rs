@@ -3,7 +3,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64},
 };
 
-use chess::{Move, board::Board};
+use chess::{Board, Move};
 
 use crate::{
     INFINITY,
@@ -82,8 +82,8 @@ impl SearchWorker {
         self.board = board;
     }
 
-    pub const fn best_move(&self) -> Move {
-        self.pv.moves[0]
+    pub fn best_move(&self) -> Move {
+        self.pv[0]
     }
 
     // Search control

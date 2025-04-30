@@ -2,8 +2,8 @@ use chess::{Move, board::MAX_MOVES};
 
 #[derive(Debug, Clone, Copy)]
 pub struct PVLine {
-    pub moves: [Move; MAX_MOVES],
-    pub length: usize,
+    moves: [Move; MAX_MOVES],
+    length: usize,
 }
 
 impl Default for PVLine {

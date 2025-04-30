@@ -3,7 +3,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
-use chess::board::Board;
+use chess::Board;
 
 use crate::{
     TimeControl,
