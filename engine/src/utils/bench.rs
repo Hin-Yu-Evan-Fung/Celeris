@@ -94,8 +94,6 @@ pub fn run_bench() {
 
         thread.start_search(TimeControl::FixedDepth(SEARCH_DEPTH), &mut tt, &mut board);
 
-        println!("Fen {}", i + 1);
-
         total_time += start.elapsed().as_micros();
         total_nodes += thread.nodes();
     }
