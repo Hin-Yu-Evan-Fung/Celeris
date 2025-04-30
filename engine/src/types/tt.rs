@@ -1,8 +1,6 @@
 use std::{
-    cmp,
     mem::size_of,
     sync::atomic::{AtomicU64, Ordering},
-    thread::Thread,
 };
 
 use chess::Move;

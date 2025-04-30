@@ -1,8 +1,8 @@
 use chess::board::{attacks, sq_dist};
-use chess::{Bitboard, Castling, Colour, PieceType, Square, board};
-use chess::{Board, File, Rank};
+use chess::{Bitboard, Castling, Colour, PieceType, Square};
+use chess::{Board, Rank};
 
-use super::{E, Eval, S, Score};
+use super::{Eval, S, Score};
 
 #[derive(Debug, Clone)]
 pub struct PawnTable {
