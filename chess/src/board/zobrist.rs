@@ -331,7 +331,7 @@ impl Board {
         }
 
         // 2. XOR side key if it's Black's turn
-        if self.side_to_move as u8 == Colour::Black as u8 {
+        if self.stm as u8 == Colour::Black as u8 {
             key ^= side_key();
         }
 

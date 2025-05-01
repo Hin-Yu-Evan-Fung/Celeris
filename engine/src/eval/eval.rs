@@ -9,8 +9,8 @@ pub fn evaluate(board: &Board, pawn_table: &mut PawnTable) -> Eval {
 
     let pawn_entry = &mut pawn_table.get(board);
 
-    score += pawn_entry.scores[Colour::White as usize];
-    score -= pawn_entry.scores[Colour::Black as usize];
+    score += pawn_entry.pawn_score(Colour::White);
+    score -= pawn_entry.pawn_score(Colour::Black);
     score += pawn_entry.king_safety(board, Colour::White);
     score -= pawn_entry.king_safety(board, Colour::Black);
 

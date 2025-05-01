@@ -220,6 +220,7 @@ impl PawnEntry {
         safety_score - S!(0, min_pawn_dist as i16)
     }
 
+    #[inline]
     pub fn king_safety(&mut self, board: &Board, us: Colour) -> Score {
         if self.ksq[us as usize].is_some_and(|sq| sq == board.ksq(us))
             && board.castling_side(us) == self.castling[us as usize]
@@ -231,5 +232,10 @@ impl PawnEntry {
             self.castling[us as usize] = board.castling_side(us);
             self.king_safety[us as usize]
         }
+    }
+
+    #[inline(always)]
+    pub fn pawn_score(&mut self, us: Colour) -> Score {
+        self.scores[us as usize]
     }
 }

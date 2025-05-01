@@ -11,10 +11,9 @@ use crate::{
     eval::{Eval, PawnTable, evaluate},
     movepick::MovePicker,
     search::{PVLine, SearchStack},
-    types::TT,
 };
 
-use super::{Clock, MIN_DEPTH, NodeType, NodeTypeTrait, PVNode, RootNode};
+use super::{Clock, MIN_DEPTH, NodeType, NodeTypeTrait, PVNode, RootNode, TT};
 
 #[derive(Debug, Clone)]
 pub(crate) struct SearchWorker {

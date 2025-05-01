@@ -1,4 +1,6 @@
 use super::Board;
+use super::attacks;
+use super::movegen::aligned;
 use crate::core::*;
 
 impl Board {
@@ -101,7 +103,7 @@ impl Board {
     /// Panics with `.expect` if the calculated en passant square is invalid or `None`.
     #[inline]
     fn set_ep(&mut self, from: Square) {
-        let us = self.side_to_move;
+        let us = self.stm;
         // Set Enpassant Square
         self.state.enpassant = Some(unsafe { from.add_unchecked(us.forward()) });
         // Toggle enpassant key (There must be an enpassant square after a double push)
@@ -125,7 +127,7 @@ impl Board {
     /// The `Square` where the rook starts (H1/H8 or A1/A8).
     #[inline]
     fn rook_from(&self, king_side: bool) -> Square {
-        let us = self.side_to_move;
+        let us = self.stm;
         let index = us as usize * 2 + !king_side as usize;
 
         debug_assert!(
@@ -146,7 +148,7 @@ impl Board {
     /// The `Square` where the rook ends up (F1/F8 or D1/D8).
     #[inline]
     fn rook_to(&self, king_side: bool) -> Square {
-        let us = self.side_to_move;
+        let us = self.stm;
         match king_side {
             true => Square::F1.relative(us),
             false => Square::D1.relative(us),
@@ -165,7 +167,7 @@ impl Board {
     /// * `king_side` - `true` for kingside castling (O-O), `false` for queenside (O-O-O).
     #[inline]
     fn castle(&mut self, king_side: bool) {
-        let us = self.side_to_move;
+        let us = self.stm;
         let piece = Piece::from_parts(us, PieceType::Rook);
 
         // Get the source and destination squares of the rook, given the side to move
@@ -286,7 +288,7 @@ impl Board {
         // Initialise variables
         let from = move_.from();
         let to = move_.to();
-        let us = self.side_to_move;
+        let us = self.stm;
         let them = !us;
         // debug_assert!(self.on(from).is_some(), "make_move: 'from' square is empty");
         let piece = unsafe { self.on(from).unwrap_unchecked() }; // Piece being moved
@@ -455,7 +457,7 @@ impl Board {
         }
 
         // Toggle side to move *after* all other updates
-        self.side_to_move = !self.side_to_move;
+        self.stm = !self.stm;
         // Update hash key for the change in side to move
         self.state.keys.toggle_colour();
         // Update masks
@@ -489,7 +491,7 @@ impl Board {
     /// - The board state must not have been modified between the `make_move` and `undo_move` calls.
     pub fn undo_move(&mut self, move_: Move) {
         // Toggle side to move back to the state *before* the move was made
-        self.side_to_move = !self.side_to_move;
+        self.stm = !self.stm;
 
         // Decrement the half move counter (ply count)
         self.half_moves -= 1;
@@ -497,7 +499,7 @@ impl Board {
         // Initialise variables needed *before* restoring state
         let from = move_.from();
         let to = move_.to();
-        let us = self.side_to_move; // Side who made the move being undone
+        let us = self.stm; // Side who made the move being undone
         let flag = move_.flag();
         let captured = self.state.captured; // Get the captured piece *before* restoring state
 
@@ -589,6 +591,124 @@ impl Board {
         // Note: The .unwrap() in restore_state itself remains, as popping from an empty history
         // is considered a fatal logic error in the engine's operation (calling undo without a prior make).
     }
+
+    pub fn is_legal(&self, move_: Move) -> bool {
+        let us = self.stm;
+
+        let from = move_.from();
+        let to = move_.to();
+        let all_occ = self.all_occupied_bb();
+
+        let captured = self.on(to);
+        let is_pawn_move = move_.is_double_push() || move_.is_promotion() || move_.is_ep_capture();
+
+        // Check if there is a piece to move and the from square is not the to square (except for chess960 castling moves), and there is no friendly fire
+        if !self.on(from).is_some_and(|p| p.colour() == us) || (!move_.is_castle() && from == to) {
+            return false;
+        }
+
+        if !move_.is_castle() && captured.is_some_and(|p| p.colour() == us) {
+            return false;
+        }
+
+        let piece = self.on(from).unwrap();
+        let piece_type = piece.pt();
+
+        // Check if the flags are wrong, like capture moves not capturing, quiet moves capturing, or pawn moves not moving a pawn etc
+        if (move_.is_capture() != captured.is_some()
+            && !move_.is_ep_capture()
+            && !move_.is_castle())
+            || (is_pawn_move && piece_type != PieceType::Pawn)
+        {
+            return false;
+        }
+
+        // Check if the move is a promotion and the piece is on relative rank 7
+        if move_.is_promotion() && from.relative(us).rank() != Rank::Rank7 {
+            return false;
+        }
+
+        // If the move is a castling move, check each castling side to see if the rook can castle
+        if move_.is_castle() {
+            // if the to square is correct and the castling rights are set, then check if the king can actually castle
+            if to.file() == File::FileG && self.castling().has(Castling::king_side(us)) {
+                return self.can_castle(Castling::king_side(us));
+            }
+
+            // if the to square is correct and the castling rights are set, then check if the king can actually castle
+            if to.file() == File::FileC && self.castling().has(Castling::queen_side(us)) {
+                return self.can_castle(Castling::queen_side(us));
+            }
+
+            return false;
+        }
+
+        // Non pawn move must have the moving piece attacking the to square
+        if piece_type != PieceType::Pawn {
+            if !attacks(us, piece_type, from, all_occ).contains(to) {
+                return false;
+            }
+        } else {
+            // If move is an ep capture, handle it differently
+            if move_.is_ep_capture() {
+                if self.ep_target().is_none() || self.ep_pin() {
+                    return false;
+                }
+                let ep_target = self.ep_target().unwrap();
+                // If the to square is not the enpassant target or the pawn cannot legal move to that square, the move is illegal
+                if to != ep_target
+                    && (attacks(us, PieceType::Pawn, from, Bitboard::EMPTY) & to.bb()).is_empty()
+                {
+                    return false;
+                }
+                // Quiet pawn moves, so pushes and double pushes
+            } else if !move_.is_capture() {
+                // Double pushes should only start on relative rank 2
+                if move_.is_double_push() && from.relative(us).rank() != Rank::Rank2 {
+                    return false;
+                }
+                // Quiet pawn moves
+                let forward = us.forward();
+                let push_sq = unsafe { from.add_unchecked(forward) };
+                // The square in front should be clear
+                if all_occ.contains(push_sq) || (!move_.is_double_push() && push_sq != to) {
+                    return false;
+                }
+
+                if move_.is_double_push() {
+                    let double_push_sq = unsafe { push_sq.add_unchecked(forward) };
+                    if double_push_sq != to || all_occ.contains(double_push_sq) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // If the piece type is not a king, check if the destination blocks a check or captures the checker
+        if piece_type != PieceType::King {
+            if !self.check_mask().contains(to)
+                && !(move_.is_ep_capture() && self.check_mask().contains(self.ep_target().unwrap()))
+            {
+                return false;
+            }
+        // If the piece type is a king, check if the king is stepping into danger
+        } else {
+            return !self.attacked().contains(to);
+        }
+
+        let diag_pin = self.diag_pin();
+        let hv_pin = self.hv_pin();
+
+        // --- Flag the non king piece for one of 3 states ---
+        // If it is diagonally pinned, then the from and to square must be on the pin mask
+        let diag_pinned = diag_pin.contains(from) && diag_pin.contains(to);
+        // If it is vertically pinned, then the from and to square must be on the pin mask
+        let hv_pinned = hv_pin.contains(from) && hv_pin.contains(to);
+        // If its not pinned, then it can move wherever it wants
+        let not_pinned = !(diag_pin.contains(from) || hv_pin.contains(from));
+
+        return diag_pinned || hv_pinned || not_pinned;
+    }
 }
 
 #[cfg(test)]
@@ -678,7 +798,7 @@ mod tests {
         let captured_piece = if move_to_test.flag().is_capture() {
             Board::from_fen(fen_before).unwrap().on(move_to_test.to())
         } else if move_to_test.is_ep_capture() {
-            Some(Piece::from_parts(!board.side_to_move, PieceType::Pawn)) // After make_move, side is flipped
+            Some(Piece::from_parts(!board.stm(), PieceType::Pawn)) // After make_move, side is flipped
         } else {
             None
         };
