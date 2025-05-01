@@ -3,7 +3,6 @@ mod eval;
 mod movepick;
 mod search;
 mod thread;
-mod types;
 mod utils;
 
 pub use engine::*;

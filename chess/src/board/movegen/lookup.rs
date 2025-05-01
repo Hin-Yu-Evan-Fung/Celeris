@@ -540,6 +540,11 @@ pub fn sq_dist(sq1: Square, sq2: Square) -> u8 {
     unsafe { *DIST.get_unchecked(sq1 as usize).get_unchecked(sq2 as usize) }
 }
 
+#[inline]
+pub fn aligned(sq1: Square, sq2: Square, sq3: Square) -> bool {
+    line_bb(sq1, sq2).contains(sq3)
+}
+
 // Tests remain unchanged, but ensure they call init_all_tables() first if needed.
 #[cfg(test)]
 mod test {

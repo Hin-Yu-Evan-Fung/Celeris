@@ -7,8 +7,8 @@ use chess::Board;
 
 use crate::{
     TimeControl,
+    search::TT,
     search::{Clock, SearchWorker},
-    types::TT,
 };
 
 pub struct ThreadPool {
@@ -92,7 +92,7 @@ impl ThreadPool {
 #[cfg(test)]
 mod tests {
     use super::*; // Import ThreadPool, SearchWorker
-    use crate::types::TT; // Import TT
+    use crate::search::TT; // Import TT
     use std::sync::atomic::Ordering; // Import RwLock for TT
     use std::time::Duration;
 

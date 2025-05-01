@@ -176,13 +176,13 @@ mod tests {
         nodes
     }
 
-    // #[test]
-    // fn test_perft_bench() {
-    //     assert!(perft_bench());
-    // }
+    #[test]
+    fn test_perft_bench() {
+        assert!(perft_bench());
+    }
 
-    // #[test]
-    // fn test_hash_keys() {
-    //     perft_bench_with_key_check();
-    // }
+    #[test]
+    fn test_hash_keys() {
+        perft_bench_with_key_check();
+    }
 }

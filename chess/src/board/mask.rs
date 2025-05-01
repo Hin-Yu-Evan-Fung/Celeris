@@ -135,7 +135,7 @@ impl Board {
     // 8 Branches
     #[inline]
     fn calc_attacked_bb(&self) -> Bitboard {
-        let us = self.side_to_move;
+        let us = self.stm;
         let them = !us;
         // Occupancy excluding the friendly king for slider attack calculations.
         // This allows sliders to "see through" the friendly king's square.
@@ -192,7 +192,7 @@ impl Board {
     #[inline]
     #[rustfmt::skip]
     fn calc_pin_mask(&self) -> (Bitboard, Bitboard) {
-        let us = self.side_to_move;
+        let us = self.stm;
         let them = !us;
         let ksq = self.ksq(us); // King square of the side to move
 
@@ -263,7 +263,7 @@ impl Board {
     /// ```
     #[inline]
     fn calc_ep_pin(&self, ep_target: Square, attackers: Bitboard) -> bool {
-        let us = self.side_to_move;
+        let us = self.stm;
         let them = !us;
         let ksq = self.ksq(us); // King square of the side to move
         let all_occ = self.all_occupied_bb();
@@ -321,7 +321,7 @@ impl Board {
     // 5 branches
     #[inline]
     fn calc_check_mask(&self) -> Bitboard {
-        let us = self.side_to_move;
+        let us = self.stm;
         let ksq = self.ksq(us);
         let them = !us;
         let occ = self.all_occupied_bb(); // Use full occupancy for check detection
@@ -388,7 +388,7 @@ impl Board {
             (self.state.diag_pin, self.state.hv_pin) = self.calc_pin_mask();
 
             if let Some(ep_target) = self.ep_target() {
-                let our_pawns = self.piece_bb(self.side_to_move, PieceType::Pawn);
+                let our_pawns = self.piece_bb(self.stm, PieceType::Pawn);
 
                 let ep_target_bb = ep_target.bb();
 

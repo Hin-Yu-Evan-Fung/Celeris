@@ -1,4 +1,4 @@
-use crate::{TimeControl, thread::ThreadPool, types::TT};
+use crate::{TimeControl, search::TT, thread::ThreadPool};
 use chess::Board;
 use std::{
     sync::{Arc, atomic::AtomicBool},

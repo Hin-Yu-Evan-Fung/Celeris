@@ -175,7 +175,7 @@ impl Board {
 
         // --- 2. Side to Move ---
         fen.push(' ');
-        fen.push_str(match self.side_to_move {
+        fen.push_str(match self.stm {
             Colour::White => "w",
             Colour::Black => "b",
         });
@@ -472,8 +472,8 @@ impl Board {
     /// * `Err(FenParseError::InvalidSideToMove)`: If the string is not 'w' or 'b'.
     fn parse_side_to_move(&mut self, side_to_move: &str) -> Result<(), FenParseError> {
         match side_to_move {
-            "w" => self.side_to_move = Colour::White,
-            "b" => self.side_to_move = Colour::Black,
+            "w" => self.stm = Colour::White,
+            "b" => self.stm = Colour::Black,
             _ => return Err(FenParseError::InvalidSideToMove(side_to_move.to_string())),
         };
         Ok(())

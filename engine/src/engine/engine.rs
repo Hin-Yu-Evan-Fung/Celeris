@@ -13,8 +13,8 @@ use chess::{
 // Import local modules (evaluation, threading, transposition table).
 use crate::{
     eval::{calc_psqt, evaluate},
+    search::TT,
     thread::ThreadPool,
-    types::TT,
 };
 
 use super::command::EngineOption;

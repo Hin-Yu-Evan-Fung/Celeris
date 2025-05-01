@@ -2,11 +2,13 @@ mod clock;
 mod pv;
 mod search;
 mod stack;
+mod tt;
 
 pub use clock::Clock;
 pub use pv::PVLine;
 pub(crate) use search::SearchWorker;
 pub(crate) use stack::SearchStack;
+pub use tt::TT;
 
 const MIN_DEPTH: usize = 4;
 

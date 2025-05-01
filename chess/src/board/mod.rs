@@ -177,7 +177,7 @@ pub struct Board {
     half_moves: u16, // Renamed from fifty_move in BoardState for clarity, common practice
 
     /// Indicates which player's turn it is (White or Black).
-    side_to_move: Colour,
+    stm: Colour,
 
     /// Current board state
     pub state: BoardState,
@@ -214,7 +214,7 @@ impl Board {
             pieces: [Bitboard::EMPTY; PieceType::NUM],
             occupied: [Bitboard::EMPTY; Colour::NUM],
             castling_mask: CastlingMask::default(),
-            side_to_move: Colour::White,
+            stm: Colour::White,
             half_moves: 0,
             state: BoardState::default(),
             history: Vec::with_capacity(MAX_MOVES),
@@ -363,7 +363,7 @@ impl Board {
     /// ```
     #[inline]
     pub fn stm(&self) -> Colour {
-        self.side_to_move
+        self.stm
     }
 
     /// # Get half moves
@@ -417,7 +417,7 @@ impl Board {
     pub(crate) fn ep_target(&self) -> Option<Square> {
         self.state
             .enpassant
-            .map(|sq| unsafe { sq.add_unchecked(-self.side_to_move.forward()) })
+            .map(|sq| unsafe { sq.add_unchecked(-self.stm.forward()) })
     }
 
     /// # Get Rook Squares
