@@ -13,12 +13,6 @@ fn perft(board: &mut Board, depth: usize) -> usize {
     let mut nodes = 0;
 
     for move_ in move_list.iter() {
-        if !board.is_legal::<false>(*move_) {
-            println!("{}", board);
-            println!("Illegal move: {move_}");
-            board.is_legal::<true>(*move_);
-            panic!("Illegal move");
-        }
         board.make_move(*move_);
         nodes += perft(board, depth - 1);
         board.undo_move(*move_);
