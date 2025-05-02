@@ -1,36 +1,54 @@
-use chess::{Move, MoveFlag};
+use chess::{
+    Move, MoveFlag,
+    board::{CaptureGen, LegalGen, MoveList, QuietGen},
+};
 
-use crate::eval::Eval;
+use crate::{eval::Eval, search::SearchStats};
 
-use super::{Board, MoveStage, ScoredMoveList};
-
-// --- Move Ordering Scores ---
-const GOOD_TACTICAL: Eval = Eval(20000);
+use super::{Board, History, MoveStage};
 
 pub struct MovePicker<const SKIP_QUIET: bool> {
     pub stage: MoveStage,
-    tt_move: Option<Move>,
-    scored_move_list: ScoredMoveList,
-    capture_end: usize,
-    quiet_end: usize,
-    bad_captures_start: usize,
+    tt_move: Move,
+    killers: [Move; 2],
+    // list: ScoredMoveList,
+
+    // Scored move list items
+    move_list: MoveList,
+    scores: [Eval; 256],
+    index: usize,
+
+    quiet_start: usize,
+    bad_cap_end: usize,
 }
 
 impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
-    pub fn new() -> Self {
+    pub fn new(board: &Board, mut tt_move: Move, mut killers: [Move; 2]) -> Self {
+        // A valid killer must be legal and a non capture
+        if !killers[0].is_valid() || board.is_capture(killers[0]) || !board.is_legal(killers[0]) {
+            killers[0] = Move::NONE;
+        }
+
+        // A valid killer must be legal and a non capture
+        if !killers[1].is_valid() || board.is_capture(killers[1]) || !board.is_legal(killers[1]) {
+            killers[1] = Move::NONE;
+        }
+
         Self {
             stage: MoveStage::TTMove,
-            tt_move: None,
-            scored_move_list: ScoredMoveList::new(),
-            capture_end: 0,
-            quiet_end: 0,
-            bad_captures_start: 0,
+            tt_move,
+            killers,
+            move_list: MoveList::new(),
+            scores: [Eval::ZERO; 256],
+            index: 0,
+            quiet_start: 0,
+            bad_cap_end: 0,
         }
     }
 
-    fn score_captures(&mut self, board: &Board) {
-        for i in 0..self.capture_end {
-            let move_ = self.scored_move_list.move_list[i];
+    fn score_captures(&mut self, board: &Board, stats: &SearchStats) {
+        for i in 0..self.move_list.len() {
+            let move_ = self.move_list[i];
 
             let mut score = match move_.flag() {
                 MoveFlag::EPCapture => Eval(105),
@@ -45,63 +63,134 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
                 score += Eval(10000 + (move_.promotion_pt() as i16) * 1000);
             }
 
-            self.scored_move_list.set_score(i, score);
+            self.scores[i] = score;
         }
     }
-}
 
-impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
-    pub fn next(&mut self, board: &Board) -> Option<Move> {
+    fn score_quiets(&mut self, board: &Board, stats: &SearchStats) {
+        for i in self.quiet_start..self.move_list.len() {
+            let move_ = self.move_list[i];
+
+            self.scores[i] = stats.main_history.get(board, move_);
+        }
+    }
+
+    fn gen_quiets(&mut self, board: &Board, stats: &SearchStats) {
+        board.generate_moves::<QuietGen>(&mut self.move_list);
+
+        self.score_quiets(board, stats);
+        self.partial_sort(self.quiet_start, self.move_list.len());
+    }
+
+    fn gen_captures(&mut self, board: &Board, stats: &SearchStats) {
+        board.generate_moves::<CaptureGen>(&mut self.move_list);
+        self.quiet_start = self.move_list.len();
+        self.bad_cap_end = 0;
+
+        self.score_captures(board, stats);
+        self.partial_sort(0, self.quiet_start);
+    }
+
+    fn partial_sort(&mut self, start: usize, end: usize) {
+        for i in start..end {
+            let mut j = i;
+            let move_ = self.move_list[j];
+            let score = self.scores[j];
+
+            while j > start && self.scores[j - 1] < self.scores[j] {
+                self.move_list.swap(j, j - 1);
+                self.scores.swap(j, j - 1);
+                j -= 1;
+            }
+
+            self.scores[j] = score;
+            self.move_list[j] = move_;
+        }
+    }
+
+    fn next_best<F>(&mut self, end: usize, pred: F) -> Option<Move>
+    where
+        F: Fn(Move) -> bool,
+    {
+        let slice_len = end.saturating_sub(self.index); // How many items to potentially look at
+        let found = self
+            .move_list
+            .iter()
+            .skip(self.index)
+            .take(slice_len)
+            .enumerate()
+            .find(|&(_i, &m)| pred(m) && m != self.tt_move); // Find the first suitable move
+
+        // Update the main index based on whether a move was found
+        self.index = found.map_or(end, |(i, _m)| self.index + i + 1);
+
+        found.map(|(_, m)| *m) // Return the move itself if found
+    }
+
+    pub fn next(&mut self, board: &Board, stats: &SearchStats) -> Option<Move> {
+        let killers = self.killers;
+        let cap_pred = |_| true;
+        let quiet_pred = |move_: Move| move_ != killers[0] && move_ != killers[1];
+
         match self.stage {
             MoveStage::TTMove => {
-                if let Some(move_) = self.tt_move {
-                    Some(move_)
+                self.stage = MoveStage::GenCaptures;
+                if self.tt_move.is_valid() {
+                    Some(self.tt_move)
                 } else {
-                    self.stage = MoveStage::GenCaptures;
-                    self.next(board)
+                    self.next(board, stats)
                 }
             }
             MoveStage::GenCaptures => {
-                self.scored_move_list.generate_captures(board);
-                self.capture_end = self.scored_move_list.len();
-                self.bad_captures_start = self.capture_end;
-
-                self.score_captures(board);
-                self.scored_move_list.partial_sort(0, self.capture_end);
-
                 self.stage = MoveStage::GoodCaptures;
-                self.next(board)
+                self.gen_captures(board, stats);
+                self.next(board, stats)
             }
             MoveStage::GoodCaptures => {
-                if let Some(move_) = self.scored_move_list.next(self.capture_end) {
+                if let Some(move_) = self.next_best(self.move_list.len(), cap_pred) {
                     Some(move_)
                 } else {
                     self.stage = if SKIP_QUIET {
                         MoveStage::BadCaptures
                     } else {
-                        MoveStage::GenQuiets
+                        MoveStage::Killer1
                     };
-                    self.next(board)
+                    self.next(board, stats)
+                }
+            }
+            MoveStage::Killer1 => {
+                self.stage = MoveStage::Killer2;
+                if self.killers[0].is_valid() {
+                    Some(self.killers[0])
+                } else {
+                    self.next(board, stats)
+                }
+            }
+            MoveStage::Killer2 => {
+                self.stage = MoveStage::GenQuiets;
+                if self.killers[1].is_valid() {
+                    Some(self.killers[1])
+                } else {
+                    self.next(board, stats)
                 }
             }
             MoveStage::GenQuiets => {
-                self.scored_move_list.generate_quiets(board);
-                self.quiet_end = self.scored_move_list.len();
+                self.gen_quiets(board, stats);
 
                 self.stage = MoveStage::Quiets;
-                self.next(board)
+                self.next(board, stats)
             }
             MoveStage::Quiets => {
-                if let Some(move_) = self.scored_move_list.next(self.quiet_end) {
+                if let Some(move_) = self.next_best(self.move_list.len(), quiet_pred) {
                     Some(move_)
                 } else {
                     self.stage = MoveStage::BadCaptures;
-                    self.next(board)
+                    self.next(board, stats)
                 }
             }
             MoveStage::BadCaptures => {
-                self.scored_move_list.set_index(self.bad_captures_start);
-                if let Some(move_) = self.scored_move_list.next(self.capture_end) {
+                self.index = 0;
+                if let Some(move_) = self.next_best(self.bad_cap_end, cap_pred) {
                     Some(move_)
                 } else {
                     None
@@ -113,6 +202,8 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
 
 #[cfg(test)]
 mod tests {
+
+    use crate::search;
 
     use super::*;
 
@@ -168,11 +259,13 @@ mod tests {
             return move_list.len();
         }
 
-        let mut move_picker = MovePicker::<false>::new();
+        let mut move_picker =
+            MovePicker::<false>::new(&board, Move::NONE, [Move::NONE, Move::NONE]);
+        let mut search_stats = SearchStats::default();
 
         let mut nodes = 0;
 
-        while let Some(move_) = move_picker.next(board) {
+        while let Some(move_) = move_picker.next(board, &search_stats) {
             board.make_move(move_);
             nodes += perft(board, depth - 1);
             board.undo_move(move_);
@@ -198,9 +291,7 @@ mod tests {
                 "FAILED"
             };
 
-            if nodes != *expected_nodes {
-                passed = false;
-            }
+            assert!(nodes == *expected_nodes);
 
             let time = start.elapsed().as_millis();
 

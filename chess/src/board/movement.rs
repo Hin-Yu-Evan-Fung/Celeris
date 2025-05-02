@@ -593,6 +593,10 @@ impl Board {
     }
 
     pub fn is_legal(&self, move_: Move) -> bool {
+        if !move_.is_valid() {
+            return false;
+        }
+
         let us = self.stm;
 
         let from = move_.from();
@@ -632,12 +636,12 @@ impl Board {
         if move_.is_castle() {
             // if the to square is correct and the castling rights are set, then check if the king can actually castle
             if to.file() == File::FileG && self.castling().has(Castling::king_side(us)) {
-                return self.can_castle(Castling::king_side(us));
+                return !self.in_check() && self.can_castle(Castling::king_side(us));
             }
 
             // if the to square is correct and the castling rights are set, then check if the king can actually castle
             if to.file() == File::FileC && self.castling().has(Castling::queen_side(us)) {
-                return self.can_castle(Castling::queen_side(us));
+                return !self.in_check() && self.can_castle(Castling::queen_side(us));
             }
 
             return false;
@@ -708,6 +712,10 @@ impl Board {
         let not_pinned = !(diag_pin.contains(from) || hv_pin.contains(from));
 
         return diag_pinned || hv_pinned || not_pinned;
+    }
+
+    pub fn is_capture(&self, move_: Move) -> bool {
+        move_.is_valid() && self.on(move_.to()).is_some()
     }
 }
 

@@ -85,21 +85,37 @@ pub fn run_bench() {
     let mut total_nodes = 0;
     let mut total_time = 0;
 
+    tt.reset_age();
+    thread.clear_hash_table(&tt);
+
     for (i, fen) in FENS.iter().enumerate() {
         let mut board = Board::from_fen(fen).unwrap();
 
-        thread.clear_hash_table(&tt);
-
         let start = Instant::now();
 
-        thread.start_search(TimeControl::FixedDepth(SEARCH_DEPTH), &mut tt, &mut board);
+        thread.start_search(TimeControl::FixedDepth(SEARCH_DEPTH), &tt, &mut board);
 
         total_time += start.elapsed().as_micros();
+
+        println!("FEN: {i}");
         total_nodes += thread.nodes();
     }
+
+    let num_positions = FENS.len() as u64;
+    let avg_nodes_per_pos = total_nodes as f64 / num_positions as f64;
+    let depth = SEARCH_DEPTH as f64;
+    let avg_branch_factor = if avg_nodes_per_pos > 0.0 && depth > 0.0 {
+        avg_nodes_per_pos.powf(1.0 / depth)
+    } else {
+        0.0 // Avoid NaN if nodes or depth is zero
+    };
 
     println!(
         "{total_nodes} nodes {} nps",
         total_nodes * 1_000_000 / (total_time as u64).max(1)
+    );
+    println!(
+        "Average branching factor estimate: {:.2}",
+        avg_branch_factor
     );
 }

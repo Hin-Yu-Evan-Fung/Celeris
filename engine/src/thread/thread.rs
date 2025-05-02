@@ -47,6 +47,15 @@ impl ThreadPool {
         } else if new_size < current_size {
             self.workers.truncate(new_size - 1);
         }
+
+        self.reset();
+    }
+
+    pub fn reset(&mut self) {
+        self.main_worker.reset();
+        for worker in &mut self.workers {
+            worker.reset();
+        }
     }
 
     pub fn start_search(&mut self, time_control: TimeControl, tt: &TT, board: &Board) {
@@ -64,14 +73,14 @@ impl ThreadPool {
             let main_worker = &mut self.main_worker;
             let workers = &mut self.workers;
 
-            main_worker.reset();
+            main_worker.prepare_search();
             s.spawn(move || {
                 main_worker.setup(board_clone);
                 main_worker.start_search(tt);
             });
 
             for worker in workers {
-                worker.reset();
+                worker.prepare_search();
                 let board_clone = board.clone();
                 s.spawn(move || {
                     worker.setup(board_clone);
@@ -94,11 +103,12 @@ mod tests {
     use super::*; // Import ThreadPool, SearchWorker
     use crate::search::TT; // Import TT
     use std::sync::atomic::Ordering; // Import RwLock for TT
-    use std::time::Duration;
 
     // Helper to create a default TT wrapped for testing
     fn create_test_tt() -> TT {
-        TT::new()
+        let mut tt = TT::new();
+        tt.resize(1);
+        tt
     }
 
     // Helper to create a default stop signal for testing

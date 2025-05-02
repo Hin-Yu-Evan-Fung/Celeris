@@ -38,14 +38,6 @@ pub mod constants {
 
     // Search-related constants.
     pub const MAX_DEPTH: usize = MAX_MOVES;
-    /// Represents an infinitely high evaluation score (e.g., for alpha-beta bounds).
-    pub const INFINITY: Eval = Eval(32001);
-    /// Represents a checkmate score.
-    pub const MATE: Eval = Eval(32000);
-    /// The maximum number of plies to mate used for score adjustments.
-    pub const LONGEST_MATE: Eval = Eval(MAX_DEPTH as i16);
-    /// The evaluation score threshold below which a score is considered a mate.
-    pub const MATE_BOUND: Eval = MATE.sub(LONGEST_MATE);
 }
 
 /// The core engine controller that manages the board state, search threads, and handles commands.
@@ -60,8 +52,6 @@ pub(super) struct EngineController {
     tt: TT,
     /// Manages the pool of search worker threads.
     thread_pool: ThreadPool,
-    /// Shared atomic boolean used to signal the search threads to stop.
-    stop: Arc<AtomicBool>,
 }
 
 impl EngineController {
@@ -69,8 +59,7 @@ impl EngineController {
     /// `stop`: A shared `AtomicBool` used to signal termination.
     pub fn new(stop: Arc<AtomicBool>) -> Self {
         let tt = TT::default();
-        let nodes = Arc::new(AtomicU64::new(0));
-        let mut thread_pool = ThreadPool::new(Arc::clone(&stop));
+        let mut thread_pool = ThreadPool::new(stop);
 
         thread_pool.resize(constants::THREADS);
 
@@ -79,7 +68,6 @@ impl EngineController {
             board: Board::default(),
             tt,
             thread_pool,
-            stop,
         }
     }
 
@@ -123,6 +111,7 @@ impl EngineController {
     /// Handles the "ucinewgame" command: Resets the board to the default starting position.
     fn new_game(&mut self) {
         self.board = Board::default();
+        self.reset();
     }
 
     /// Resizes the transposition table.
@@ -145,6 +134,7 @@ impl EngineController {
             println!("info string Attempting to clear hash table...");
         }
 
+        self.tt.reset_age();
         self.thread_pool.clear_hash_table(&self.tt);
 
         if self.is_debug {
@@ -184,6 +174,7 @@ impl EngineController {
 
     /// Handles the "go" command: Starts the search process with the given time control.
     fn go(&mut self, time_control: TimeControl) {
+        self.tt.increment_age();
         self.thread_pool
             .start_search(time_control, &self.tt, &self.board);
     }
@@ -214,5 +205,11 @@ impl EngineController {
             "{}",
             evaluate(&self.board, &mut self.thread_pool.main_worker.pawn_table)
         )
+    }
+
+    fn reset(&mut self) {
+        self.thread_pool.reset();
+        self.tt.reset_age();
+        self.thread_pool.clear_hash_table(&self.tt);
     }
 }
