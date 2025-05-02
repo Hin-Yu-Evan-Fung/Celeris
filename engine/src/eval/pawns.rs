@@ -77,15 +77,15 @@ const PASSED: [Score; Rank::NUM] = [
 const CONNECTED: [i16; Rank::NUM] = [0, 0, 2, 5, 5, 10, 25, 40];
 const BLOCKED: Score = S!(5, 5);
 // Pawn shield penalties (applied per pawn structure defect)
-const PAWN_SHIELD_MISSING: Score = S!(10, 2); // Penalty for a missing pawn in the shield zone
-const PAWN_SHIELD_PUSHED_ONE: Score = S!(8, 4); // Penalty for a shield pawn pushed one square (rank+2)
-const PAWN_SHIELD_PUSHED_TWO: Score = S!(15, 8); // Penalty for a shield pawn pushed > one square (rank+3 or more)
-const PAWN_SHIELD_STORM_UNOPPOSED: Score = S!(15, 5); // Penalty for unopposed enemy pawn in shield zone
+const PAWN_SHIELD_MISSING: Score = S!(40, 2); // Penalty for a missing pawn in the shield zone
+const PAWN_SHIELD_PUSHED_ONE: Score = S!(15, 5); // Penalty for a shield pawn pushed one square (rank+2)
+const PAWN_SHIELD_PUSHED_TWO: Score = S!(20, 5); // Penalty for a shield pawn pushed > one square (rank+3 or more)
+const PAWN_SHIELD_STORM_UNOPPOSED: Score = S!(10, 5); // Penalty for unopposed enemy pawn in shield zone
 const PAWN_SHIELD_STORM_OPPOSED: Score = S!(10, 3); // Penalty for opposed enemy pawn in shield zone
 
 // Open file penalties (applied per relevant open/semi-open file near the king)
-const SEMI_OPEN_FILE_ADJACENT_KING: Score = S!(10, 3); // Penalty for semi-open file next to king with enemy heavy piece
-const OPEN_FILE_ADJACENT_KING: Score = S!(15, 5); // Penalty for fully open file next to king with enemy heavy piece
+const SEMI_OPEN_FILE_ADJACENT_KING: Score = S!(20, 3); // Penalty for semi-open file next to king with enemy heavy piece
+const OPEN_FILE_ADJACENT_KING: Score = S!(30, 5); // Penalty for fully open file next to king with enemy heavy piece
 
 impl PawnEntry {
     pub(super) fn eval_pawn(&mut self, us: Colour, board: &Board) -> Score {
@@ -172,9 +172,9 @@ impl PawnEntry {
 
         if (king_shield_area & our_pawns).is_empty() {
             shield_score -= PAWN_SHIELD_MISSING;
-        } else if (king_shield_area & expected_shield_rank1).is_empty() {
+        } else if (king_shield_area & expected_shield_rank1 & our_pawns).is_empty() {
             shield_score -= PAWN_SHIELD_PUSHED_ONE;
-        } else if (king_shield_area & expected_shield_rank2).is_empty() {
+        } else if (king_shield_area & expected_shield_rank2 & our_pawns).is_empty() {
             shield_score -= PAWN_SHIELD_PUSHED_TWO;
         }
 

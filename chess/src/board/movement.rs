@@ -593,6 +593,10 @@ impl Board {
     }
 
     pub fn is_legal(&self, move_: Move) -> bool {
+        if !move_.is_valid() {
+            return false;
+        }
+
         let us = self.stm;
 
         let from = move_.from();
@@ -708,6 +712,10 @@ impl Board {
         let not_pinned = !(diag_pin.contains(from) || hv_pin.contains(from));
 
         return diag_pinned || hv_pinned || not_pinned;
+    }
+
+    pub fn is_capture(&self, move_: Move) -> bool {
+        move_.is_valid() && self.on(move_.to()).is_some()
     }
 }
 

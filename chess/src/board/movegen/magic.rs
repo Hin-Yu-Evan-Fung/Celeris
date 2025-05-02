@@ -78,7 +78,9 @@ impl Magic {
     #[inline]
     pub(crate) const fn index(self, occ: Bitboard) -> usize {
         // Note: Using wrapping_mul for the multiplication as standard practice in magic bitboards.
-        ((occ.bitand(self.mask).0.wrapping_mul(self.magic)) >> self.shift) as usize + self.offset
+        ((occ.bitand(self.mask).0.wrapping_mul(self.magic)).wrapping_shr(self.shift as u32))
+            as usize
+            + self.offset
     }
 
     /// Calculates the index into the precomputed attack table. (Using PEXT instruction)

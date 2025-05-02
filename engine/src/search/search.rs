@@ -6,7 +6,7 @@ use std::sync::{
 use chess::{Board, Move};
 
 use crate::{
-    INFINITY,
+    History, INFINITY, KillerTable, MainHistory,
     engine::MAX_DEPTH,
     eval::{Eval, PawnTable, evaluate},
     movepick::MovePicker,
@@ -14,6 +14,12 @@ use crate::{
 };
 
 use super::{Clock, MIN_DEPTH, NodeType, NodeTypeTrait, PVNode, RootNode, TT};
+
+#[derive(Debug, Clone, Default)]
+pub struct SearchStats {
+    pub killers: KillerTable,
+    pub main_history: MainHistory,
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct SearchWorker {
@@ -27,6 +33,8 @@ pub(crate) struct SearchWorker {
     depth: usize,
     seldepth: usize,
     ply: u16,
+
+    stats: SearchStats,
 
     pv: PVLine,
     completed_depth: usize,
@@ -60,6 +68,7 @@ impl SearchWorker {
             cut_offs: 0,
             immediate_cut_offs: 0,
             pawn_table: PawnTable::new(),
+            stats: SearchStats::default(),
         }
     }
 
@@ -68,6 +77,11 @@ impl SearchWorker {
     }
 
     pub fn reset(&mut self) {
+        self.stats.main_history.clear();
+        self.stats.killers.clear();
+    }
+
+    pub fn prepare_search(&mut self) {
         self.stack.clear();
         self.clock.last_nodes = 0;
         self.nodes = 0;
@@ -234,17 +248,23 @@ impl SearchWorker {
         self.update_seldepth::<NT>();
         let mut child_pv = PVLine::default();
         pv.clear();
+        self.stats.killers.clear_child(self.ply);
 
         if self.is_draw::<NT>() {
             return Eval::ZERO;
         }
 
         let mut best_value = -INFINITY;
+        let mut best_move = Move::NONE;
         let mut move_count = 0;
 
-        let mut move_picker = MovePicker::<false>::new();
+        let killers = self.get_killer_moves(self.ply);
 
-        while let Some(move_) = move_picker.next(&self.board) {
+        let mut move_picker =
+            MovePicker::<false>::new(&self.board, Move::NONE, killers[0], killers[1]);
+        // MovePicker::<false>::new(&self.board, Move::NONE, Move::NONE, Move::NONE);
+
+        while let Some(move_) = move_picker.next(&self.board, &self.stats) {
             // Update number of moves searched in this node
             move_count += 1;
 
@@ -284,6 +304,7 @@ impl SearchWorker {
                 // We found a new best move sequence overall.
                 pv.update_line(move_, &child_pv); // Update the Principal Variation (best move sequence).
 
+                best_move = move_; // Update the best move.
                 alpha = value; // Update alpha: Raise the lower bound of our guaranteed score.
             }
         }
@@ -294,6 +315,8 @@ impl SearchWorker {
             } else {
                 Eval::ZERO
             };
+        } else if best_move.is_valid() && !best_move.is_capture() {
+            self.update_search_stats(best_move, depth);
         }
 
         best_value
@@ -365,11 +388,12 @@ impl SearchWorker {
 
         // --- Generate and Explore Captures Only ---
         // The generic parameter 'true' tells MovePicker to skip quiet moves.
-        let mut move_picker = MovePicker::<true>::new();
+        let mut move_picker =
+            MovePicker::<true>::new(&self.board, Move::NONE, Move::NONE, Move::NONE);
 
         let mut move_count = 0;
 
-        while let Some(move_) = move_picker.next(&self.board) {
+        while let Some(move_) = move_picker.next(&self.board, &self.stats) {
             move_count += 1;
 
             self.make_move(move_); // Make the capture
@@ -427,6 +451,20 @@ impl SearchWorker {
         } else {
             self.seldepth.max(self.ply as usize)
         };
+    }
+
+    fn update_search_stats(&mut self, best_move: Move, depth: usize) {
+        self.stats.killers.update(self.ply, best_move);
+
+        let bonus = (depth * depth) as i16;
+
+        self.stats
+            .main_history
+            .update(&self.board, best_move, bonus);
+    }
+
+    fn get_killer_moves(&self, ply: u16) -> [Move; 2] {
+        self.stats.killers.get(ply)
     }
 
     fn is_draw<NT: NodeTypeTrait>(&mut self) -> bool {

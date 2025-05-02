@@ -123,6 +123,7 @@ impl EngineController {
     /// Handles the "ucinewgame" command: Resets the board to the default starting position.
     fn new_game(&mut self) {
         self.board = Board::default();
+        self.reset();
     }
 
     /// Resizes the transposition table.
@@ -214,5 +215,10 @@ impl EngineController {
             "{}",
             evaluate(&self.board, &mut self.thread_pool.main_worker.pawn_table)
         )
+    }
+
+    fn reset(&mut self) {
+        self.thread_pool.reset();
+        self.thread_pool.clear_hash_table(&self.tt);
     }
 }

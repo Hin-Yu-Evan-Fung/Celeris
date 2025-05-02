@@ -7,4 +7,5 @@ mod utils;
 
 pub use engine::*;
 pub use movepick::*;
+pub use search::*;
 pub use utils::run_bench;
