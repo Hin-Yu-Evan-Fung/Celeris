@@ -6,7 +6,7 @@ pub use eval::evaluate;
 pub use pawns::PawnTable;
 pub use psqt::calc_psqt;
 
-use crate::{MATE, MATE_BOUND};
+use crate::MAX_DEPTH;
 use macros::AriOps;
 
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, AriOps)]
@@ -14,13 +14,46 @@ pub struct Eval(pub i16);
 
 impl Eval {
     pub const ZERO: Eval = Eval(0);
+    pub const DRAW: Eval = Eval(0);
+    /// Represents an infinitely high evaluation score (e.g., for alpha-beta bounds).
+    pub const INFINITY: Eval = Eval(32001);
+    /// Represents a checkmate score.
+    pub const MATE: Eval = Eval(32000);
+    /// The maximum number of plies to mate used for score adjustments.
+    pub const LONGEST_MATE: Eval = Eval(MAX_DEPTH as i16);
+    /// The evaluation score threshold below which a score is considered a mate.
+    pub const MATE_BOUND: Eval = Self::MATE.sub(Self::LONGEST_MATE);
 
     pub fn mated_in(ply: u16) -> Eval {
-        -MATE + Eval(ply as i16)
+        -Self::MATE + Eval(ply as i16)
     }
 
     pub fn mate_in(ply: u16) -> Eval {
-        MATE - Eval(ply as i16)
+        Self::MATE - Eval(ply as i16)
+    }
+
+    pub fn from_tt(&self, ply: u16) -> Eval {
+        let ply = Eval(ply as i16);
+
+        if *self >= Self::MATE_BOUND {
+            *self - ply
+        } else if *self <= -Self::MATE_BOUND {
+            *self + ply
+        } else {
+            *self
+        }
+    }
+
+    pub fn to_tt(&self, ply: u16) -> Eval {
+        let ply = Eval(ply as i16);
+
+        if *self >= Self::MATE_BOUND {
+            *self + ply
+        } else if *self <= -Self::MATE_BOUND {
+            *self - ply
+        } else {
+            *self
+        }
     }
 }
 
@@ -42,8 +75,8 @@ impl std::ops::Neg for Eval {
 
 impl std::fmt::Display for Eval {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.0.abs() >= MATE_BOUND.0 {
-            let moves_to_mate = (MATE.0 - self.0.abs() + 1) / 2;
+        if self.0.abs() >= Self::MATE_BOUND.0 {
+            let moves_to_mate = (Self::MATE.0 - self.0.abs() + 1) / 2;
             if self.0 > 0 {
                 write!(f, "mate +{}", moves_to_mate)
             } else {

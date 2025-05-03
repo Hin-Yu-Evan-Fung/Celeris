@@ -3,11 +3,11 @@ resolver = "3"
 members = ["chess", "macros", "engine"]
 
 [profile.release]
-opt-level = 3         # Optimize for speed
-lto = "fat"           # Heavy link-time optimization
-codegen-units = 1     # Only one codegen unit so we don't miss optimizations
-target-cpu = "native" # Enable CPU-specific optimizations
-incremental = false   # Enable aggressive inlining
-# panic = "abort"            # Enable panic=abort for smaller binary size
+opt-level = 3              # Optimize for speed
+lto = "fat"                # Heavy link-time optimization
+codegen-units = 1          # Only one codegen unit so we don't miss optimizations
+target-cpu = "native"      # Enable CPU-specific optimizations
+incremental = false        # Enable aggressive inlining
+panic = "abort"            # Enable panic=abort for smaller binary size
 overflow-checks = true     # Enable overflow checks in debug mode
 debug = "line-tables-only" # Enable debug mode

@@ -7,13 +7,4 @@ fn main() {
         Some("bench") => run_bench(),
         _ => UCI::init(),
     }
-
-    // let mut board = Board::from_fen(TRICKY_FEN).unwrap();
-
-    // let mut move_picker = MovePicker::<false>::new();
-    // let mut search_stats = SearchStats::default();
-
-    // while let Some(move_) = move_picker.next(&board, &mut search_stats) {
-    //     println!("{move_}");
-    // }
 }

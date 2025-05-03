@@ -2,7 +2,6 @@ use chess::{Board, Colour};
 
 use super::psqt::{calc_game_phase, calc_psqt};
 use super::{Eval, PawnTable};
-use crate::MATE;
 
 pub fn evaluate(board: &Board, pawn_table: &mut PawnTable) -> Eval {
     let mut score = calc_psqt(board);
@@ -21,7 +20,7 @@ pub fn evaluate(board: &Board, pawn_table: &mut PawnTable) -> Eval {
 
     let eval = (weighted_mg + weighted_eg) / 24;
 
-    let v = Eval(eval.clamp(-MATE.0 as i64, MATE.0 as i64) as i16);
+    let v = Eval(eval.clamp(-Eval::MATE.0 as i64, Eval::MATE.0 as i64) as i16);
 
     if board.stm() == Colour::White { v } else { -v }
 }

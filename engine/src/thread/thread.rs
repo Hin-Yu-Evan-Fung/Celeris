@@ -103,11 +103,12 @@ mod tests {
     use super::*; // Import ThreadPool, SearchWorker
     use crate::search::TT; // Import TT
     use std::sync::atomic::Ordering; // Import RwLock for TT
-    use std::time::Duration;
 
     // Helper to create a default TT wrapped for testing
     fn create_test_tt() -> TT {
-        TT::new()
+        let mut tt = TT::new();
+        tt.resize(1);
+        tt
     }
 
     // Helper to create a default stop signal for testing

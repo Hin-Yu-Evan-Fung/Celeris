@@ -85,14 +85,15 @@ pub fn run_bench() {
     let mut total_nodes = 0;
     let mut total_time = 0;
 
+    tt.reset_age();
+    thread.clear_hash_table(&tt);
+
     for (i, fen) in FENS.iter().enumerate() {
         let mut board = Board::from_fen(fen).unwrap();
 
-        thread.clear_hash_table(&tt);
-
         let start = Instant::now();
 
-        thread.start_search(TimeControl::FixedDepth(SEARCH_DEPTH), &mut tt, &mut board);
+        thread.start_search(TimeControl::FixedDepth(SEARCH_DEPTH), &tt, &mut board);
 
         total_time += start.elapsed().as_micros();
 

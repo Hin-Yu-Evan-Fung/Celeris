@@ -636,12 +636,12 @@ impl Board {
         if move_.is_castle() {
             // if the to square is correct and the castling rights are set, then check if the king can actually castle
             if to.file() == File::FileG && self.castling().has(Castling::king_side(us)) {
-                return self.can_castle(Castling::king_side(us));
+                return !self.in_check() && self.can_castle(Castling::king_side(us));
             }
 
             // if the to square is correct and the castling rights are set, then check if the king can actually castle
             if to.file() == File::FileC && self.castling().has(Castling::queen_side(us)) {
-                return self.can_castle(Castling::queen_side(us));
+                return !self.in_check() && self.can_castle(Castling::queen_side(us));
             }
 
             return false;
