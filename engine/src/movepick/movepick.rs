@@ -23,7 +23,7 @@ pub struct MovePicker<const SKIP_QUIET: bool> {
 }
 
 impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
-    pub fn new(board: &Board, mut tt_move: Move, mut killers: [Move; 2]) -> Self {
+    pub fn new(board: &Board, tt_move: Move, mut killers: [Move; 2]) -> Self {
         // A valid killer must be legal and a non capture
         if !killers[0].is_valid() || board.is_capture(killers[0]) || !board.is_legal(killers[0]) {
             killers[0] = Move::NONE;

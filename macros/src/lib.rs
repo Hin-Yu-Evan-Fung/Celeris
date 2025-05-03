@@ -276,7 +276,43 @@ pub fn derive_from_primitive(input: TokenStream) -> TokenStream {
         }
     };
 
+    let expanded = if can_convert_to_usize(&repr_type) {
+        // If the repr type is u8, add a `#[inline(always)]` attribute to the `from` method
+        // to encourage inlining for performance reasons.
+        quote! {
+            #expanded
+
+            impl #name {
+                #[inline(always)]
+                pub const fn index(&self) -> usize {
+                    // Use the `from` method to convert the enum variant to its primitive representation
+                    // and then cast it to usize for indexing.
+                    *self as #repr_type as usize
+                }
+            }
+        }
+    } else {
+        expanded
+    };
+
     TokenStream::from(expanded)
+}
+
+fn can_convert_to_usize(ty: &syn::Type) -> bool {
+    // Check if the type is a primitive integer type and unsigned
+    match ty {
+        syn::Type::Path(type_path) => {
+            if let Some(segment) = type_path.path.segments.last() {
+                match segment.ident.to_string().as_str() {
+                    "u8" | "u16" | "u32" | "usize" => true,
+                    _ => false,
+                }
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
 }
 
 /// ## Bit Operations Implementation Helper (Internal)

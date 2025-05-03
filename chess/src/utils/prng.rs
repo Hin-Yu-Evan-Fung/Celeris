@@ -242,7 +242,7 @@ mod tests {
                 let bb = random_bitboard(&mut prng);
                 for sq in Square::iter() {
                     if bb.contains(sq) {
-                        acc[sq as usize] += 1;
+                        acc[sq.index()] += 1;
                     }
                 }
             }

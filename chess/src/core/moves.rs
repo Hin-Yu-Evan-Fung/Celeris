@@ -286,7 +286,7 @@ impl Move {
 
     /// Gets the type of piece this move promotes to, if it's a promotion move.
     ///
-    /// Returns `None` if the move is not a promotion.
+    /// Panicks if the move is not a promotion.
     #[inline(always)]
     pub const fn promotion_pt(&self) -> PieceType {
         // Get the flag (if valid) and then get its promotion piece type

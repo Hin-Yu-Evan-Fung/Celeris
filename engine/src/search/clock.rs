@@ -164,7 +164,7 @@ impl Clock {
             TimeControl::FixedTime(_) | TimeControl::Variable { .. } => {
                 // let opt_scale = if best_move.is_valid() && nodes != 0 {
                 //     let bm_nodes =
-                //         self.node_count[best_move.from() as usize][best_move.to() as usize];
+                //         self.node_count[best_move.from().index()][best_move.to().index()];
                 //     let bm_fraction = bm_nodes as f64 / nodes as f64;
 
                 //     (0.4 + (1.0 - bm_fraction) * 2.0 as f64).max(0.5)

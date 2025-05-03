@@ -115,143 +115,38 @@ const DIST: DistanceTable = init_dist_table();
 |==========================================|
 \******************************************/
 
-/// Gets the precomputed attack `Bitboard` for a pawn.
-///
-/// This returns the squares a pawn of the given `Colour` on the given `Square`
-/// would attack (i.e., the squares it could capture on). It does not consider
-/// whether pieces are present on the target squares.
-///
-/// # Arguments
-/// * `col`: The `Colour` of the pawn.
-/// * `sq`: The `Square` the pawn is on.
-///
-/// # Returns
-/// A `Bitboard` representing the squares attacked by the pawn.
-///
-/// # Example
-/// ```rust
-/// use chess::core::{Bitboard, Colour, Square};
-/// use chess::movegen::lookup::pawn_attack; // Removed init_all_tables
-///
-/// // init_all_tables(); // Removed call
-///
-/// let white_pawn_attacks_e4 = pawn_attack(Colour::White, Square::E4);
-/// // White pawn on E4 attacks D5 and F5
-/// assert_eq!(white_pawn_attacks_e4, Bitboard::from([Square::D5, Square::F5]));
-///
-/// let black_pawn_attacks_d5 = pawn_attack(Colour::Black, Square::D5);
-/// // Black pawn on D5 attacks C4 and E4
-/// assert_eq!(black_pawn_attacks_d5, Bitboard::from([Square::C4, Square::E4]));
-/// ```
 #[inline]
-fn pawn_attack(col: Colour, sq: Square) -> Bitboard {
+pub fn pawn_attack(col: Colour, sq: Square) -> Bitboard {
     unsafe {
         *PAWN_ATTACKS
-            .get_unchecked(col as usize)
-            .get_unchecked(sq as usize)
+            .get_unchecked(col.index())
+            .get_unchecked(sq.index())
     }
 }
 
-/// Gets the precomputed attack `Bitboard` for a "leaper" piece (Knight or King).
-///
-/// Leaper pieces jump directly to their destination squares, ignoring any
-/// intervening pieces. This function returns the set of squares attacked
-/// by the specified piece type from the given square.
-///
-/// # Arguments
-/// * `pt`: The `PieceType` (must be `Knight` or `King`).
-/// * `sq`: The `Square` the piece is on.
-///
-/// # Returns
-/// A `Bitboard` representing the squares attacked by the piece.
-///
-/// # Panics
-/// Panics if `pt` is not `PieceType::Knight` or `PieceType::King`.
-///
-/// # Example
-/// ```rust
-/// use chess::core::{Bitboard, PieceType, Square};
-/// use chess::movegen::lookup::leaper_attack; // Removed init_all_tables
-///
-/// // init_all_tables(); // Removed call
-///
-/// let knight_attacks_g1 = leaper_attack(PieceType::Knight, Square::G1);
-/// // Knight on G1 attacks F3 and H3
-/// assert!(knight_attacks_g1.get(Square::F3));
-/// assert!(knight_attacks_g1.get(Square::H3));
-/// assert!(!knight_attacks_g1.get(Square::G3)); // Does not attack G3
-///
-/// let king_attacks_e1 = leaper_attack(PieceType::King, Square::E1);
-/// // King on E1 attacks D1, D2, E2, F2, F1
-/// assert!(king_attacks_e1.get(Square::D1));
-/// assert!(king_attacks_e1.get(Square::D2));
-/// assert!(king_attacks_e1.get(Square::E2));
-/// assert!(king_attacks_e1.get(Square::F2));
-/// assert!(king_attacks_e1.get(Square::F1));
-/// ```
 #[inline]
-fn leaper_attack(pt: PieceType, sq: Square) -> Bitboard {
-    // Safety (The arrays are intialise at constant time and the input types already constrain access enough)
-    match pt {
-        PieceType::Knight => KNIGHT_ATTACKS[sq as usize],
-        PieceType::King => KING_ATTACKS[sq as usize],
-        _ => unreachable!(),
-    }
+pub fn knight_attack(sq: Square) -> Bitboard {
+    unsafe { *KNIGHT_ATTACKS.get_unchecked(sq.index()) }
 }
 
-/// Gets the attack `Bitboard` for a sliding piece (Bishop, Rook, or Queen).
-///
-/// This function calculates the squares attacked by a sliding piece from a
-/// given square, considering blocking pieces represented by the occupancy bitboard.
-/// It uses precomputed magic bitboard tables for efficiency.
-///
-/// # Arguments
-/// * `pt`: The `PieceType` (must be `Bishop`, `Rook`, or `Queen`).
-/// * `sq`: The `Square` the sliding piece is on.
-/// * `occ`: A `Bitboard` representing all occupied squares on the board (including
-///   pieces of both colours). The attacking piece itself should typically *not* be
-///   included in `occ` for attack generation, but blockers are.
-///
-/// # Returns
-/// A `Bitboard` representing the squares attacked by the slider, blocked by `occ`.
-///
-/// # Panics
-/// Panics if `pt` is not `PieceType::Bishop`, `PieceType::Rook`, or `PieceType::Queen`.
-///
-/// # Example
-/// ```rust
-/// use chess::core::{Bitboard, PieceType, Square};
-/// use chess::movegen::lookup::slider_attack; // Removed init_all_tables
-///
-/// // init_all_tables(); // Removed call
-///
-/// // Rook on A1, blocker on A4
-/// let occupancy = Bitboard::from_square(Square::A4);
-/// let rook_attacks = slider_attack(PieceType::Rook, Square::A1, occupancy);
-/// // Attacks A2, A3, and captures A4. Does not attack beyond A4.
-/// assert!(rook_attacks.get(Square::A2));
-/// assert!(rook_attacks.get(Square::A3));
-/// assert!(rook_attacks.get(Square::A4)); // Can capture blocker
-/// assert!(!rook_attacks.get(Square::A5)); // Blocked
-/// assert!(!rook_attacks.get(Square::B1)); // Only attacks along rank/file
-///
-/// // Queen on D4, empty board
-/// let queen_attacks = slider_attack(PieceType::Queen, Square::D4, Bitboard::EMPTY);
-/// // Queen attacks like a rook and bishop combined
-/// assert!(queen_attacks.get(Square::D8)); // Rank
-/// assert!(queen_attacks.get(Square::H4)); // File
-/// assert!(queen_attacks.get(Square::A7)); // Diagonal
-/// assert!(queen_attacks.get(Square::G1)); // Diagonal
-/// ```
 #[inline]
-fn slider_attack(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
-    // Magic bitboard lookups are designed to be safe.
-    match pt {
-        PieceType::Bishop => bishop_attacks(sq, occ),
-        PieceType::Rook => rook_attacks(sq, occ),
-        PieceType::Queen => bishop_attacks(sq, occ).bitor(rook_attacks(sq, occ)),
-        _ => unreachable!(),
-    }
+pub fn king_attack(sq: Square) -> Bitboard {
+    unsafe { *KING_ATTACKS.get_unchecked(sq.index()) }
+}
+
+#[inline]
+pub fn bishop_attacks(sq: Square, occ: Bitboard) -> Bitboard {
+    unsafe { *BISHOP_TABLE.get_unchecked(BISHOP_MAGICS[sq.index()].index(occ)) }
+}
+
+#[inline]
+pub fn rook_attacks(sq: Square, occ: Bitboard) -> Bitboard {
+    unsafe { *ROOK_TABLE.get_unchecked(ROOK_MAGICS[sq.index()].index(occ)) }
+}
+
+#[inline]
+pub fn queen_attacks(sq: Square, occ: Bitboard) -> Bitboard {
+    bishop_attacks(sq, occ) | rook_attacks(sq, occ)
 }
 
 /// Gets the attack `Bitboard` for a piece
@@ -281,19 +176,12 @@ fn slider_attack(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
 pub fn attacks(col: Colour, pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
     match pt {
         PieceType::Pawn => pawn_attack(col, sq),
-        PieceType::Knight | PieceType::King => leaper_attack(pt, sq),
-        PieceType::Bishop | PieceType::Rook | PieceType::Queen => slider_attack(pt, sq, occ),
+        PieceType::Knight => knight_attack(sq),
+        PieceType::King => king_attack(sq),
+        PieceType::Bishop => bishop_attacks(sq, occ),
+        PieceType::Rook => rook_attacks(sq, occ),
+        PieceType::Queen => queen_attacks(sq, occ),
     }
-}
-
-#[inline]
-fn bishop_attacks(sq: Square, occ: Bitboard) -> Bitboard {
-    unsafe { *BISHOP_TABLE.get_unchecked(BISHOP_MAGICS.get_unchecked(sq as usize).index(occ)) }
-}
-
-#[inline]
-fn rook_attacks(sq: Square, occ: Bitboard) -> Bitboard {
-    unsafe { *ROOK_TABLE.get_unchecked(ROOK_MAGICS.get_unchecked(sq as usize).index(occ)) }
 }
 
 /******************************************\
@@ -341,11 +229,7 @@ fn rook_attacks(sq: Square, occ: Bitboard) -> Bitboard {
 /// ```
 #[inline]
 pub fn line_bb(from: Square, to: Square) -> Bitboard {
-    unsafe {
-        *LINE_BB
-            .get_unchecked(from as usize)
-            .get_unchecked(to as usize)
-    }
+    LINE_BB[from.index()][to.index()]
 }
 
 /// Gets the `Bitboard` representing the squares strictly between two squares.
@@ -388,11 +272,7 @@ pub fn line_bb(from: Square, to: Square) -> Bitboard {
 /// ```
 #[inline]
 pub fn between_bb(from: Square, to: Square) -> Bitboard {
-    unsafe {
-        *BETWEEN_BB
-            .get_unchecked(from as usize)
-            .get_unchecked(to as usize)
-    }
+    BETWEEN_BB[from.index()][to.index()]
 }
 
 /// Gets the `Bitboard` representing valid destination squares along the pin line for a pinned piece.
@@ -443,11 +323,7 @@ pub fn between_bb(from: Square, to: Square) -> Bitboard {
 /// ```
 #[inline]
 pub fn pin_bb(king: Square, pinner: Square) -> Bitboard {
-    unsafe {
-        *PIN_BB
-            .get_unchecked(king as usize)
-            .get_unchecked(pinner as usize)
-    }
+    PIN_BB[king.index()][pinner.index()]
 }
 
 /// Gets the `Bitboard` representing squares the king cannot move to along the line of attack when checked by a sliding piece.
@@ -504,11 +380,7 @@ pub fn pin_bb(king: Square, pinner: Square) -> Bitboard {
 /// ```
 #[inline]
 pub fn check_bb(king: Square, checker: Square) -> Bitboard {
-    unsafe {
-        *CHECK_BB
-            .get_unchecked(king as usize)
-            .get_unchecked(checker as usize)
-    }
+    CHECK_BB[king.index()][checker.index()]
 }
 
 /// Gets the Chebyshev distance (also known as maximum norm or king distance) between two squares.
@@ -537,7 +409,7 @@ pub fn check_bb(king: Square, checker: Square) -> Bitboard {
 /// ```
 #[inline]
 pub fn sq_dist(sq1: Square, sq2: Square) -> u8 {
-    unsafe { *DIST.get_unchecked(sq1 as usize).get_unchecked(sq2 as usize) }
+    DIST[sq1.index()][sq2.index()]
 }
 
 #[inline]
@@ -591,7 +463,7 @@ mod test {
     fn test_knight_attacks() {
         // ensure_init(); // Removed call
         for sq in Square::iter() {
-            let attack = leaper_attack(PieceType::Knight, sq);
+            let attack = knight_attack(sq);
             let sq_bb = sq.bb();
             let naive_attack = Bitboard::shift(&sq_bb, Direction::NNE)
                 | Bitboard::shift(&sq_bb, Direction::NNW)
@@ -609,7 +481,7 @@ mod test {
     fn test_king_attacks() {
         // ensure_init(); // Removed call
         for sq in Square::iter() {
-            let attack = leaper_attack(PieceType::King, sq);
+            let attack = king_attack(sq);
             let sq_bb = sq.bb();
             let naive_attack = Bitboard::shift(&sq_bb, Direction::N)
                 | Bitboard::shift(&sq_bb, Direction::NE)
@@ -634,7 +506,7 @@ mod test {
 
             for sq in Square::iter() {
                 occ.clear(sq); // Attacker doesn't block itself
-                let attack = slider_attack(PieceType::Bishop, sq, occ);
+                let attack = bishop_attacks(sq, occ);
                 let naive_attack = attacks_on_the_fly(PieceType::Bishop, sq, occ);
                 assert_eq!(
                     attack, naive_attack,
@@ -656,7 +528,7 @@ mod test {
 
             for sq in Square::iter() {
                 occ.clear(sq);
-                let attack = slider_attack(PieceType::Rook, sq, occ);
+                let attack = rook_attacks(sq, occ);
                 let naive_attack = attacks_on_the_fly(PieceType::Rook, sq, occ);
                 assert_eq!(
                     attack, naive_attack,
@@ -678,7 +550,7 @@ mod test {
 
             for sq in Square::iter() {
                 occ.clear(sq);
-                let attack = slider_attack(PieceType::Queen, sq, occ);
+                let attack = queen_attacks(sq, occ);
                 let naive_attack = attacks_on_the_fly(PieceType::Bishop, sq, occ)
                     | attacks_on_the_fly(PieceType::Rook, sq, occ);
                 assert_eq!(

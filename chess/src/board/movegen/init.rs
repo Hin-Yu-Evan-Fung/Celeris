@@ -48,7 +48,7 @@ const fn populate_line_bb(table: &mut SquarePairTable, pt: PieceType, from: Squa
     while !bb.is_empty() {
         let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
-        table[from as usize][to as usize] = line_bb(pt, from, to);
+        table[from.index()][to.index()] = line_bb(pt, from, to);
     }
 }
 
@@ -87,7 +87,7 @@ const fn populate_between_bb(table: &mut SquarePairTable, pt: PieceType, from: S
     while !bb.is_empty() {
         let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
-        table[from as usize][to as usize] = between_bb(pt, from, to);
+        table[from.index()][to.index()] = between_bb(pt, from, to);
     }
 }
 
@@ -126,7 +126,7 @@ const fn populate_pin_bb(table: &mut SquarePairTable, pt: PieceType, from: Squar
     while !bb.is_empty() {
         let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
-        table[from as usize][to as usize] = pin_bb(pt, from, to);
+        table[from.index()][to.index()] = pin_bb(pt, from, to);
     }
 }
 
@@ -175,7 +175,7 @@ const fn populate_check_bb(table: &mut SquarePairTable, pt: PieceType, from: Squ
     while !bb.is_empty() {
         let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
-        table[from as usize][to as usize] = check_bb(pt, from, to);
+        table[from.index()][to.index()] = check_bb(pt, from, to);
     }
 }
 
@@ -208,7 +208,7 @@ pub(super) const fn init_check_bb_table() -> SquarePairTable {
 //     let to_ray = attacks_on_the_fly(pt, to, from.bb()); // Ray from king towards attacker
 //     let between = from_ray & to_ray; // Squares between attacker and king
 
-//     table[from as usize][to as usize] = between | from.bb(); // Include the 'from' square (attacker)
+//     table[from.index()][to.index()] = between | from.bb(); // Include the 'from' square (attacker)
 // }
 
 /// Initializes the Chebyshev distance table.

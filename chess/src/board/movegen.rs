@@ -52,7 +52,10 @@ mod lookup;
 mod magic;
 mod move_list;
 
-pub use lookup::{aligned, attacks, pin_bb, sq_dist};
+pub use lookup::{
+    aligned, attacks, bishop_attacks, king_attack, knight_attack, pawn_attack, pin_bb,
+    queen_attacks, rook_attacks, sq_dist,
+};
 
 pub use move_list::MoveList;
 

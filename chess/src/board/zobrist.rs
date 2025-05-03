@@ -75,7 +75,7 @@ impl KeyBundle {
         if piece.pt() as u8 == PieceType::Pawn as u8 {
             self.pawn_key ^= piece_key(piece, sq);
         } else {
-            self.non_pawn_key[piece.colour() as usize] ^= piece_key(piece, sq);
+            self.non_pawn_key[piece.colour().index()] ^= piece_key(piece, sq);
         }
 
         self.key ^= piece_key(piece, sq);
@@ -128,8 +128,8 @@ impl KeyBundle {
 pub struct ZobristTable {
     /// Stores a unique key for each piece type on each square.
     /// Indexed as `pieces[piece_index][square_index]`.
-    /// `piece_index` typically corresponds to `Piece as usize`.
-    /// `square_index` typically corresponds to `Square as usize`.
+    /// `piece_index` typically corresponds to `piece.index()`.
+    /// `square_index` typically corresponds to `Square.index()`.
     pub pieces: [[Key; Square::NUM]; Piece::NUM], // Piece::NUM = 12, Square::NUM = 64
 
     /// A single key that is XORed into the board's hash if it's Black's turn to move.
@@ -138,13 +138,13 @@ pub struct ZobristTable {
 
     /// Stores keys corresponding to combinations of castling rights.
     /// Indexed directly by the `Castling` bitmask value (0-15).
-    /// `castling[castling_rights as usize]`.
-    /// For example, `castling[Castling::WK as usize]` holds the key for White kingside rights.
-    /// `castling[Castling::ALL as usize]` holds the key for all four rights (WK | WQ | BK | BQ).
+    /// `castling[castling_rights.index()]`.
+    /// For example, `castling[Castling::WK.index()]` holds the key for White kingside rights.
+    /// `castling[Castling::ALL.index()]` holds the key for all four rights (WK | WQ | BK | BQ).
     pub castling: [Key; Castling::NUM], // Castling::NUM = 16
 
     /// Stores keys corresponding to the *file* of a potential en passant target square.
-    /// Indexed by `file as usize`. Only the file is needed because an en passant capture
+    /// Indexed by `file.index()`. Only the file is needed because an en passant capture
     /// is only possible immediately after a two-square pawn advance, uniquely determining the rank.
     pub enpassant: [Key; File::NUM], // File::NUM = 8
 }
@@ -244,8 +244,8 @@ pub fn piece_key(piece: Piece, sq: Square) -> Key {
     unsafe {
         *ZOBRIST
             .pieces
-            .get_unchecked(piece as usize)
-            .get_unchecked(sq as usize)
+            .get_unchecked(piece.index())
+            .get_unchecked(sq.index())
     }
 }
 
@@ -274,7 +274,7 @@ pub fn side_key() -> Key {
 #[inline]
 pub fn castle_key(flag: Castling) -> Key {
     // Access the precomputed key using the castling flag's bits as the index (0-15).
-    unsafe { *ZOBRIST.castling.get_unchecked(flag.0 as usize) }
+    ZOBRIST.castling[flag.0 as usize]
 }
 
 /// Gets the precomputed Zobrist key for a potential en passant capture file.
@@ -291,7 +291,7 @@ pub fn castle_key(flag: Castling) -> Key {
 pub fn ep_key(file: File) -> Key {
     // Access the precomputed key using the file as the index.
     // Assumes File can be safely cast to usize for indexing.
-    unsafe { *ZOBRIST.enpassant.get_unchecked(file as usize) }
+    unsafe { *ZOBRIST.enpassant.get_unchecked(file.index()) }
 }
 
 /******************************************\
@@ -387,7 +387,7 @@ impl Board {
             // Check if there is a piece AND if that piece is a pawn
             if let Some(piece) = self.on(sq) {
                 if piece.pt() as u8 != PieceType::Pawn as u8 {
-                    keys[piece.colour() as usize] ^= piece_key(piece, sq);
+                    keys[piece.colour().index()] ^= piece_key(piece, sq);
                 }
             }
             i += 1;

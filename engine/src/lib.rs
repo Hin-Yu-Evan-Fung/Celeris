@@ -6,6 +6,7 @@ mod thread;
 mod utils;
 
 pub use engine::*;
+pub use eval::*;
 pub use movepick::*;
 pub use search::*;
 pub use utils::run_bench;

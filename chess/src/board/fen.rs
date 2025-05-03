@@ -504,8 +504,8 @@ impl Board {
             .pop_lsb()
             .expect("There should be exactly one black king on the board");
 
-        self.castling_mask.castling[white_ksq as usize].remove(Castling::WHITE_CASTLING);
-        self.castling_mask.castling[black_ksq as usize].remove(Castling::BLACK_CASTLING);
+        self.castling_mask.castling[white_ksq.index()].remove(Castling::WHITE_CASTLING);
+        self.castling_mask.castling[black_ksq.index()].remove(Castling::BLACK_CASTLING);
 
         // Handle the case of no castling rights available.
         if castling == "-" {
@@ -523,7 +523,7 @@ impl Board {
                         .lsb()
                         .expect("There should be exactly one king side white rook on the board when the castling flag K is set");
                     self.castling_mask.rook_sq[0] = Some(rook_sq);
-                    self.castling_mask.castling[rook_sq as usize].remove(Castling::WK);
+                    self.castling_mask.castling[rook_sq.index()].remove(Castling::WK);
                 }
                 'Q' => {
                     self.state.castle.set(Castling::WQ);
@@ -533,7 +533,7 @@ impl Board {
                     .lsb()
                     .expect("There should be exactly one queen side white rook on the board when the castling flag Q is set");
                     self.castling_mask.rook_sq[1] = Some(rook_sq);
-                    self.castling_mask.castling[rook_sq as usize].remove(Castling::WQ);
+                    self.castling_mask.castling[rook_sq.index()].remove(Castling::WQ);
                 }
                 'k' => {
                     self.state.castle.set(Castling::BK);
@@ -544,7 +544,7 @@ impl Board {
                     .lsb()
                     .expect("There should be exactly one king side black rook on the board when the castling flag k is set");
                     self.castling_mask.rook_sq[2] = Some(rook_sq);
-                    self.castling_mask.castling[rook_sq as usize].remove(Castling::BK);
+                    self.castling_mask.castling[rook_sq.index()].remove(Castling::BK);
                 }
                 'q' => {
                     self.state.castle.set(Castling::BQ);
@@ -556,7 +556,7 @@ impl Board {
                     .lsb()
                     .expect("There should be exactly one queen side black rook on the board when the castling flag q is set");
                     self.castling_mask.rook_sq[3] = Some(rook_sq);
-                    self.castling_mask.castling[rook_sq as usize].remove(Castling::BQ);
+                    self.castling_mask.castling[rook_sq.index()].remove(Castling::BQ);
                 }
                 'A'..='H' | 'a'..='h' => {
                     let is_white = c.is_uppercase();
@@ -578,7 +578,7 @@ impl Board {
 
                     self.state.castle.set(rights);
                     self.castling_mask.rook_sq[index] = Some(rook_sq);
-                    self.castling_mask.castling[rook_sq as usize].remove(rights);
+                    self.castling_mask.castling[rook_sq.index()].remove(rights);
                 }
 
                 // '-' is only valid if it's the *only* character, handled above.
@@ -1190,7 +1190,7 @@ mod xfen_tests {
 
     // Helper to check castling mask for a specific square and right
     fn assert_mask_removes(board: &Board, sq: Square, right: Castling, should_remove: bool) {
-        let has_right = board.castling_mask.castling[sq as usize].has(right);
+        let has_right = board.castling_mask.castling[sq.index()].has(right);
         assert_ne!(
             has_right, should_remove,
             "Mask check failed for {:?} on {:?}: expected removal={}, has_right={}",
