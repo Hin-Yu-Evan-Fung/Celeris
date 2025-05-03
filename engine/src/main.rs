@@ -1,4 +1,4 @@
-use chess::{Board, board::TRICKY_FEN};
+use chess::{Board, Move, board::TRICKY_FEN};
 use engine::{MovePicker, SearchStats, UCI, run_bench};
 use std::env::args;
 

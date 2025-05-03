@@ -6,9 +6,3 @@ build = "src/build.rs"
 
 [lib]
 doctest = false
-
-[dependencies]
-macros = { path = "../macros" }
-
-[build-dependencies]
-macros = { path = "../macros" }

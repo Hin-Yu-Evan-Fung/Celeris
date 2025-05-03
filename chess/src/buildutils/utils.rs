@@ -87,14 +87,14 @@ pub fn format_slider_attack_table<const N: usize>(
 
 pub fn generate_file() -> std::io::Result<()> {
     // --- Cargo Instructions ---
-    // Tell Cargo to rerun this script only if build.rs itself changes.
-    println!("cargo:rerun-if-changed=build.rs");
-    // Tell Cargo to rerun this script if the source files containing the
-    // generation logic or related types change. This ensures the tables
-    // are regenerated if the underlying algorithms are modified.
-    // Adjust these paths based on your actual project structure.
-    println!("cargo:rerun-if-changed=src/core/types.rs"); // Assuming types like Bitboard are here
-    println!("cargo:rerun-if-changed=src/utils/magic_table_gen.rs"); // The generation logic itself
+    // // Tell Cargo to rerun this script only if build.rs itself changes.
+    // println!("cargo:rerun-if-changed=build.rs");
+    // // Tell Cargo to rerun this script if the source files containing the
+    // // generation logic or related types change. This ensures the tables
+    // // are regenerated if the underlying algorithms are modified.
+    // // Adjust these paths based on your actual project structure.
+    // println!("cargo:rerun-if-changed=src/core/types.rs"); // Assuming types like Bitboard are here
+    // println!("cargo:rerun-if-changed=src/utils/magic_table_gen.rs"); // The generation logic itself
 
     println!("[build.rs] Starting magic attack table generation...");
 
@@ -113,33 +113,30 @@ pub fn generate_file() -> std::io::Result<()> {
     // Build a string containing the Rust source code for the constants.
     let mut generated_code = String::new();
 
-    #[cfg(not(target_feature = "bmi2"))]
-    {
-        // --- Extract Magic Numbers ---
-        // The `gen_slider_attacks` function likely returns a struct containing both the
-        // attack table and the magic numbers used. Extract the magic numbers separately.
-        let bishop_magic_nums: [u64; Square::NUM] = bishop_table_data
-            .magic // Assuming `magic` is the field holding MagicEntry structs or similar
-            .iter()
-            .map(|m| m.magic) // Assuming each entry `m` has a `magic` field of type u64
-            .collect::<Vec<_>>()
-            .try_into() // Convert Vec<u64> into [u64; 64]
-            .expect("Failed to collect bishop magic numbers into array"); // Handle potential error
+    // --- Extract Magic Numbers ---
+    // The `gen_slider_attacks` function likely returns a struct containing both the
+    // attack table and the magic numbers used. Extract the magic numbers separately.
+    let bishop_magic_nums: [u64; Square::NUM] = bishop_table_data
+        .magic // Assuming `magic` is the field holding MagicEntry structs or similar
+        .iter()
+        .map(|m| m.magic) // Assuming each entry `m` has a `magic` field of type u64
+        .collect::<Vec<_>>()
+        .try_into() // Convert Vec<u64> into [u64; 64]
+        .expect("Failed to collect bishop magic numbers into array"); // Handle potential error
 
-        let rook_magic_nums: [u64; Square::NUM] = rook_table_data
-            .magic
-            .iter()
-            .map(|m| m.magic)
-            .collect::<Vec<_>>()
-            .try_into() // Convert Vec<u64> into [u64; 64]
-            .expect("Failed to collect rook magic numbers into array"); // Handle potential error
+    let rook_magic_nums: [u64; Square::NUM] = rook_table_data
+        .magic
+        .iter()
+        .map(|m| m.magic)
+        .collect::<Vec<_>>()
+        .try_into() // Convert Vec<u64> into [u64; 64]
+        .expect("Failed to collect rook magic numbers into array"); // Handle potential error
 
-        // Format the magic number arrays.
-        generated_code.push_str(&format_u64_array("BISHOP_MAGIC_NUMS", &bishop_magic_nums));
-        generated_code.push_str("\n"); // Add spacing
-        generated_code.push_str(&format_u64_array("ROOK_MAGIC_NUMS", &rook_magic_nums));
-        generated_code.push_str("\n"); // Add spacing
-    }
+    // Format the magic number arrays.
+    generated_code.push_str(&format_u64_array("BISHOP_MAGIC_NUMS", &bishop_magic_nums));
+    generated_code.push_str("\n"); // Add spacing
+    generated_code.push_str(&format_u64_array("ROOK_MAGIC_NUMS", &rook_magic_nums));
+    generated_code.push_str("\n"); // Add spacing
 
     // Add necessary header comments or module attributes if desired
 

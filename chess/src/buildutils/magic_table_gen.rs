@@ -13,7 +13,6 @@ const MAX_PERM: usize = 0x1000; // 2^16
 pub(crate) struct Magic {
     #[cfg(not(target_feature = "bmi2"))]
     pub(crate) magic: u64,
-
     mask: Bitboard,
     shift: u8,
     offset: usize,
@@ -26,9 +25,9 @@ impl Magic {
     /// The formula is `((occ & mask) * magic) >> shift + offset`.
     #[cfg(not(target_feature = "bmi2"))]
     #[inline]
-    pub(crate) const fn index(self, occ: Bitboard) -> usize {
+    pub(crate) fn index(self, occ: Bitboard) -> usize {
         // Note: Using wrapping_mul for the multiplication as standard practice in magic bitboards.
-        ((occ.bitand(self.mask).0.wrapping_mul(self.magic)) >> self.shift) as usize + self.offset
+        (((occ.0 & self.mask.0).wrapping_mul(self.magic)) >> self.shift) as usize + self.offset
     }
 
     /// Calculates the index into the precomputed attack table. (Using PEXT instruction)
@@ -36,7 +35,7 @@ impl Magic {
     /// `occ` should represent the occupied squares on the board.
     /// The formula is `pext(occ, mask) + offset`.
     #[cfg(target_feature = "bmi2")]
-    pub(crate) const fn index(self, occ: Bitboard) -> usize {
+    pub(crate) fn index(self, occ: Bitboard) -> usize {
         occ.pext(self.mask.0) as usize + self.offset
     }
 }
@@ -64,7 +63,7 @@ pub(crate) struct SliderAttackTable<const N: usize> {
 impl<const N: usize> SliderAttackTable<N> {
     /// ### Gets the corresponding attack pattern for a given square and occupancy
     pub(crate) fn get_entry(&self, sq: Square, occ: Bitboard) -> Bitboard {
-        let magic = self.magic[sq as usize];
+        let magic = self.magic[sq.index()];
         let index = magic.index(occ);
         self.table[index as usize]
     }
@@ -100,7 +99,7 @@ pub(crate) const fn attacks_on_the_fly(pt: PieceType, sq: Square, occ: Bitboard)
                 Ok(to) => to,
                 Err(_) => break,
             };
-            attacks.bitor_assign(to.bb());
+            attacks = Bitboard(attacks.0 | to.bb().0);
         }
         // The last square is either occupied or at the border
         i += 1;
@@ -125,7 +124,7 @@ fn populate_table(
         // Store the occupancy bitboard at the current index
         occupancy[i] = occ;
         // Save occupancy bitboard at the current index
-        occ = (occ - m.mask) & m.mask;
+        occ = Bitboard((occ.0.wrapping_sub(m.mask.0)) & m.mask.0);
     }
 }
 
@@ -236,7 +235,7 @@ pub(crate) fn gen_slider_attacks<const N: usize>(pt: PieceType) -> SliderAttackT
         populate_table(pt, sq, &m, &mut reference, &mut occupancy);
 
         total_attempt += find_magics::<N>(
-            seeds[sq.rank() as usize],
+            seeds[sq.rank().index()],
             &mut m,
             &mut reference,
             &mut occupancy,
@@ -244,7 +243,7 @@ pub(crate) fn gen_slider_attacks<const N: usize>(pt: PieceType) -> SliderAttackT
         );
 
         // Store the magic number for the square
-        magic[sq as usize] = m;
+        magic[sq.index()] = m;
 
         if sq.file() == File::FileH {
             println!("{}", total_attempt);
@@ -268,24 +267,24 @@ pub(crate) const fn get_edge_mask(sq: Square) -> Bitboard {
     use File::*;
     use Rank::*;
 
-    let rank_18bb: Bitboard = Rank1.bb().bitor(Rank8.bb());
-    let file_ahbb: Bitboard = FileA.bb().bitor(FileH.bb());
+    let rank_18bb: Bitboard = Bitboard(Rank1.bb().0 | Rank8.bb().0);
+    let file_ahbb: Bitboard = Bitboard(FileA.bb().0 | FileH.bb().0);
 
     let sq_rank_bb = sq.rank().bb();
     let sq_file_bb = sq.file().bb();
 
-    let rank_mask = rank_18bb.bitand(sq_rank_bb.not());
+    let rank_mask = rank_18bb.0 & !sq_rank_bb.0;
 
-    let file_mask = file_ahbb.bitand(sq_file_bb.not());
+    let file_mask = file_ahbb.0 & !sq_file_bb.0;
 
     // Get the edges of the board
-    rank_mask.bitor(file_mask)
+    Bitboard(rank_mask | file_mask)
 }
 
 pub(crate) const fn init_magic_struct(pt: PieceType, sq: Square, offset: &mut usize) -> Magic {
-    let mask = attacks_on_the_fly(pt, sq, Bitboard::EMPTY).bitand(get_edge_mask(sq).not());
+    let mask = Bitboard(attacks_on_the_fly(pt, sq, Bitboard::EMPTY).0 & !get_edge_mask(sq).0);
 
-    let mut m = Magic {
+    let m = Magic {
         magic: 0,
         mask: mask,
         shift: 64 - mask.count_bits() as u8,
@@ -304,7 +303,7 @@ pub fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
 
     for sq in Square::iter() {
         // Initialize the magic struct for the piece type on the square
-        magic[sq as usize] = init_magic_struct(pt, sq, &mut offset);
+        magic[sq.index()] = init_magic_struct(pt, sq, &mut offset);
     }
 
     let mut reference = [[Bitboard::EMPTY; MAX_PERM]; File::NUM];
@@ -319,18 +318,18 @@ pub fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
         let mut best_seed = 0;
         for file in File::iter() {
             let sq = Square::from_parts(file, rank);
-            let m = &magic[sq as usize];
+            let m = &magic[sq.index()];
 
             let perm = 1 << m.mask.count_bits();
             // Populate the reference and occupancy tables for the piece type on the square
             let mut occ = Bitboard::EMPTY;
             for i in 0..perm {
                 // Generate the corresponding attack rays for the occupancy, piece type, and square
-                reference[file as usize][i] = attacks_on_the_fly(pt, sq, occ);
+                reference[file.index()][i] = attacks_on_the_fly(pt, sq, occ);
                 // Store the occupancy bitboard at the current index
-                occupancy[file as usize][i] = occ;
+                occupancy[file.index()][i] = occ;
                 // Save occupancy bitboard at the current index
-                occ = (occ - m.mask) & m.mask;
+                occ = Bitboard(occ.0.wrapping_sub(m.mask.0) & m.mask.0);
             }
         }
 
@@ -340,7 +339,7 @@ pub fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
 
             for file in File::iter() {
                 let sq: Square = Square::from_parts(file, rank);
-                let m = &mut magic[sq as usize];
+                let m = &mut magic[sq.index()];
 
                 let mut trying = true;
                 let mut attempt = 0;
@@ -363,7 +362,7 @@ pub fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
                         // looks up the correct sliding atttack in the attacks lookup table.
 
                         for i in 0..perm {
-                            let idx = m.index(occupancy[file as usize][i]);
+                            let idx = m.index(occupancy[file.index()][i]);
                             // Trick to speed up the search for magic numbers
                             // The m.attacks table will be slowly replaced with the attacks
                             // generated by the new magic number Avoid resetting m.attacks every
@@ -372,9 +371,9 @@ pub fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
                                 // Update the count
                                 epoch[idx - m.offset] = attempt;
                                 // Update the table with the attack pattern
-                                table[idx] = reference[file as usize][i];
+                                table[idx] = reference[file.index()][i];
                             // If the index is already occupied, check if the attack pattern stored is the same as the one we are trying to insert
-                            } else if table[idx] != reference[file as usize][i] {
+                            } else if table[idx] != reference[file.index()][i] {
                                 // Keep trying new magic numbers until we find one that works
                                 trying = true;
                                 break;

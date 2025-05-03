@@ -38,7 +38,6 @@
 use std::fmt;
 
 use super::{File, Square};
-use macros::{BitOps, EnumIter, FromPrimitive};
 
 /******************************************\
 |==========================================|
@@ -64,12 +63,14 @@ use macros::{BitOps, EnumIter, FromPrimitive};
 
 #[rustfmt::skip]
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Colour {
     // #[default]
     White, 
     Black
 }
+
+crate::impl_from_to_primitive!(Colour);
 
 /******************************************\
 |==========================================|
@@ -122,7 +123,7 @@ pub enum Colour {
 /// Only adjacent squares in the 8 principal directions are considered valid directions.
 #[rustfmt::skip]
 #[repr(i8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     N = 8, S = -8, W = -1, E = 1,
     NE = 9, NW = 7, SE = -7, SW = -9,
@@ -130,6 +131,8 @@ pub enum Direction {
     SEE = -6, SWW = -10, SSE = -15, SSW = -17,
     NN = 16, SS = -16,
 }
+
+crate::impl_from_to_primitive!(Direction, i8);
 
 /******************************************\
 |==========================================|
@@ -205,7 +208,7 @@ pub enum Direction {
 /// - A king moves (losing all castling rights for that side)
 /// - A rook moves (losing the corresponding castling right)
 /// - A rook is captured (opponent loses the corresponding castling right)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BitOps)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Castling(pub u8);
 
 impl Default for Castling {
@@ -213,6 +216,14 @@ impl Default for Castling {
         Castling::ALL
     }
 }
+
+crate::impl_bit_ops!(Castling);
+
+/******************************************\
+|==========================================|
+|              Castling Mask               |
+|==========================================|
+\******************************************/
 
 #[derive(Debug, Copy, Clone)]
 pub struct CastlingMask {
@@ -223,8 +234,6 @@ pub struct CastlingMask {
 
 impl Default for CastlingMask {
     fn default() -> Self {
-        use Square::*;
-
         Self {
             castling: [Castling::ALL; Square::NUM],
             rook_sq: [None, None, None, None],
@@ -288,7 +297,7 @@ impl std::ops::Not for Colour {
 impl Square {
     pub const fn try_from(value: i16) -> Result<Self, &'static str> {
         if value >= 0 && value < 64 {
-            Ok(unsafe { Square::from_unchecked(value as u8) })
+            Ok(Square::from_unchecked(value as u8))
         } else {
             Err("Square value out of bounds (0-63)")
         }
@@ -323,7 +332,7 @@ impl Square {
     pub const unsafe fn add_unchecked(self, rhs: Direction) -> Self {
         debug_assert!(self as i16 + rhs as i16 >= 0, "Square out of bounds");
         debug_assert!(self as i16 + rhs as i16 <= 64, "Square out of bounds");
-        unsafe { Square::from_unchecked((self as i16 + rhs as i16) as u8) }
+        Square::from_unchecked((self as i16 + rhs as i16) as u8)
     }
 }
 
@@ -332,7 +341,7 @@ impl std::ops::Neg for Direction {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        unsafe { Self::from_unchecked(-(self as i8)) }
+        Self::from_unchecked(-(self as i8))
     }
 }
 
@@ -435,34 +444,35 @@ impl Castling {
     pub const NUM: usize = 16;
 
     /// ### Check if a castling right is set
-    pub const fn has(self, right: Castling) -> bool {
-        self.bitand(right).0 != Castling::NONE.0
+    pub fn has(self, right: Castling) -> bool {
+        self & right != Castling::NONE
     }
 
     /// ### Set a castling right
-    pub const fn set(&mut self, right: Castling) {
-        self.bitor_assign(right);
+    pub fn set(&mut self, right: Castling) {
+        *self |= right;
     }
 
     /// ### Remove a castling right
-    pub const fn remove(&mut self, right: Castling) {
-        self.bitand_assign(right.not());
+    pub fn remove(&mut self, right: Castling) {
+        *self &= !right;
     }
+
     /// ### Constant version of not operator !
     #[inline]
-    pub const fn not(self) -> Self {
+    pub fn not(self) -> Self {
         Castling(!self.0 & 0x0F) // Only keep the lower 4 bits
     }
 
     /// ### Mask the castling rights
     #[inline]
-    pub const fn mask(&mut self, mask: Castling) {
+    pub fn mask(&mut self, mask: Castling) {
         self.0 &= mask.0;
     }
 
     /// ### King side for a colour
     #[inline]
-    pub const fn king_side(colour: Colour) -> Self {
+    pub fn king_side(colour: Colour) -> Self {
         match colour {
             Colour::White => Castling::WK,
             Colour::Black => Castling::BK,
@@ -471,7 +481,7 @@ impl Castling {
 
     /// ### Queen side for a colour
     #[inline]
-    pub const fn queen_side(colour: Colour) -> Self {
+    pub fn queen_side(colour: Colour) -> Self {
         match colour {
             Colour::White => Castling::WQ,
             Colour::Black => Castling::BQ,

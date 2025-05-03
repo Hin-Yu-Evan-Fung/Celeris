@@ -76,8 +76,8 @@ impl From<TTEntry> for (u64, u64) {
         data |= (entry.depth as u64) << 7;
         data |= (entry.bound as u64) << 14;
         data |= (entry.best_move.raw() as u64) << 16;
-        data |= (entry.eval.0 as u64) << 32;
-        data |= (entry.value.0 as u64) << 48;
+        data |= (entry.eval.0 as u16 as u64) << 32;
+        data |= (entry.value.0 as u16 as u64) << 48;
         (entry.key ^ data, data)
     }
 }
@@ -287,8 +287,8 @@ impl TT {
                 depth,
                 bound,
                 best_move: new_best_move,
-                eval: eval.to_tt(ply),
-                value,
+                eval,
+                value: value.to_tt(ply),
             });
         }
     }

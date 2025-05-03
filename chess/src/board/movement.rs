@@ -19,10 +19,10 @@ impl Board {
     #[inline]
     pub(crate) fn add_piece(&mut self, piece: Piece, square: Square) {
         // Put piece in the board
-        self.board[square as usize] = Some(piece);
+        self.board[square.index()] = Some(piece);
         // Update piece bitboards
-        self.pieces[piece.pt() as usize].set(square);
-        self.occupied[piece.colour() as usize].set(square);
+        self.pieces[piece.pt().index()].set(square);
+        self.occupied[piece.colour().index()].set(square);
     }
 
     /// Removes a piece from the board at the specified square.
@@ -46,10 +46,10 @@ impl Board {
         debug_assert!(self.on(square).is_some(), "remove_piece: 'square' is empty");
         let piece = unsafe { self.on(square).unwrap_unchecked() };
         // Remove piece from the board
-        self.board[square as usize] = None;
+        self.board[square.index()] = None;
         // Update piece bitboards
-        self.pieces[piece.pt() as usize].clear(square);
-        self.occupied[piece.colour() as usize].clear(square);
+        self.pieces[piece.pt().index()].clear(square);
+        self.occupied[piece.colour().index()].clear(square);
     }
 
     /// Moves a piece from one square to another.
@@ -78,15 +78,15 @@ impl Board {
         );
         let piece = unsafe { self.on(from).unwrap_unchecked() };
         // Remove piece from the board
-        self.board[from as usize] = None;
+        self.board[from.index()] = None;
         // Put piece in the board
-        self.board[to as usize] = Some(piece);
+        self.board[to.index()] = Some(piece);
 
         let from_to_bb = from.bb() | to.bb();
         // Update piece bitboards
-        self.pieces[piece.pt() as usize] ^= from_to_bb;
+        self.pieces[piece.pt().index()] ^= from_to_bb;
         // Update occupied bitboards
-        self.occupied[piece.colour() as usize] ^= from_to_bb;
+        self.occupied[piece.colour().index()] ^= from_to_bb;
     }
 
     /// Sets the en passant square based on a double pawn push originating `from`.
@@ -128,7 +128,7 @@ impl Board {
     #[inline]
     fn rook_from(&self, king_side: bool) -> Square {
         let us = self.stm;
-        let index = us as usize * 2 + !king_side as usize;
+        let index = us.index() * 2 + !king_side as usize;
 
         debug_assert!(
             self.castling_mask.rook_sq[index].is_some(),
@@ -704,10 +704,12 @@ impl Board {
         let hv_pin = self.hv_pin();
 
         // --- Flag the non king piece for one of 3 states ---
+        let ksq = self.ksq(us);
         // If it is diagonally pinned, then the from and to square must be on the pin mask
-        let diag_pinned = diag_pin.contains(from) && diag_pin.contains(to);
+        let diag_pinned =
+            diag_pin.contains(from) && diag_pin.contains(to) && aligned(from, to, ksq);
         // If it is vertically pinned, then the from and to square must be on the pin mask
-        let hv_pinned = hv_pin.contains(from) && hv_pin.contains(to);
+        let hv_pinned = hv_pin.contains(from) && hv_pin.contains(to) && aligned(from, to, ksq);
         // If its not pinned, then it can move wherever it wants
         let not_pinned = !(diag_pin.contains(from) || hv_pin.contains(from));
 
@@ -1242,49 +1244,49 @@ mod tests {
         test_make_undo(fen_before, rook_move, fen_after);
     }
 
-    // // Helper to check repetition count
-    // fn assert_repetitions(board: &Board, expected: i8) {
-    //     // NOTE: This assertion relies on the update_repetitions logic correctly
-    //     // finding repetitions in the history by comparing Zobrist keys.
-    //     // It also depends on the history scanning depth logic (interaction with fifty_move).
-    //     // If that logic is flawed, this test might pass incorrectly or fail unexpectedly.
-    //     assert_eq!(board.state.repetitions, expected);
-    // }
+    // Helper to check repetition count
+    fn assert_repetitions(board: &Board, expected: i8) {
+        // NOTE: This assertion relies on the update_repetitions logic correctly
+        // finding repetitions in the history by comparing Zobrist keys.
+        // It also depends on the history scanning depth logic (interaction with fifty_move).
+        // If that logic is flawed, this test might pass incorrectly or fail unexpectedly.
+        assert_eq!(board.state.repetitions, expected);
+    }
 
-    //     #[test]
-    //     fn test_three_fold_repetition() {
-    //         // Use the existing helper that ensures keys are calculated correctly initially
-    //         let mut board = board_from_fen(START_FEN);
+    #[test]
+    fn test_three_fold_repetition() {
+        // Use the existing helper that ensures keys are calculated correctly initially
+        let mut board = board_from_fen(START_FEN);
 
-    //         // Sequence = 1. Nf3 Nc6 2. Ng1 Nb8 3. Nf3 Nc6 4. Ng1 Nb8 5. Nf3 Nc6 6. Nd4 Nb8 7. Nf3 Nc6
+        // Sequence = 1. Nf3 Nc6 2. Ng1 Nb8 3. Nf3 Nc6 4. Ng1 Nb8 5. Nf3 Nc6 6. Nd4 Nb8 7. Nf3 Nc6
 
-    //         let nf3 = Move::new(Square::G1, Square::F3, MoveFlag::QuietMove);
-    //         let nc6 = Move::new(Square::B8, Square::C6, MoveFlag::QuietMove);
-    //         let ng1 = Move::new(Square::F3, Square::G1, MoveFlag::QuietMove);
-    //         let nb8 = Move::new(Square::C6, Square::B8, MoveFlag::QuietMove);
-    //         let nd4 = Move::new(Square::F3, Square::D4, MoveFlag::QuietMove);
-    //         let ndf3 = Move::new(Square::D4, Square::F3, MoveFlag::QuietMove);
+        let nf3 = Move::new(Square::G1, Square::F3, MoveFlag::QuietMove);
+        let nc6 = Move::new(Square::B8, Square::C6, MoveFlag::QuietMove);
+        let ng1 = Move::new(Square::F3, Square::G1, MoveFlag::QuietMove);
+        let nb8 = Move::new(Square::C6, Square::B8, MoveFlag::QuietMove);
+        let nd4 = Move::new(Square::F3, Square::D4, MoveFlag::QuietMove);
+        let ndf3 = Move::new(Square::D4, Square::F3, MoveFlag::QuietMove);
 
-    //         board.make_move(nf3);
-    //         board.make_move(nc6);
-    //         assert_repetitions(&board, 0);
-    //         board.make_move(ng1);
-    //         board.make_move(nb8);
-    //         assert_repetitions(&board, 3);
-    //         board.make_move(nf3);
-    //         board.make_move(nc6);
-    //         assert_repetitions(&board, 3);
-    //         board.make_move(ng1);
-    //         board.make_move(nb8);
-    //         assert_repetitions(&board, -3);
-    //         board.make_move(nf3);
-    //         board.make_move(nc6);
-    //         assert_repetitions(&board, -3);
-    //         board.make_move(nd4);
-    //         board.make_move(nb8);
-    //         assert_repetitions(&board, 0);
-    //         board.make_move(ndf3);
-    //         board.make_move(nc6);
-    //         assert_repetitions(&board, -3);
-    //     }
+        board.make_move(nf3);
+        board.make_move(nc6);
+        assert_repetitions(&board, 0);
+        board.make_move(ng1);
+        board.make_move(nb8);
+        assert_repetitions(&board, 3);
+        board.make_move(nf3);
+        board.make_move(nc6);
+        assert_repetitions(&board, 3);
+        board.make_move(ng1);
+        board.make_move(nb8);
+        assert_repetitions(&board, -3);
+        board.make_move(nf3);
+        board.make_move(nc6);
+        assert_repetitions(&board, -3);
+        board.make_move(nd4);
+        board.make_move(nb8);
+        assert_repetitions(&board, 0);
+        board.make_move(ndf3);
+        board.make_move(nc6);
+        assert_repetitions(&board, -3);
+    }
 }

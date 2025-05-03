@@ -46,13 +46,16 @@
 //! - `magic_numbers`: Precomputed magic numbers.
 //!
 
-mod r#gen;
-mod init;
-mod lookup;
-mod magic;
-mod move_list;
+pub mod r#gen;
+pub mod init;
+pub mod lookup;
+pub mod magic;
+pub mod move_list;
 
-pub use lookup::{aligned, attacks, pin_bb, sq_dist};
+pub use lookup::{
+    aligned, attacks, bishop_attacks, king_attack, knight_attack, pawn_attack, pin_bb,
+    queen_attacks, rook_attacks, sq_dist,
+};
 
 pub use move_list::MoveList;
 
@@ -170,6 +173,8 @@ impl Board {
         // Occupancy excluding the king and the specific castling rook
         let occ = self.all_occupied_bb() ^ rook_sq.bb() ^ ksq.bb();
 
-        (king_path & self.attacked()).is_empty() && (move_area & occ).is_empty()
+        (king_path & self.attacked()).is_empty()
+            && (move_area & occ).is_empty()
+            && !self.hv_pin().contains(rook_sq)
     }
 }

@@ -7,7 +7,7 @@ use chess::{Board, Colour, Piece, PieceType, Square};
 // Game Phase Increment for different piece typess
 const GAMEPHASE_INC: [i16; PieceType::NUM] = [0, 1, 1, 2, 4, 0];
 
-const PIECE_VALUES: [Score; PieceType::NUM] = [
+const PIECE_SCORES: [Score; PieceType::NUM] = [
     S!(82, 94),
     S!(337, 281),
     S!(365, 297),
@@ -112,14 +112,14 @@ const fn init_psqt() -> [[Score; Square::NUM]; Piece::NUM] {
 
     let mut i = 0;
     while i < PieceType::NUM {
-        let pt = PieceType::from(i as u8).unwrap();
+        let pt = PieceType::from_unchecked(i as u8);
         let mut j = 0;
 
         while j < Square::NUM {
-            let sq = Square::from(j as u8).unwrap();
-            let psqt_val = add(BONUS_TABLES[pt as usize][j], PIECE_VALUES[pt as usize]);
-            psqt[Piece::from_parts(Colour::White, pt) as usize][j] = psqt_val;
-            psqt[Piece::from_parts(Colour::Black, pt) as usize][sq.flip_rank() as usize] =
+            let sq = Square::from_unchecked(j as u8);
+            let psqt_val = add(BONUS_TABLES[pt.index()][j], PIECE_SCORES[pt.index()]);
+            psqt[Piece::from_parts(Colour::White, pt).index()][j] = psqt_val;
+            psqt[Piece::from_parts(Colour::Black, pt).index()][sq.flip_rank().index()] =
                 neg(psqt_val);
 
             j += 1;
@@ -138,7 +138,7 @@ pub fn calc_psqt(board: &Board) -> Score {
         for pt in PieceType::iter() {
             let bb = board.piece_bb(stm, pt);
 
-            bb.for_each(|sq| psq += PSQT[Piece::from_parts(stm, pt) as usize][sq as usize]);
+            bb.for_each(|sq| psq += PSQT[Piece::from_parts(stm, pt).index()][sq.index()]);
         }
     }
     psq
@@ -148,9 +148,9 @@ pub fn calc_game_phase(board: &Board) -> (i16, i16) {
     let mut game_phase = 0;
 
     for pt in PieceType::iter() {
-        let bb = board.piecetype_bb(pt);
+        let bb = board.pt_bb(pt);
 
-        game_phase += GAMEPHASE_INC[pt as usize] * (bb.count_bits() as i16);
+        game_phase += GAMEPHASE_INC[pt.index()] * (bb.count_bits() as i16);
     }
 
     let mg_phase = game_phase.min(24);

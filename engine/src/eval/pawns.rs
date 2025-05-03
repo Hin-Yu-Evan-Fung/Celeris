@@ -33,8 +33,8 @@ impl PawnTable {
             entry
         } else {
             entry.key = key;
-            entry.scores[Colour::White as usize] = entry.eval_pawn(Colour::White, board);
-            entry.scores[Colour::Black as usize] = entry.eval_pawn(Colour::Black, board);
+            entry.scores[Colour::White.index()] = entry.eval_pawn(Colour::White, board);
+            entry.scores[Colour::Black.index()] = entry.eval_pawn(Colour::Black, board);
             entry
         }
     }
@@ -119,11 +119,11 @@ impl PawnEntry {
                 && blocked;
 
             if stoppers.is_empty() {
-                score += PASSED[rank as usize];
+                score += PASSED[rank.index()];
             }
 
             if (support | phalanx).is_occupied() {
-                let v = CONNECTED[rank as usize];
+                let v = CONNECTED[rank.index()];
                 let eg_val = v * (rank as i16 - 2) / 4;
                 score += S!(v, eg_val);
             } else if neighbours.is_empty() {
@@ -222,20 +222,20 @@ impl PawnEntry {
 
     #[inline]
     pub fn king_safety(&mut self, board: &Board, us: Colour) -> Score {
-        if self.ksq[us as usize].is_some_and(|sq| sq == board.ksq(us))
-            && board.castling_side(us) == self.castling[us as usize]
+        if self.ksq[us.index()].is_some_and(|sq| sq == board.ksq(us))
+            && board.castling_side(us) == self.castling[us.index()]
         {
-            self.king_safety[us as usize]
+            self.king_safety[us.index()]
         } else {
-            self.king_safety[us as usize] = self.eval_king_safety(board, us);
-            self.ksq[us as usize] = Some(board.ksq(us));
-            self.castling[us as usize] = board.castling_side(us);
-            self.king_safety[us as usize]
+            self.king_safety[us.index()] = self.eval_king_safety(board, us);
+            self.ksq[us.index()] = Some(board.ksq(us));
+            self.castling[us.index()] = board.castling_side(us);
+            self.king_safety[us.index()]
         }
     }
 
     #[inline(always)]
     pub fn pawn_score(&mut self, us: Colour) -> Score {
-        self.scores[us as usize]
+        self.scores[us.index()]
     }
 }

@@ -13,7 +13,10 @@ use crate::{
     search::{PVLine, SearchStack},
 };
 
-use super::{Clock, MIN_DEPTH, NodeTypeTrait, NonPV, PV, Root, TT, tt::TTBound};
+use super::{
+    Clock, MIN_DEPTH, NodeTypeTrait, NonPV, PV, Root, TT,
+    tt::{self, TTBound},
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct SearchStats {
@@ -37,17 +40,11 @@ pub(crate) struct SearchWorker {
     stats: SearchStats,
 
     pv: PVLine,
-    completed_depth: usize,
     eval: Eval,
 
     stop: bool,
-
     // Tables
     pub pawn_table: PawnTable,
-
-    // Search statistics
-    cut_offs: usize,
-    immediate_cut_offs: usize,
 }
 
 impl SearchWorker {
@@ -63,10 +60,7 @@ impl SearchWorker {
             depth: 0,
             ply: 0,
             pv: PVLine::default(),
-            completed_depth: 0,
             stop: false,
-            cut_offs: 0,
-            immediate_cut_offs: 0,
             pawn_table: PawnTable::new(),
             stats: SearchStats::default(),
         }
@@ -88,11 +82,8 @@ impl SearchWorker {
         self.seldepth = 0;
         self.ply = 0;
         self.pv = PVLine::default();
-        self.completed_depth = 0;
         self.eval = -Eval::INFINITY;
         self.stop = false;
-        self.cut_offs = 0;
-        self.immediate_cut_offs = 0;
     }
 
     pub fn setup(&mut self, board: Board) {
@@ -158,13 +149,6 @@ impl SearchWorker {
         self.pv = pv;
 
         self.print_info(tt);
-
-        if self.cut_offs > 0 {
-            println!(
-                "Move ordering statistics: {}% immediate cutoffs",
-                self.immediate_cut_offs * 100 / self.cut_offs
-            );
-        }
     }
 
     fn print_info(&self, tt: &TT) {
@@ -243,6 +227,9 @@ impl SearchWorker {
         beta: Eval,
         mut depth: usize,
     ) -> Eval {
+        // Clear pv for new search
+        pv.clear();
+
         if self.should_stop_search() {
             return Eval::DRAW;
         }
@@ -265,8 +252,6 @@ impl SearchWorker {
         self.update_seldepth::<NT>();
         // Create child pv to pass to the next recursive call to negamax
         let mut child_pv = PVLine::default();
-        // Clear pv for new search
-        pv.clear();
 
         // Reset killer child nodes
         self.stats.killers.clear_child(self.ply);
@@ -279,7 +264,12 @@ impl SearchWorker {
         if let Some(entry) = tt_entry {
             let tt_value = entry.value.from_tt(self.ply);
 
-            if !NT::PV && (entry.depth > depth as u8 || (entry.bound == TTBound::Exact)) {
+            if !NT::PV
+                && entry.depth >= depth as u8
+                && (entry.bound == TTBound::Exact
+                    || entry.bound == TTBound::Lower && tt_value >= beta
+                    || entry.bound == TTBound::Upper && tt_value <= alpha)
+            {
                 return tt_value;
             }
 
@@ -320,16 +310,6 @@ impl SearchWorker {
             // If the move we just search is better than best_value (The best we can do in this subtree), we can update best_value to be alpha
             best_value = best_value.max(value); // Update the best score found locally at this node.
 
-            // Beta Cutoff (Fail-High): Check if our guaranteed score (`alpha`)
-            // meets or exceeds the opponent's limit (`beta`).
-            // This move is "too good". The opponent (at a higher node)
-            // would have already had a better alternative than allowing this position.
-            // Therefore, exploring further sibling moves at this node is unnecessary.
-            if value >= beta {
-                best_value = beta;
-                break;
-            }
-
             // Alpha Update: Check if this move's score (`value`) is better than the
             // best score we are *already guaranteed* (`alpha`) from other parts of the tree.
             if value > alpha {
@@ -338,11 +318,29 @@ impl SearchWorker {
                 pv.update_line(move_, &child_pv); // Update the Principal Variation (best move sequence).
                 alpha = value; // Update alpha: Raise the lower bound of our guaranteed score.
             }
+
+                    // Beta Cutoff (Fail-High): Check if our guaranteed score (`alpha`)
+                    // meets or exceeds the opponent's limit (`beta`).
+                    // This move is "too good". The opponent (at a higher node)
+                    // would have already had a better alternative than allowing this position.
+                    // Therefore, exploring further sibling moves at this node is unnecessary.
+                    if value >= beta {
+                        break;
+                    }
+
+                    pv.update_line(move_, &child_pv); // Update the Principal Variation (best move sequence).
+                    alpha = value; // Update alpha: Raise the lower bound of our guaranteed score.
+                }
+            }
         }
 
         // If move count is 0, it is either a stalemate or a mate in self.ply
         if move_count == 0 {
-            best_value = self.terminal_score(in_check);
+            best_value = if in_check {
+                Eval::mated_in(self.ply)
+            } else {
+                Eval::DRAW
+            };
         // If there is a new best move, and it is not a capture, update the killer move and history move table
         } else if best_move.is_valid() && !best_move.is_capture() {
             self.update_search_stats(best_move, depth);
@@ -350,9 +348,17 @@ impl SearchWorker {
 
         // Write to TT, save static eval
         if !NT::ROOT {
+            let bound = if best_value >= beta {
+                TTBound::Lower
+            } else if NT::PV && best_move.is_valid() {
+                TTBound::Exact
+            } else {
+                TTBound::Upper
+            };
+
             tt.write(
                 self.board.key(),
-                self.get_bounds(best_value, best_move, beta),
+                bound,
                 self.ply,
                 depth as u8,
                 best_move,
@@ -387,13 +393,13 @@ impl SearchWorker {
         mut alpha: Eval,
         beta: Eval,
     ) -> Eval {
-        if self.should_stop_search() {
-            return Eval::DRAW;
-        }
-
         self.update_seldepth::<NT>();
 
         pv.clear();
+
+        if self.should_stop_search() {
+            return Eval::DRAW;
+        }
 
         // Check ply limit to prevent infinite recursion in rare cases
         if self.ply >= MAX_DEPTH as u16 {
@@ -429,22 +435,26 @@ impl SearchWorker {
         let mut tt_move = Move::NONE;
 
         if let Some(entry) = tt_entry {
-            tt_move = entry.best_move;
+            let tt_value = entry.value.from_tt(self.ply);
+
+            match entry.bound {
+                TTBound::Exact => return tt_value,
+                TTBound::Lower if !NT::PV && !in_check && tt_value >= beta => return beta,
+                TTBound::Upper if !NT::PV && !in_check && tt_value <= alpha => return alpha,
+                _ => tt_move = entry.best_move,
+            }
         }
 
         // Initialize best_value with stand_pat. We are looking for captures that improve on this.
         let mut best_value = stand_pat;
         let mut child_pv = PVLine::default();
+        let mut best_move = Move::NONE;
 
         // --- Generate and Explore Captures Only ---
         // The generic parameter 'true' tells MovePicker to skip quiet moves.
         let mut move_picker = MovePicker::<true>::new(&self.board, tt_move, [Move::NONE; 2]);
 
-        let mut move_count = 0;
-
         while let Some(move_) = move_picker.next(&self.board, &self.stats) {
-            move_count += 1;
-
             self.make_move(tt, move_); // Make the capture
             let value = -self.quiescence::<PV>(tt, &mut child_pv, -beta, -alpha); // Recursive call
             self.undo_move(move_); // Undo the capture
@@ -457,15 +467,16 @@ impl SearchWorker {
             // --- Alpha-Beta Update (same as negamax) ---
             best_value = best_value.max(value); // Update the best score found locally at this node.
 
+            if value > alpha {
+                best_move = move_; // Update the best move.
+                pv.update_line(move_, &child_pv); // Update PV line for quiescence
+                alpha = value; // Update alpha
+            }
+
             if value >= beta {
                 // Beta Cutoff (Fail-High)
                 best_value = beta;
                 break;
-            }
-
-            if value > alpha {
-                alpha = value; // Update alpha
-                pv.load(move_, &child_pv); // Update PV line for quiescence
             }
         }
 
@@ -473,6 +484,22 @@ impl SearchWorker {
         if in_check && best_value == -Eval::INFINITY {
             return Eval::mated_in(self.ply);
         }
+
+        let bound = if best_value >= beta {
+            TTBound::Lower
+        } else {
+            TTBound::Upper
+        };
+
+        tt.write(
+            self.board.key(),
+            bound,
+            self.ply,
+            0,
+            best_move,
+            Eval::ZERO,
+            best_value,
+        );
 
         best_value
     }
@@ -507,8 +534,16 @@ impl SearchWorker {
             .update(&self.board, best_move, bonus);
     }
 
-    fn get_bounds(&self, best_value: Eval, best_move: Move, beta: Eval) -> TTBound {
-        if best_value >= beta {
+    fn store_results(
+        &self,
+        tt: &TT,
+        best_value: Eval,
+        best_move: Move,
+        beta: Eval,
+        eval: Eval,
+        depth: usize,
+    ) {
+        let bounds = if best_value >= beta {
             TTBound::Lower // Means we are storing the lower bound for beta
         // If the best we can do (alpha in some later search) is better than the best the opponent can do in this line (beta here),
         // we can prune the tree for that branch
@@ -518,7 +553,17 @@ impl SearchWorker {
             TTBound::Upper // Means we are storing the upper bound for alpha
             // If the best the opponent can do (beta in a later search) is better than the best we can do in this line (alpha here),
             // we can prune the tree for that branch
-        }
+        };
+
+        tt.write(
+            self.board.key(),
+            bounds,
+            self.ply,
+            depth as u8,
+            best_move,
+            eval,
+            best_value,
+        );
     }
 
     fn is_draw<NT: NodeTypeTrait>(&mut self) -> bool {

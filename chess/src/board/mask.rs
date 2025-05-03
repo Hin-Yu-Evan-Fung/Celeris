@@ -148,19 +148,19 @@ impl Board {
         let knight_bb = self.piece_bb(them, PieceType::Knight);
         knight_bb.for_each(|sq| {
             // threatened |= leaper_attack(PieceType::Knight, sq);
-            threatened |= attacks(us, PieceType::Knight, sq, occ);
+            threatened |= knight_attack(sq);
         });
 
         // Add bishop/queen diagonal attacks
         let bishop_queen_bb = self.bishop_queen_bb(them);
         bishop_queen_bb.for_each(|sq| {
-            threatened |= attacks(us, PieceType::Bishop, sq, occ);
+            threatened |= bishop_attacks(sq, occ);
         });
 
         // Add rook/queen horizontal/vertical attacks
         let rook_queen_bb = self.rook_queen_bb(them);
         rook_queen_bb.for_each(|sq| {
-            threatened |= attacks(us, PieceType::Rook, sq, occ);
+            threatened |= rook_attacks(sq, occ);
         });
 
         threatened |= attacks(us, PieceType::King, self.ksq(them), occ); // Add king
@@ -204,7 +204,7 @@ impl Board {
         let mut hv_pin = Bitboard::EMPTY;
 
         // 1. Probe rays are like rays that radiate from the kings position to find potential pinned pieces and checkers
-        let probe_rays = attacks(us, PieceType::Queen, ksq, all_occ);
+        let probe_rays = queen_attacks(ksq, all_occ);
         // 2. Find our pieces that are potentially pinned
         let potential_pinned = probe_rays & our_occ;
         // 3. Find their pieces that are potential checkers
@@ -214,13 +214,13 @@ impl Board {
         // 5. Remove potential diagonally pinned enpassant target pawn
 
         // 6. Find the diagonal pinners (Bishop/Queen)
-        let diag_pinners = attacks(us, PieceType::Bishop, ksq, occ)
+        let diag_pinners = bishop_attacks(ksq, occ)
             & self.bishop_queen_bb(them)
             & !potential_checkers;
         diag_pinners.for_each(|sq| diag_pin |= pin_bb(ksq, sq));
 
         // 7. Find the horizontal/vertical pinners (Rook/Queen)
-        let hv_pinners = attacks(us, PieceType::Rook, ksq, occ) 
+        let hv_pinners = rook_attacks(ksq, occ)
             & self.rook_queen_bb(them) 
             & !potential_checkers;
         hv_pinners.for_each(|sq| hv_pin |= pin_bb(ksq, sq));
@@ -271,9 +271,9 @@ impl Board {
 
         let ep_target_bb = ep_target.bb();
 
-        let potential_checkers = attacks(us, PieceType::Queen, ksq, all_occ) & them_occ;
+        let potential_checkers = queen_attacks(ksq, all_occ) & them_occ;
         let occ = all_occ ^ ep_target_bb;
-        let diag_pinners = attacks(us, PieceType::Bishop, ksq, occ)
+        let diag_pinners = bishop_attacks(ksq, occ)
             & !potential_checkers
             & self.bishop_queen_bb(them);
 
@@ -284,7 +284,7 @@ impl Board {
         if attackers.is_singleton() {
             let ep_rank = ep_target.rank().bb();
             let occ = all_occ ^ ep_target_bb ^ attackers;
-            let h_pinners = attacks(us, PieceType::Rook, ksq, occ)
+            let h_pinners = rook_attacks(ksq, occ)
                 & ep_rank
                 & !potential_checkers
                 & self.rook_queen_bb(them);
@@ -328,14 +328,12 @@ impl Board {
 
         // 1. Calculate bitboards of all potential checkers targeting the king square.
         //    Pawn checks require looking "backwards" from the king square.
-        let pawn_checkers = attacks(us, PieceType::Pawn, ksq, occ) & self.piece_bb(them, PieceType::Pawn);
+        let pawn_checkers = pawn_attack(us, ksq) & self.piece_bb(them, PieceType::Pawn);
         // Knight checks are direct attacks on the king square.
-        let knight_checkers =
-            attacks(us, PieceType::Knight, ksq, occ) & self.piece_bb(them, PieceType::Knight);
-
+        let knight_checkers = knight_attack(ksq) & self.piece_bb(them, PieceType::Knight);
         // Slider checks use attacks *from* the king square with full occupancy.
-        let diag_checkers = attacks(us, PieceType::Bishop, ksq, occ) & self.bishop_queen_bb(them);
-        let hv_checkers = attacks(us, PieceType::Rook, ksq, occ) & self.rook_queen_bb(them);
+        let diag_checkers = bishop_attacks(ksq, occ) & self.bishop_queen_bb(them);
+        let hv_checkers = rook_attacks(ksq, occ) & self.rook_queen_bb(them);
 
         // 2. Combine all checkers into a single bitboard.
         let all_checkers = pawn_checkers | knight_checkers | diag_checkers | hv_checkers;

@@ -126,11 +126,5 @@ impl MoveList {
         for move_ in self.iter() {
             f(move_);
         }
-        // Alternative direct implementation (slightly more verbose):
-        // for i in 0..self.num_moves {
-        //     // Safety: i < num_moves guarantees initialization.
-        //     let move_ref = unsafe { self.moves[i].assume_init_ref() };
-        //     f(move_ref);
-        // }
     }
 }

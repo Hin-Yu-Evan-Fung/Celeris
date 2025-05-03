@@ -30,15 +30,17 @@
 //! - **State Management**: `Board::store_state()` and `Board::restore_state()` manage the move history, allowing for undoing moves.
 //! - **Piece Access**: `Board::on()` retrieves the piece on a given square.
 //! - **Bitboard Access**: `Board::piecetype_bb()`, `Board::occupied_bb()`, `Board::all_occupied_bb()
-mod fen;
-mod mask;
-mod movegen;
-mod movement;
-mod zobrist;
+pub mod fen;
+pub mod mask;
+pub mod movegen;
+pub mod movement;
+pub mod zobrist;
 
 pub use fen::{KILLER_FEN, START_FEN, TRICKY_FEN};
-pub use movegen::{CaptureGen, LegalGen, MoveList, QuietGen};
-pub use movegen::{attacks, sq_dist};
+pub use movegen::{
+    CaptureGen, LegalGen, MoveList, QuietGen, attacks, bishop_attacks, king_attack, knight_attack,
+    pawn_attack, queen_attacks, rook_attacks, sq_dist,
+};
 pub use zobrist::KeyBundle;
 
 use crate::core::*;
@@ -140,9 +142,9 @@ impl BoardState {
 /// The board primarily uses `Bitboard`s for efficient storage and manipulation of piece locations.
 ///
 /// ## Fields
-/// - `pieces`: An array of `Bitboard`s, indexed by `PieceType`. Each bitboard (`pieces[PieceType::Pawn as usize]`)
+/// - `pieces`: An array of `Bitboard`s, indexed by `PieceType`. Each bitboard (`pieces[PieceType::Pawn.index()]`)
 ///   stores the locations of all pieces of that specific type, regardless of colour.
-/// - `occupied`: An array of `Bitboard`s, indexed by `Colour`. Each bitboard (`occupied[Colour::White as usize]`)
+/// - `occupied`: An array of `Bitboard`s, indexed by `Colour`. Each bitboard (`occupied[Colour::White.index()]`)
 ///   stores the locations of all pieces belonging to that specific colour. `occupied[0] | occupied[1]` gives all occupied squares.
 /// - `side_to_move`: The `Colour` (White or Black) whose turn it is to move.
 /// - `half_moves`: Counts the number of half-moves (plies) since the last capture or pawn advance.
@@ -156,17 +158,17 @@ impl BoardState {
 #[derive(Debug, Clone)]
 pub struct Board {
     /// Array representing the board, where each element corresponds to a square.
-    /// `board[Square::A1 as usize]` holds the `Piece` on A1.
+    /// `board[Square::A1.index()]` holds the `Piece` on A1.
     /// `Piece::None` indicates an empty square.
     board: [Option<Piece>; Square::NUM],
 
     /// Bitboards for each piece type (Pawn, Knight, Bishop, Rook, Queen, King).
-    /// `pieces[PieceType::Pawn as usize]` holds a bitboard of all pawns (both colours).
+    /// `pieces[PieceType::Pawn.index()]` holds a bitboard of all pawns (both colours).
     pieces: [Bitboard; PieceType::NUM],
 
     /// Bitboards for all pieces of each colour.
-    /// `occupied[Colour::White as usize]` holds all white pieces.
-    /// `occupied[Colour::Black as usize]` holds all black pieces.
+    /// `occupied[Colour::White.index()]` holds all white pieces.
+    /// `occupied[Colour::Black.index()]` holds all black pieces.
     occupied: [Bitboard; Colour::NUM],
 
     /// Castling Masks for each square, stores the original rook squares for chess960,
@@ -241,7 +243,16 @@ impl Board {
     /// ```
     #[inline]
     pub fn on(&self, square: Square) -> Option<Piece> {
-        unsafe { *self.board.get_unchecked(square as usize) }
+        unsafe { *self.board.get_unchecked(square.index()) }
+    }
+
+    /// Unsafe helper to get the piece on a square, assuming the square is occupied.
+    ///
+    /// # Safety
+    /// Calling this on an empty square results in undefined behavior.
+    #[inline]
+    pub unsafe fn on_unchecked(&self, square: Square) -> Piece {
+        unsafe { self.board[square.index()].unwrap_unchecked() }
     }
 
     /// # Get Piece Type Bitboard
@@ -267,8 +278,8 @@ impl Board {
     ///     Square::A1, Square::H1, Square::A8, Square::H8,
     /// ]));
     #[inline]
-    pub fn piecetype_bb(&self, piecetype: PieceType) -> Bitboard {
-        unsafe { *self.pieces.get_unchecked(piecetype as usize) }
+    pub fn pt_bb(&self, piecetype: PieceType) -> Bitboard {
+        unsafe { *self.pieces.get_unchecked(piecetype.index()) }
     }
 
     /// # Get Occupied Bitboard
@@ -296,7 +307,7 @@ impl Board {
     /// ]));
     #[inline]
     pub fn occupied_bb(&self, colour: Colour) -> Bitboard {
-        unsafe { *self.occupied.get_unchecked(colour as usize) }
+        unsafe { *self.occupied.get_unchecked(colour.index()) }
     }
 
     /// # Get Total Occupied Bitboard
@@ -345,7 +356,7 @@ impl Board {
     /// ]));
     #[inline]
     pub fn piece_bb(&self, col: Colour, pt: PieceType) -> Bitboard {
-        self.piecetype_bb(pt) & self.occupied_bb(col)
+        self.pt_bb(pt) & self.occupied_bb(col)
     }
 
     /// # Get Side To Move
@@ -395,7 +406,7 @@ impl Board {
     /// * `Castling` - The castling rights masks that denoted the remaining possible castle rights after a piece has moved from the square.
     #[inline]
     pub(crate) fn castling_rights(&self, square: Square) -> Castling {
-        unsafe { *self.castling_mask.castling.get_unchecked(square as usize) }
+        unsafe { *self.castling_mask.castling.get_unchecked(square.index()) }
     }
 
     /// # Get Enpassant Square
@@ -414,7 +425,7 @@ impl Board {
     ///
     /// * `Square` - The square of the pawn that can be enpassant captured
     #[inline]
-    pub(crate) fn ep_target(&self) -> Option<Square> {
+    pub fn ep_target(&self) -> Option<Square> {
         self.state
             .enpassant
             .map(|sq| unsafe { sq.add_unchecked(-self.stm.forward()) })
@@ -500,7 +511,7 @@ impl Board {
     /// * `Key` - The zobrist key for the non pawns on this board for the colour in the argument
     #[inline]
     pub fn non_pawn_key(&self, col: Colour) -> u64 {
-        self.state.keys.non_pawn_key[col as usize]
+        self.state.keys.non_pawn_key[col.index()]
     }
 
     /// Returns whether the king is in check
@@ -530,7 +541,18 @@ impl Board {
     /// Returns whether the file is open
     #[inline]
     pub fn is_open_file(&self, col: Colour, sq: Square) -> bool {
-        (sq.file().bb() & self.piecetype_bb(PieceType::Pawn)).is_empty()
+        (sq.file().bb() & self.pt_bb(PieceType::Pawn)).is_empty()
+    }
+
+    /// Helper to get the attackers to a square.
+    pub fn attackers_to(&self, to: Square, occ: Bitboard) -> Bitboard {
+        use crate::core::{Colour::*, PieceType::*};
+        pawn_attack(White, to) & self.piece_bb(Black, Pawn)
+            | pawn_attack(Black, to) & self.piece_bb(White, Pawn)
+            | knight_attack(to) & self.pt_bb(Knight)
+            | bishop_attacks(to, occ) & (self.pt_bb(Bishop) | self.pt_bb(Queen))
+            | rook_attacks(to, occ) & (self.pt_bb(Rook) | self.pt_bb(Queen))
+            | king_attack(to) & self.pt_bb(King)
     }
 }
 
@@ -576,12 +598,12 @@ impl std::fmt::Display for Board {
         writeln!(
             f,
             "White Non Pawn Key: {:#X}",
-            self.state.keys.non_pawn_key[Colour::White as usize]
+            self.state.keys.non_pawn_key[Colour::White.index()]
         )?;
         writeln!(
             f,
             "Black Non Pawn Key: {:#X}",
-            self.state.keys.non_pawn_key[Colour::Black as usize]
+            self.state.keys.non_pawn_key[Colour::Black.index()]
         )?;
 
         Ok(())

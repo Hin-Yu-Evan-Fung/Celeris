@@ -7,10 +7,12 @@ pub use pawns::PawnTable;
 pub use psqt::calc_psqt;
 
 use crate::MAX_DEPTH;
-use macros::AriOps;
+use chess::impl_ari_ops;
 
-#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, AriOps)]
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Eval(pub i16);
+
+impl_ari_ops!(Eval);
 
 impl Eval {
     pub const ZERO: Eval = Eval(0);
@@ -19,10 +21,8 @@ impl Eval {
     pub const INFINITY: Eval = Eval(32001);
     /// Represents a checkmate score.
     pub const MATE: Eval = Eval(32000);
-    /// The maximum number of plies to mate used for score adjustments.
-    pub const LONGEST_MATE: Eval = Eval(MAX_DEPTH as i16);
     /// The evaluation score threshold below which a score is considered a mate.
-    pub const MATE_BOUND: Eval = Self::MATE.sub(Self::LONGEST_MATE);
+    pub const MATE_BOUND: Eval = Eval(Self::MATE.0 - MAX_DEPTH as i16);
 
     pub fn mated_in(ply: u16) -> Eval {
         -Self::MATE + Eval(ply as i16)

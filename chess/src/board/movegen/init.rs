@@ -39,7 +39,7 @@ const fn line_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
     let from_ray = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
     let to_ray = attacks_on_the_fly(pt, to, Bitboard::EMPTY);
 
-    from_ray.bitand(to_ray).bitor(from_bb).bitor(to_bb)
+    Bitboard((from_ray.0 & to_ray.0) | from_bb.0 | to_bb.0)
 }
 
 // Populate line bb table for Diagonal or Vertical lines (Depending on Piece Type)
@@ -48,7 +48,7 @@ const fn populate_line_bb(table: &mut SquarePairTable, pt: PieceType, from: Squa
     while !bb.is_empty() {
         let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
-        table[from as usize][to as usize] = line_bb(pt, from, to);
+        table[from.index()][to.index()] = line_bb(pt, from, to);
     }
 }
 
@@ -78,7 +78,7 @@ const fn between_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
     let from_ray = attacks_on_the_fly(pt, from, to.bb());
     let to_ray = attacks_on_the_fly(pt, to, from.bb());
 
-    from_ray.bitand(to_ray)
+    Bitboard(from_ray.0 & to_ray.0)
 }
 
 // Populate between bb table for Diagonal or Vertical lines (Depending on Piece Type)
@@ -87,7 +87,7 @@ const fn populate_between_bb(table: &mut SquarePairTable, pt: PieceType, from: S
     while !bb.is_empty() {
         let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
-        table[from as usize][to as usize] = between_bb(pt, from, to);
+        table[from.index()][to.index()] = between_bb(pt, from, to);
     }
 }
 
@@ -117,7 +117,7 @@ const fn pin_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
     let from_ray = attacks_on_the_fly(pt, from, to.bb());
     let to_ray = attacks_on_the_fly(pt, to, from.bb());
 
-    from_ray.bitand(to_ray).bitor(to.bb()) // Include the 'to' square (pinner)
+    Bitboard(from_ray.0 & to_ray.0 | to.bb().0) // Include the 'to' square (pinner)
 }
 
 // Populate pin bb table for Diagonal or Vertical lines (Depending on Piece Type)
@@ -126,7 +126,7 @@ const fn populate_pin_bb(table: &mut SquarePairTable, pt: PieceType, from: Squar
     while !bb.is_empty() {
         let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
-        table[from as usize][to as usize] = pin_bb(pt, from, to);
+        table[from.index()][to.index()] = pin_bb(pt, from, to);
     }
 }
 
@@ -166,7 +166,7 @@ const fn check_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
         Err(_) => Bitboard::EMPTY,
     };
 
-    from_ray.bitand(to_ray).bitor(from.bb()).bitor(bb) // Include the 'from' square (checkner)
+    Bitboard(from_ray.0 & to_ray.0 | from.bb().0 | bb.0) // Include the 'from' square (checker)
 }
 
 // Populate check bb table for Diagonal or Vertical lines (Depending on Piece Type)
@@ -175,7 +175,7 @@ const fn populate_check_bb(table: &mut SquarePairTable, pt: PieceType, from: Squ
     while !bb.is_empty() {
         let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
-        table[from as usize][to as usize] = check_bb(pt, from, to);
+        table[from.index()][to.index()] = check_bb(pt, from, to);
     }
 }
 
@@ -208,7 +208,7 @@ pub(super) const fn init_check_bb_table() -> SquarePairTable {
 //     let to_ray = attacks_on_the_fly(pt, to, from.bb()); // Ray from king towards attacker
 //     let between = from_ray & to_ray; // Squares between attacker and king
 
-//     table[from as usize][to as usize] = between | from.bb(); // Include the 'from' square (attacker)
+//     table[from.index()][to.index()] = between | from.bb(); // Include the 'from' square (attacker)
 // }
 
 /// Initializes the Chebyshev distance table.
@@ -248,11 +248,11 @@ pub(super) const fn init_pseudo_attacks(dirs: &[Direction]) -> AttackTable {
     let mut i = 0;
 
     while i < Square::NUM {
-        let sq_bb = unsafe { Square::from_unchecked(i as u8).bb() };
+        let sq_bb = Square::from_unchecked(i as u8).bb();
 
         let mut j = 0;
         while j < dirs.len() {
-            attacks[i].bitor_assign(Bitboard::shift(&sq_bb, dirs[j]));
+            attacks[i] = Bitboard(attacks[i].0 | Bitboard::shift(&sq_bb, dirs[j]).0);
             j += 1;
         }
 

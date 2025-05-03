@@ -44,11 +44,4 @@ impl PVLine {
     pub fn clear(&mut self) {
         self.length = 0;
     }
-
-    pub fn load(&mut self, move_: Move, other: &Self) {
-        self.clear();
-        self.moves[0] = move_;
-        self.moves[1..=other.length].copy_from_slice(&other.moves[..other.length]);
-        self.length = other.length + 1;
-    }
 }

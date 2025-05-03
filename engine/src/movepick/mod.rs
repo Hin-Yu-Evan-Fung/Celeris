@@ -1,5 +1,6 @@
 mod history;
 mod movepick;
+mod see;
 
 pub use history::{History, KillerTable, MainHistory};
 pub use movepick::MovePicker;

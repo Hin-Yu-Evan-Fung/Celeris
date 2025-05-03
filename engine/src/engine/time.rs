@@ -125,8 +125,8 @@ impl TimeControl {
 
         while let Some(key) = tokens.next() {
             match key {
-                "wtime" => builder.wtime(parse(tokens)?),
-                "btime" => builder.btime(parse(tokens)?),
+                "wtime" => builder.wtime(parse::<i64>(tokens)?.max(0) as u64),
+                "btime" => builder.btime(parse::<i64>(tokens)?.max(0) as u64),
                 "winc" => builder.winc(parse(tokens)?),
                 "binc" => builder.binc(parse(tokens)?),
                 "movestogo" => builder.movestogo(parse(tokens)?),
