@@ -55,6 +55,10 @@ impl Eval {
             *self
         }
     }
+
+    pub fn abs(&self) -> Eval {
+        Eval(self.0.abs())
+    }
 }
 
 macro_rules! E {
