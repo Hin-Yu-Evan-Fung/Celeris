@@ -5,7 +5,7 @@ use chess::{
 
 use crate::{eval::Eval, search::SearchStats};
 
-use super::{Board, History, MoveStage};
+use super::{Board, History, MoveStage, see::see};
 
 pub struct MovePicker<const SKIP_QUIET: bool> {
     pub stage: MoveStage,
@@ -19,7 +19,7 @@ pub struct MovePicker<const SKIP_QUIET: bool> {
     index: usize,
 
     quiet_start: usize,
-    bad_cap_end: usize,
+    bad_cap_start: usize,
 }
 
 impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
@@ -42,11 +42,13 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
             scores: [Eval::ZERO; 256],
             index: 0,
             quiet_start: 0,
-            bad_cap_end: 0,
+            bad_cap_start: 0,
         }
     }
 
     fn score_captures(&mut self, board: &Board, stats: &SearchStats) {
+        let mut next_good_cap = 0;
+
         for i in 0..self.move_list.len() {
             let move_ = self.move_list[i];
 
@@ -64,7 +66,15 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
             }
 
             self.scores[i] = score;
+
+            if see(board, move_, Eval::ZERO) {
+                self.scores.swap(i, next_good_cap);
+                self.move_list.swap(i, next_good_cap);
+                next_good_cap += 1;
+            }
         }
+
+        self.bad_cap_start = next_good_cap;
     }
 
     fn score_quiets(&mut self, board: &Board, stats: &SearchStats) {
@@ -85,10 +95,11 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
     fn gen_captures(&mut self, board: &Board, stats: &SearchStats) {
         board.generate_moves::<CaptureGen>(&mut self.move_list);
         self.quiet_start = self.move_list.len();
-        self.bad_cap_end = 0;
+        self.bad_cap_start = 0;
 
         self.score_captures(board, stats);
-        self.partial_sort(0, self.quiet_start);
+        self.partial_sort(0, self.bad_cap_start);
+        self.partial_sort(self.bad_cap_start, self.move_list.len());
     }
 
     fn partial_sort(&mut self, start: usize, end: usize) {
@@ -113,6 +124,7 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
         F: Fn(Move) -> bool,
     {
         let slice_len = end.saturating_sub(self.index); // How many items to potentially look at
+
         let found = self
             .move_list
             .iter()
@@ -147,10 +159,11 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
                 self.next(board, stats)
             }
             MoveStage::GoodCaptures => {
-                if let Some(move_) = self.next_best(self.move_list.len(), cap_pred) {
+                if let Some(move_) = self.next_best(self.bad_cap_start, cap_pred) {
                     Some(move_)
                 } else {
                     self.stage = if SKIP_QUIET {
+                        self.index = self.bad_cap_start;
                         MoveStage::BadCaptures
                     } else {
                         MoveStage::Killer1
@@ -178,6 +191,7 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
                 self.gen_quiets(board, stats);
 
                 self.stage = MoveStage::Quiets;
+                self.index = self.quiet_start;
                 self.next(board, stats)
             }
             MoveStage::Quiets => {
@@ -185,12 +199,12 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
                     Some(move_)
                 } else {
                     self.stage = MoveStage::BadCaptures;
+                    self.index = self.bad_cap_start;
                     self.next(board, stats)
                 }
             }
             MoveStage::BadCaptures => {
-                self.index = 0;
-                if let Some(move_) = self.next_best(self.bad_cap_end, cap_pred) {
+                if let Some(move_) = self.next_best(self.quiet_start, cap_pred) {
                     Some(move_)
                 } else {
                     None

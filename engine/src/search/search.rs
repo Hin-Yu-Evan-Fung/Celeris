@@ -227,6 +227,9 @@ impl SearchWorker {
         beta: Eval,
         mut depth: usize,
     ) -> Eval {
+        // Clear pv for new search
+        pv.clear();
+
         if self.should_stop_search() {
             return Eval::DRAW;
         }
@@ -249,8 +252,7 @@ impl SearchWorker {
         self.update_seldepth::<NT>();
         // Create child pv to pass to the next recursive call to negamax
         let mut child_pv = PVLine::default();
-        // Clear pv for new search
-        pv.clear();
+
         // Reset killer child nodes
         self.stats.killers.clear_child(self.ply);
 
@@ -367,13 +369,13 @@ impl SearchWorker {
         mut alpha: Eval,
         beta: Eval,
     ) -> Eval {
-        if self.should_stop_search() {
-            return Eval::DRAW;
-        }
-
         self.update_seldepth::<NT>();
 
         pv.clear();
+
+        if self.should_stop_search() {
+            return Eval::DRAW;
+        }
 
         // Check ply limit to prevent infinite recursion in rare cases
         if self.ply >= MAX_DEPTH as u16 {
@@ -422,6 +424,7 @@ impl SearchWorker {
         // Initialize best_value with stand_pat. We are looking for captures that improve on this.
         let mut best_value = stand_pat;
         let mut child_pv = PVLine::default();
+        let mut best_move = Move::NONE;
 
         // --- Generate and Explore Captures Only ---
         // The generic parameter 'true' tells MovePicker to skip quiet moves.
@@ -441,8 +444,9 @@ impl SearchWorker {
             best_value = best_value.max(value); // Update the best score found locally at this node.
 
             if value > alpha {
+                best_move = move_; // Update the best move.
+                pv.update_line(move_, &child_pv); // Update PV line for quiescence
                 alpha = value; // Update alpha
-                pv.load(move_, &child_pv); // Update PV line for quiescence
             }
 
             if value >= beta {
@@ -456,6 +460,8 @@ impl SearchWorker {
         if in_check && best_value == -Eval::INFINITY {
             return Eval::mated_in(self.ply);
         }
+
+        self.store_results(tt, best_value, best_move, beta, stand_pat, 0);
 
         best_value
     }
@@ -510,6 +516,7 @@ impl SearchWorker {
             // If the best the opponent can do (beta in a later search) is better than the best we can do in this line (alpha here),
             // we can prune the tree for that branch
         };
+
         tt.write(
             self.board.key(),
             bounds,

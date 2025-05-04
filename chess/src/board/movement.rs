@@ -704,10 +704,12 @@ impl Board {
         let hv_pin = self.hv_pin();
 
         // --- Flag the non king piece for one of 3 states ---
+        let ksq = self.ksq(us);
         // If it is diagonally pinned, then the from and to square must be on the pin mask
-        let diag_pinned = diag_pin.contains(from) && diag_pin.contains(to);
+        let diag_pinned =
+            diag_pin.contains(from) && diag_pin.contains(to) && aligned(from, to, ksq);
         // If it is vertically pinned, then the from and to square must be on the pin mask
-        let hv_pinned = hv_pin.contains(from) && hv_pin.contains(to);
+        let hv_pinned = hv_pin.contains(from) && hv_pin.contains(to) && aligned(from, to, ksq);
         // If its not pinned, then it can move wherever it wants
         let not_pinned = !(diag_pin.contains(from) || hv_pin.contains(from));
 

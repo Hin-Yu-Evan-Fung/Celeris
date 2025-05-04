@@ -173,6 +173,8 @@ impl Board {
         // Occupancy excluding the king and the specific castling rook
         let occ = self.all_occupied_bb() ^ rook_sq.bb() ^ ksq.bb();
 
-        (king_path & self.attacked()).is_empty() && (move_area & occ).is_empty()
+        (king_path & self.attacked()).is_empty()
+            && (move_area & occ).is_empty()
+            && !self.hv_pin().contains(rook_sq)
     }
 }
