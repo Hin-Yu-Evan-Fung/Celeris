@@ -140,8 +140,8 @@ pub fn see(board: &Board, move_: Move, threshold: Eval) -> bool {
         return true;
     }
 
-    let diag_sliders = board.pt_bb(Bishop) | board.pt_bb(Queen);
-    let hv_sliders = board.pt_bb(Rook) | board.pt_bb(Queen);
+    let diag_sliders = board.piecetype_bb(Bishop) | board.piecetype_bb(Queen);
+    let hv_sliders = board.piecetype_bb(Rook) | board.piecetype_bb(Queen);
 
     // --- Simulate the exchange on the target square 'to' ---
     let mut occ = board.all_occupied_bb();
