@@ -1,17 +1,10 @@
-use chess::{Board, Colour};
-
+use super::Eval;
 use super::psqt::{calc_game_phase, calc_psqt};
-use super::{Eval, PawnTable};
+use chess::{Colour, PieceType, board::Board};
+use nnue::accummulator::Accumulator;
 
-pub fn evaluate(board: &Board, pawn_table: &mut PawnTable) -> Eval {
-    let mut score = calc_psqt(board);
-
-    let pawn_entry = &mut pawn_table.get(board);
-
-    score += pawn_entry.pawn_score(Colour::White);
-    score -= pawn_entry.pawn_score(Colour::Black);
-    score += pawn_entry.king_safety(board, Colour::White);
-    score -= pawn_entry.king_safety(board, Colour::Black);
+pub fn evaluate(board: &Board) -> Eval {
+    let score = calc_psqt(board);
 
     let (mg_phase, eg_phase) = calc_game_phase(board);
 
@@ -24,3 +17,21 @@ pub fn evaluate(board: &Board, pawn_table: &mut PawnTable) -> Eval {
 
     if board.stm() == Colour::White { v } else { -v }
 }
+
+#[rustfmt::skip]
+ pub fn evaluate_nnue(board: &Board, nnue: &mut Accumulator) -> Eval {
+     // nnue output
+     let mut v = nnue.evaluate(board);
+ 
+     let material_scale = (
+         82   * board.piecetype_bb(PieceType::Pawn).count_bits()   as i32 +
+         337  * board.piecetype_bb(PieceType::Knight).count_bits() as i32 +
+         365  * board.piecetype_bb(PieceType::Bishop).count_bits() as i32 +
+         477  * board.piecetype_bb(PieceType::Rook).count_bits()   as i32 +
+         1025 * board.piecetype_bb(PieceType::Queen).count_bits()  as i32
+     ) / 32;
+ 
+     v = (v * (700 + material_scale)) / 1024;
+ 
+     Eval(v as i16)
+ }

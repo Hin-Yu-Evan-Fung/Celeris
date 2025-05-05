@@ -1,5 +1,4 @@
-use crate::Board;
-use crate::board::{LegalGen, MoveList};
+use crate::board::{Board, LegalGen, MoveList};
 
 fn perft(board: &mut Board, depth: usize) -> usize {
     let mut move_list = MoveList::new();
@@ -105,6 +104,15 @@ const BENCH_LIST: &[(&str, usize, usize)] = &[
     ("bnrbnkrq/pppppppp/8/8/8/8/PPPPPPPP/BNRBNKRQ w KQkq - 0 1", 6, 145999259),
     ("rbknqnbr/pppppppp/8/8/8/8/PPPPPPPP/RBKNQNBR w KQkq - 0 1", 6, 126480040),
     ("qbrnnkbr/pppppppp/8/8/8/8/PPPPPPPP/QBRNNKBR w KQkq - 0 1", 6, 121613156),
+    ("8/3k4/8/8/8/8/8/rR2K3 w Q - 0 1", 6, 7137508),
+    ("Rr2k3/8/8/8/8/8/8/rR2K3 w Qq - 0 1", 6, 46081241),
+    ("2k5/8/8/8/b7/8/8/2K3R1 w - - 0 1", 6, 6578528),
+    ("3k4/8/8/8/8/8/8/rRK5 w - - 0 1", 6, 3191684),
+    ("1rkr4/8/8/8/8/8/8/1RKR4 w KQkq - 0 1", 6, 66969143),
+    ("3k4/3q1q2/8/8/8/4Q3/3P4/1R1K2R1 w KQ - 0 1", 6, 2938241633),
+    ("1b1qbkrn/1prp1pp1/pn5p/2p1pB2/Q1PP4/1N6/PP2PPPP/2R1BKRN w KQk - 2 9", 6, 1648762553),
+    ("1rkb1qr1/pppp2pp/1n2p1n1/3b1p2/3N3P/P2P1P2/1PP1P1P1/1RKBBQRN w KQkq - 3 9", 6, 1042669941),
+    ("1b1r1krb/ppp1np2/qn1p2pp/3Bp3/2P1P1PP/1N1P4/PP3P2/1BNRQKR1 w KQkq - 0 9", 6, 1169912833)
 ];
 
 pub fn perft_bench() -> bool {

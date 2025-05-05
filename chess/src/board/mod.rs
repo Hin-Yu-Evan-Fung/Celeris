@@ -82,7 +82,7 @@ pub const MAX_MOVES: usize = 256;
 /// - `king_attacks`: A bitboard representing the squares attacked by the friendly king.
 /// - `available`: A bitboard representing all squares not occupied by the side to move (potential destinations, excluding captures).
 /// - `enpassant_pin`: A boolean indicating if the pawn performing an en passant capture is pinned to the king, making the en passant illegal.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct BoardState {
     // --- Board State Variables -- //
     /// Stores gaps between last repeat, if negative it means three fold repetition
@@ -155,7 +155,7 @@ impl BoardState {
 ///   (containing castling rights, en passant square, captured piece, keys, etc., *before* the move)
 ///   is pushed onto this stack. This allows for efficient `unmake_move` operations and tracking game history
 ///   for rules like three-fold repetition.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Board {
     /// Array representing the board, where each element corresponds to a square.
     /// `board[Square::A1.index()]` holds the `Piece` on A1.
@@ -164,12 +164,12 @@ pub struct Board {
 
     /// Bitboards for each piece type (Pawn, Knight, Bishop, Rook, Queen, King).
     /// `pieces[PieceType::Pawn.index()]` holds a bitboard of all pawns (both colours).
-    pieces: [Bitboard; PieceType::NUM],
+    pub pieces: [Bitboard; PieceType::NUM],
 
     /// Bitboards for all pieces of each colour.
     /// `occupied[Colour::White.index()]` holds all white pieces.
     /// `occupied[Colour::Black.index()]` holds all black pieces.
-    occupied: [Bitboard; Colour::NUM],
+    pub occupied: [Bitboard; Colour::NUM],
 
     /// Castling Masks for each square, stores the original rook squares for chess960,
     castling_mask: CastlingMask,
@@ -278,7 +278,7 @@ impl Board {
     ///     Square::A1, Square::H1, Square::A8, Square::H8,
     /// ]));
     #[inline]
-    pub fn pt_bb(&self, piecetype: PieceType) -> Bitboard {
+    pub fn piecetype_bb(&self, piecetype: PieceType) -> Bitboard {
         unsafe { *self.pieces.get_unchecked(piecetype.index()) }
     }
 
@@ -356,7 +356,7 @@ impl Board {
     /// ]));
     #[inline]
     pub fn piece_bb(&self, col: Colour, pt: PieceType) -> Bitboard {
-        self.pt_bb(pt) & self.occupied_bb(col)
+        self.piecetype_bb(pt) & self.occupied_bb(col)
     }
 
     /// # Get Side To Move
@@ -540,8 +540,8 @@ impl Board {
 
     /// Returns whether the file is open
     #[inline]
-    pub fn is_open_file(&self, col: Colour, sq: Square) -> bool {
-        (sq.file().bb() & self.pt_bb(PieceType::Pawn)).is_empty()
+    pub fn is_open_file(&self, sq: Square) -> bool {
+        (sq.file().bb() & self.piecetype_bb(PieceType::Pawn)).is_empty()
     }
 
     /// Helper to get the attackers to a square.
@@ -549,10 +549,17 @@ impl Board {
         use crate::core::{Colour::*, PieceType::*};
         pawn_attack(White, to) & self.piece_bb(Black, Pawn)
             | pawn_attack(Black, to) & self.piece_bb(White, Pawn)
-            | knight_attack(to) & self.pt_bb(Knight)
-            | bishop_attacks(to, occ) & (self.pt_bb(Bishop) | self.pt_bb(Queen))
-            | rook_attacks(to, occ) & (self.pt_bb(Rook) | self.pt_bb(Queen))
-            | king_attack(to) & self.pt_bb(King)
+            | knight_attack(to) & self.piecetype_bb(Knight)
+            | bishop_attacks(to, occ) & (self.piecetype_bb(Bishop) | self.piecetype_bb(Queen))
+            | rook_attacks(to, occ) & (self.piecetype_bb(Rook) | self.piecetype_bb(Queen))
+            | king_attack(to) & self.piecetype_bb(King)
+    }
+
+    /// Check if there is non pawn material on the board
+    pub fn has_non_pawn_material(&self, col: Colour) -> bool {
+        (self.occupied_bb(col)
+            & !(self.piecetype_bb(PieceType::Pawn) | self.piecetype_bb(PieceType::King)))
+        .is_occupied()
     }
 }
 

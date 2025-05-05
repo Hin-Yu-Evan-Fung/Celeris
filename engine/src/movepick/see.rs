@@ -1,11 +1,6 @@
-use core::arch;
-
 use chess::{
-    Bitboard, Board,
-    Colour::{self, *},
-    Move, Piece,
-    PieceType::{self, *},
-    Square,
+    Bitboard, Colour, Move, Piece, PieceType, Square,
+    board::Board,
     board::{bishop_attacks, rook_attacks},
 };
 
@@ -81,7 +76,7 @@ fn lva(board: &Board, attackers: Bitboard, us: Colour) -> (Square, Piece) {
 
         if bb.is_occupied() {
             // If we have a piece attacking the square, we can return it.
-            let square = unsafe { bb.lsb_unchecked() };
+            let square = bb.lsb_unchecked();
             return (square, Piece::from_parts(us, pt));
         }
     }
@@ -105,6 +100,8 @@ fn lva(board: &Board, attackers: Bitboard, us: Colour) -> (Square, Piece) {
 /// `true` if the estimated material exchange is greater than or equal to the `threshold`,
 /// `false` otherwise.
 pub fn see(board: &Board, move_: Move, threshold: Eval) -> bool {
+    use PieceType::*;
+
     // Set up SEE
     let (from, to) = (move_.from(), move_.to());
 
@@ -140,8 +137,8 @@ pub fn see(board: &Board, move_: Move, threshold: Eval) -> bool {
         return true;
     }
 
-    let diag_sliders = board.pt_bb(Bishop) | board.pt_bb(Queen);
-    let hv_sliders = board.pt_bb(Rook) | board.pt_bb(Queen);
+    let diag_sliders = board.piecetype_bb(Bishop) | board.piecetype_bb(Queen);
+    let hv_sliders = board.piecetype_bb(Rook) | board.piecetype_bb(Queen);
 
     // --- Simulate the exchange on the target square 'to' ---
     let mut occ = board.all_occupied_bb();
@@ -211,7 +208,8 @@ pub fn see(board: &Board, move_: Move, threshold: Eval) -> bool {
 mod tests {
     use super::*;
     use chess::{
-        Board, Move, MoveFlag, Square,
+        Move, MoveFlag, Square,
+        board::Board,
         board::{LegalGen, MoveList},
     };
 
@@ -306,10 +304,8 @@ mod tests {
     fn test_see_bulk() {
         const P: i16 = 150;
         const N: i16 = 340;
-        const B: i16 = 360;
         const R: i16 = 480;
         const Q: i16 = 1000;
-        const K: i16 = 0;
 
         #[rustfmt::skip]
         const SEE_TESTS: &[(&str, &str, i16, bool)] = &[

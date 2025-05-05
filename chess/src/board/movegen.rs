@@ -57,6 +57,8 @@ pub use lookup::{
     queen_attacks, rook_attacks, sq_dist,
 };
 
+pub use magic::init_magic_tables;
+
 pub use move_list::MoveList;
 
 pub(crate) use r#gen::generate_move;

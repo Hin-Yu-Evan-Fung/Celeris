@@ -3,7 +3,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
-use chess::Board;
+use chess::board::Board;
 
 use crate::{
     TimeControl,
@@ -76,7 +76,7 @@ impl ThreadPool {
             main_worker.prepare_search();
             s.spawn(move || {
                 main_worker.setup(board_clone);
-                main_worker.start_search(tt);
+                main_worker.iterative_deepening(tt);
             });
 
             for worker in workers {
@@ -84,7 +84,7 @@ impl ThreadPool {
                 let board_clone = board.clone();
                 s.spawn(move || {
                     worker.setup(board_clone);
-                    worker.start_search(tt);
+                    worker.iterative_deepening(tt);
                 });
             }
         });

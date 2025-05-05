@@ -11,4 +11,12 @@ name = "engine"
 version = "0.1.0"
 dependencies = [
  "chess",
+ "nnue",
+]
+
+[[package]]
+name = "nnue"
+version = "0.1.0"
+dependencies = [
+ "chess",
 ]

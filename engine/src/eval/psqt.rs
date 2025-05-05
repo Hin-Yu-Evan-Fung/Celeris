@@ -2,7 +2,7 @@ use super::S;
 
 use super::{Eval, Score};
 
-use chess::{Board, Colour, Piece, PieceType, Square};
+use chess::{Colour, Piece, PieceType, Square, board::Board};
 
 // Game Phase Increment for different piece typess
 const GAMEPHASE_INC: [i16; PieceType::NUM] = [0, 1, 1, 2, 4, 0];
@@ -148,7 +148,7 @@ pub fn calc_game_phase(board: &Board) -> (i16, i16) {
     let mut game_phase = 0;
 
     for pt in PieceType::iter() {
-        let bb = board.pt_bb(pt);
+        let bb = board.piecetype_bb(pt);
 
         game_phase += GAMEPHASE_INC[pt.index()] * (bb.count_bits() as i16);
     }

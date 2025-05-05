@@ -61,7 +61,7 @@ pub type Key = u64;
 |==========================================|
 \******************************************/
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
 pub struct KeyBundle {
     /// The underlying 64-bit unsigned integer representing the hash value.
     pub key: Key,
@@ -93,7 +93,7 @@ impl KeyBundle {
     /// `side_key` effectively flips the part of the hash that indicates whether
     /// it's Black's turn.
     #[inline]
-    pub fn toggle_colour(&mut self) {
+    pub fn toggle_side(&mut self) {
         // XOR self with the precomputed key indicating Black to move.
         // Uses the global ZOBRIST table via the side_key helper.
         self.key ^= side_key(); // Access inner Key for XOR
@@ -322,7 +322,7 @@ impl Board {
         // Iterate through squares and XOR in the key if a piece is present.
         let mut i = 0;
         while i < Square::NUM {
-            let sq = unsafe { Square::from_unchecked(i as u8) };
+            let sq = Square::from_unchecked(i as u8);
             if let Some(piece) = self.on(sq) {
                 // Use the toggle_piece method for clarity, even though direct XOR is equivalent here
                 key ^= piece_key(piece, sq);
@@ -362,7 +362,7 @@ impl Board {
         // Iterate through squares and XOR in the key if a pawn is present.
         let mut i = 0;
         while i < Square::NUM {
-            let sq = unsafe { Square::from_unchecked(i as u8) };
+            let sq = Square::from_unchecked(i as u8);
 
             // Check if there is a piece AND if that piece is a pawn
             if let Some(piece) = self.on(sq) {
@@ -382,7 +382,7 @@ impl Board {
 
         let mut i = 0;
         while i < Square::NUM {
-            let sq = unsafe { Square::from_unchecked(i as u8) };
+            let sq = Square::from_unchecked(i as u8);
 
             // Check if there is a piece AND if that piece is a pawn
             if let Some(piece) = self.on(sq) {

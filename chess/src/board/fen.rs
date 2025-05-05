@@ -382,7 +382,7 @@ impl Board {
 
         // Convert the file index (0-7) into a `File` enum variant (FileA-FileH).
         // File::from_unchecked(u8) should handle this conversion.
-        let current_file = unsafe { File::from_unchecked(file) }; // Assumes File::from_unchecked(0..=7) is safe.
+        let current_file = File::from_unchecked(file); // Assumes File::from_unchecked(0..=7) is safe.
 
         // Create the `Square` from the `File` and `Rank`.
         let sq = Square::from_parts(current_file, rank);

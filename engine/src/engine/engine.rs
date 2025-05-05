@@ -1,18 +1,14 @@
-use std::sync::{
-    Arc,
-    // Atomic types for thread-safe sharing of stop signals and node counts.
-    atomic::{AtomicBool, AtomicU64},
-    mpsc::Receiver,
-};
+use std::sync::{Arc, atomic::AtomicBool, mpsc::Receiver};
 
 use chess::{
-    Board,
+    board::Board,
     utils::{perft_bench, perft_test},
 };
 
 // Import local modules (evaluation, threading, transposition table).
 use crate::{
     eval::{calc_psqt, evaluate},
+    evaluate_nnue,
     search::TT,
     thread::ThreadPool,
 };
@@ -24,7 +20,6 @@ pub use super::{Command, TimeControl};
 /// Defines constants used by the engine controller and potentially other parts.
 pub mod constants {
     // Import necessary types for constants.
-    use crate::eval::Eval;
     use chess::board::MAX_MOVES;
 
     pub const NAME: &str = "Celeris";
@@ -74,6 +69,9 @@ impl EngineController {
     /// Runs the main loop of the engine controller, listening for commands on the receiver channel.
     pub fn run(&mut self, rx: Receiver<Command>) {
         for command in rx {
+            if command == Command::Quit {
+                return;
+            }
             self.handle_command(command);
         }
     }
@@ -201,9 +199,10 @@ impl EngineController {
             calc_psqt(&self.board).0,
             calc_psqt(&self.board).1
         );
+        println!("Eval:{}", evaluate(&self.board));
         println!(
-            "{}",
-            evaluate(&self.board, &mut self.thread_pool.main_worker.pawn_table)
+            "NNUE Eval:{}",
+            evaluate_nnue(&self.board, &mut self.thread_pool.main_worker.nnue)
         )
     }
 

@@ -7,6 +7,7 @@ use chess::{
     board::{Board, LegalGen, MoveList},
 };
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum EngineOption {
     /// Command to clear the transposition table.
     ClearHash(),
@@ -16,6 +17,7 @@ pub enum EngineOption {
     ResizeThreads(usize),
 }
 
+#[derive(Debug, PartialEq, Eq)]
 /// Represents commands that can be sent to the chess engine, primarily following the UCI protocol.
 pub enum Command {
     // --- Standard UCI Commands ---
@@ -193,9 +195,15 @@ impl Command {
         let mut move_list = MoveList::new();
         board.generate_moves::<LegalGen>(&mut move_list);
 
+        let move_match = |move_: &&Move| {
+            move_.to_string() == move_str
+                || (move_.is_king_castle() && move_str == "O-O")
+                || (move_.is_queen_castle() && move_str == "O-O-O")
+        };
+
         move_list
             .iter()
-            .find(|&move_| move_.to_string() == move_str)
+            .find(move_match)
             .ok_or_else(|| UCICommandError(format!("Invalid move: {}", move_str)))
             .copied()
     }

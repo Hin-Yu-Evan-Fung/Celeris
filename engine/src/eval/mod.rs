@@ -1,9 +1,7 @@
 mod eval;
-mod pawns;
 mod psqt;
 
-pub use eval::evaluate;
-pub use pawns::PawnTable;
+pub use eval::{evaluate, evaluate_nnue};
 pub use psqt::calc_psqt;
 
 use crate::MAX_DEPTH;
@@ -56,14 +54,6 @@ impl Eval {
         }
     }
 }
-
-macro_rules! E {
-    ($mg:expr) => {
-        Eval($mg)
-    };
-}
-
-pub(crate) use E;
 
 impl std::ops::Neg for Eval {
     type Output = Self;
