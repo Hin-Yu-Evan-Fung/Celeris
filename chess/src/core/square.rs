@@ -31,9 +31,6 @@
 //!   - Implements `PartialOrd` and `Ord` for natural file ordering.
 //!   - Implements `From<u8>` for numeric conversion.
 //!   - Supports iteration with `File::iter()`.
-//!   
-
-use macros::{EnumIter, FromPrimitive};
 
 use super::types::Colour;
 use std::fmt;
@@ -132,7 +129,7 @@ use std::fmt;
 /// ```
 #[rustfmt::skip]
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Square {
     A1, B1, C1, D1, E1, F1, G1, H1,
     A2, B2, C2, D2, E2, F2, G2, H2,
@@ -147,6 +144,9 @@ pub enum Square {
 impl Square {
     pub const NUM: usize = 64;
 }
+
+crate::impl_from_to_primitive!(Square);
+crate::impl_enum_iter!(Square);
 
 /******************************************\
 |==========================================|
@@ -177,7 +177,7 @@ impl Square {
 /// In chess notation, ranks are represented by numbers 1-8.
 #[rustfmt::skip]
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, EnumIter, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Rank {
     Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7, Rank8,
 }
@@ -185,6 +185,9 @@ pub enum Rank {
 impl Rank {
     pub const NUM: usize = 8;
 }
+
+crate::impl_from_to_primitive!(Rank);
+crate::impl_enum_iter!(Rank);
 
 /******************************************\
 |==========================================|
@@ -215,7 +218,7 @@ impl Rank {
 /// In chess notation, files are represented by letters A-H.
 #[rustfmt::skip]
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, EnumIter, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
 pub enum File {
     FileA, FileB, FileC, FileD, FileE, FileF, FileG, FileH,
 }
@@ -223,6 +226,9 @@ pub enum File {
 impl File {
     pub const NUM: usize = 8;
 }
+
+crate::impl_from_to_primitive!(File);
+crate::impl_enum_iter!(File);
 
 /******************************************\
 |==========================================|
@@ -234,25 +240,26 @@ impl Square {
     /// Returns the rank of this square
     pub const fn rank(&self) -> Rank {
         let rank_index = (*self as u8) >> 3;
-        unsafe { Rank::from_unchecked(rank_index) }
+        Rank::from_unchecked(rank_index)
     }
 
     /// Returns the file of this square
     pub const fn file(&self) -> File {
         let file_index = (*self as u8) & 0b111;
-        unsafe { File::from_unchecked(file_index) }
+        File::from_unchecked(file_index)
     }
 
     /// Flips the rank of this square
     pub const fn flip_rank(&self) -> Self {
-        unsafe { Self::from_unchecked((*self as u8) ^ Square::A8 as u8) }
+        Self::from_unchecked((*self as u8) ^ Square::A8 as u8)
     }
 
     /// Flips the file of this square
     pub const fn flip_file(&self) -> Self {
-        unsafe { Self::from_unchecked((*self as u8) ^ Square::H1 as u8) }
+        Self::from_unchecked((*self as u8) ^ Square::H1 as u8)
     }
 
+    /// Returns the square from the colour's perspective
     pub const fn relative(&self, col: Colour) -> Self {
         match col {
             Colour::White => *self,
@@ -317,13 +324,13 @@ impl Square {
     /// This encodes the rank in bit 4-6 and the piece type in bits 1-3.
     pub const fn from_parts(file: File, rank: Rank) -> Self {
         let index = ((rank as u8) << 3) + (file as u8);
-        unsafe { Self::from_unchecked(index) }
+        Self::from_unchecked(index)
     }
 }
 
 impl Rank {
     pub const fn flip(&self) -> Self {
-        unsafe { Self::from_unchecked(7 - (*self as u8)) }
+        Self::from_unchecked(7 - (*self as u8))
     }
 
     pub const fn relative(&self, col: Colour) -> Self {
@@ -377,7 +384,7 @@ impl std::str::FromStr for File {
 
         let file_char = s.chars().next().unwrap(); // Safe due to length check
         match file_char {
-            'a'..='h' => Ok(unsafe { File::from_unchecked((file_char as u8 - b'a') as u8) }),
+            'a'..='h' => Ok(File::from_unchecked((file_char as u8 - b'a') as u8)),
             _ => Err(ParseFileError::InvalidChar(file_char)),
         }
     }
@@ -394,7 +401,7 @@ impl std::str::FromStr for Rank {
 
         let rank_char = s.chars().next().unwrap(); // Safe due to length check
         match rank_char {
-            '1'..='8' => Ok(unsafe { Rank::from_unchecked((rank_char as u8 - b'1') as u8) }),
+            '1'..='8' => Ok(Rank::from_unchecked((rank_char as u8 - b'1') as u8)),
             _ => Err(ParseRankError::InvalidChar(rank_char)),
         }
     }

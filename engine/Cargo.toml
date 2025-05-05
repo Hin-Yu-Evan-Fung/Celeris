@@ -3,9 +3,8 @@ name = "engine"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-doctest = false
-
 [dependencies]
 chess = { path = "../chess" }
-macros = { path = "../macros" }
+
+[lib]
+doctest = false

@@ -39,9 +39,6 @@
 //! `Move::new_promotion()`. Properties can then be queried using methods like `is_capture()`,
 //! `promotion_piece_type()`, etc. The `Display` trait is implemented for basic algebraic
 //! notation output (e.g., "e2e4", "a7a8q").
-
-use macros::FromPrimitive;
-
 use crate::core::*;
 
 /// Represents the type of a chess move, encoded in the upper 4 bits of a `Move`.
@@ -53,7 +50,7 @@ use crate::core::*;
 /// - **Bit 3 (0x8):** Set for any promotion (Promo, PromoCapture variants).
 /// - **Bits 0-1 (0x3):** Used within promotion flags to indicate the piece type (N=0, B=1, R=2, Q=3).
 #[repr(u16)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, FromPrimitive)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MoveFlag {
     /// A standard move without capture or other special properties. Value: 0 (0b0000)
     QuietMove = 0b0000,
@@ -85,6 +82,8 @@ pub enum MoveFlag {
     /// Promotion to a Queen with capture. Value: 15 (0b1111)
     QueenPromoCapture = 0b1111,
 }
+
+crate::impl_from_to_primitive!(MoveFlag, u16);
 
 impl MoveFlag {
     /// Mask to isolate the capture bit (bit 2).

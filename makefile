@@ -19,8 +19,6 @@ ifneq ($(strip $(features)),)
 FEATURES_ARG := --features $(features)
 endif
 
-
-
 build:
 	cargo clean
 	cargo rustc --release --package engine --bin engine $(FEATURES_ARG) -- -C target-cpu=native --emit link=$(NAME)

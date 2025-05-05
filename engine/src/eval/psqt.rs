@@ -112,11 +112,11 @@ const fn init_psqt() -> [[Score; Square::NUM]; Piece::NUM] {
 
     let mut i = 0;
     while i < PieceType::NUM {
-        let pt = PieceType::from(i as u8).unwrap();
+        let pt = PieceType::from_unchecked(i as u8);
         let mut j = 0;
 
         while j < Square::NUM {
-            let sq = Square::from(j as u8).unwrap();
+            let sq = Square::from_unchecked(j as u8);
             let psqt_val = add(BONUS_TABLES[pt.index()][j], PIECE_SCORES[pt.index()]);
             psqt[Piece::from_parts(Colour::White, pt).index()][j] = psqt_val;
             psqt[Piece::from_parts(Colour::Black, pt).index()][sq.flip_rank().index()] =

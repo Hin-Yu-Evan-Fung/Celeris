@@ -64,6 +64,7 @@ pub(crate) struct Magic {
 impl Magic {
     /// A constant representing an uninitialized `Magic` entry.
     pub(crate) const EMPTY: Magic = Magic {
+        #[cfg(not(target_feature = "bmi2"))]
         magic: 0,
         mask: Bitboard::EMPTY,
         shift: 0,
@@ -78,8 +79,7 @@ impl Magic {
     #[inline]
     pub(crate) const fn index(self, occ: Bitboard) -> usize {
         // Note: Using wrapping_mul for the multiplication as standard practice in magic bitboards.
-        ((occ.bitand(self.mask).0.wrapping_mul(self.magic)).wrapping_shr(self.shift as u32))
-            as usize
+        ((occ.0 & self.mask.0).wrapping_mul(self.magic)).wrapping_shr(self.shift as u32) as usize
             + self.offset
     }
 
@@ -88,7 +88,7 @@ impl Magic {
     /// `occ` should represent the occupied squares on the board.
     /// The formula is `pext(occ, mask) + offset`.
     #[cfg(target_feature = "bmi2")]
-    pub(crate) const fn index(self, occ: Bitboard) -> usize {
+    pub(crate) fn index(self, occ: Bitboard) -> usize {
         occ.pext(self.mask.0) as usize + self.offset
     }
 }
@@ -136,7 +136,7 @@ pub(crate) const fn attacks_on_the_fly(pt: PieceType, sq: Square, occ: Bitboard)
                 Err(_) => break, // Stop if we hit the edge of the board
             };
             // Add the new square to the attacks
-            attacks.bitor_assign(to.bb());
+            attacks = Bitboard(attacks.0 | to.bb().0);
             // Stop if the new square is occupied (it blocks further attacks)
             if occ.contains(to) {
                 break;
@@ -185,7 +185,7 @@ pub(super) const fn populate_magic_table(pt: PieceType) -> MagicTable {
         let sq = unsafe { Square::from_unchecked(i as u8) };
 
         // Calculate the mask: potential attacks on an empty board, excluding edges.
-        let mask = attacks_on_the_fly(pt, sq, Bitboard::EMPTY).bitand(get_edge_mask(sq).not());
+        let mask = Bitboard(attacks_on_the_fly(pt, sq, Bitboard::EMPTY).0 & !get_edge_mask(sq).0);
         // Calculate the shift: 64 minus the number of relevant blocker squares (bits in the mask).
         let shift = 64 - mask.count_bits() as u8;
 
@@ -237,18 +237,18 @@ pub(crate) const fn get_edge_mask(sq: Square) -> Bitboard {
     use Rank::*;
 
     // Bitboards for Rank 1/8 and File A/H
-    let rank_18bb: Bitboard = Rank1.bb().bitor(Rank8.bb());
-    let file_ahbb: Bitboard = FileA.bb().bitor(FileH.bb());
+    let rank_18bb: Bitboard = Bitboard(Rank1.bb().0 | Rank8.bb().0);
+    let file_ahbb: Bitboard = Bitboard(FileA.bb().0 | FileH.bb().0);
 
     // Bitboards for the specific rank and file of the square `sq`
     let sq_rank_bb = sq.rank().bb();
     let sq_file_bb = sq.file().bb();
 
     // Calculate rank mask: Ranks 1 and 8, *unless* sq is on that rank.
-    let rank_mask = rank_18bb.bitand(sq_rank_bb.not());
+    let rank_mask = rank_18bb.0 & !sq_rank_bb.0;
     // Calculate file mask: Files A and H, *unless* sq is on that file.
-    let file_mask = file_ahbb.bitand(sq_file_bb.not());
+    let file_mask = file_ahbb.0 & !sq_file_bb.0;
 
     // Combine the rank and file masks
-    rank_mask.bitor(file_mask)
+    Bitboard(rank_mask | file_mask)
 }

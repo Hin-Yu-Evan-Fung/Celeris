@@ -304,32 +304,32 @@ mod tests {
 
     #[test]
     fn test_see_bulk() {
-        const P: Eval = Eval(150);
-        const N: Eval = Eval(340);
-        const B: Eval = Eval(360);
-        const R: Eval = Eval(480);
-        const Q: Eval = Eval(1000);
-        const K: Eval = Eval(0);
+        const P: i16 = 150;
+        const N: i16 = 340;
+        const B: i16 = 360;
+        const R: i16 = 480;
+        const Q: i16 = 1000;
+        const K: i16 = 0;
 
         #[rustfmt::skip]
-        const SEE_TESTS: &[(&str, &str, Eval, bool)] = &[
-            ("2k5/8/8/4p3/8/8/2K1R3/8 w - - 0 1", "e2e5", Eval::ZERO, true),
+        const SEE_TESTS: &[(&str, &str, i16, bool)] = &[
+            ("2k5/8/8/4p3/8/8/2K1R3/8 w - - 0 1", "e2e5", 0, true),
             ("3k4/8/8/4p3/3P4/8/8/5K2 w - - 0 1", "d4e5", P, true),
             ("3k4/8/5p2/4p3/3P4/8/8/5K2 w - - 0 1", "d4e5", P, false),
             ("8/3k4/2n2b2/8/3P4/8/3KN3/8 b - - 0 1", "c6d4", P, true),
             ("8/3k4/2n2b2/8/3P4/8/3KN3/8 b - - 0 1", "c6d4", N, false),
-            ("3kr3/8/4q3/8/4P3/5P2/8/3K4 b - - 0 1", "e6e4", Eval::ZERO, false),
-            ("3kr3/8/4q3/8/4P3/5P2/8/3K4 b - - 0 1", "e6e4", Eval(-Q.0), true),
+            ("3kr3/8/4q3/8/4P3/5P2/8/3K4 b - - 0 1", "e6e4", 0, false),
+            ("3kr3/8/4q3/8/4P3/5P2/8/3K4 b - - 0 1", "e6e4", -Q, true),
             ("8/3k4/2n2b2/8/3P4/3K4/4N3/8 b - - 0 1", "c6d4", P, false),
-            ("5k2/2P5/4b3/8/8/8/8/2R2K2 w - - 0 1", "c7c8q", Eval::ZERO, true),
-            ("5k2/2P5/4b3/8/8/8/8/3R1K2 w - - 0 1", "c7c8q", Eval::ZERO, false),
-            ("8/3k2b1/2n2b2/8/3P4/3K4/4N3/8 b - - 0 1", "c6d4", Eval::ZERO, true),
-            ("3k4/8/2q5/2b5/2r5/8/2P5/2R1K3 b - - 0 1", "c4c2", Eval::ZERO, false),
-            ("3k4/8/2q5/2b5/2r5/8/2P5/2R1K3 b - - 0 1", "c4c2", P.sub(R), true),
-            ("2k5/3n2b1/2nq4/4R3/5P2/3N1N2/8/5K2 b - - 0 1", "d6e5", Eval::ZERO, false),
-            ("2k5/3n2b1/2nq4/4R3/5P2/3N1N2/8/5K2 b - - 0 1", "d6e5", R.sub(Q).add(P), true),
-            ("5r1k/3b1q1p/1npb4/1p6/pPpP1N2/2P4B/2NBQ1P1/5R1K b - - 0 1", "d6f4", Eval::ZERO, false),
-            ("5r1k/3b1q1p/1npb4/1p6/pPpP1N2/2P4B/2NBQ1P1/5R1K b - - 0 1", "d6f4", Eval(-P.0), true),
+            ("5k2/2P5/4b3/8/8/8/8/2R2K2 w - - 0 1", "c7c8q", 0, true),
+            ("5k2/2P5/4b3/8/8/8/8/3R1K2 w - - 0 1", "c7c8q", 0, false),
+            ("8/3k2b1/2n2b2/8/3P4/3K4/4N3/8 b - - 0 1", "c6d4", 0, true),
+            ("3k4/8/2q5/2b5/2r5/8/2P5/2R1K3 b - - 0 1", "c4c2", 0, false),
+            ("3k4/8/2q5/2b5/2r5/8/2P5/2R1K3 b - - 0 1", "c4c2", P - R, true),
+            ("2k5/3n2b1/2nq4/4R3/5P2/3N1N2/8/5K2 b - - 0 1", "d6e5", 0, false),
+            ("2k5/3n2b1/2nq4/4R3/5P2/3N1N2/8/5K2 b - - 0 1", "d6e5", R - Q + P, true),
+            ("5r1k/3b1q1p/1npb4/1p6/pPpP1N2/2P4B/2NBQ1P1/5R1K b - - 0 1", "d6f4", 0, false),
+            ("5r1k/3b1q1p/1npb4/1p6/pPpP1N2/2P4B/2NBQ1P1/5R1K b - - 0 1", "d6f4", -P, true),
         ];
 
         for (fen, move_str, threshold, result) in SEE_TESTS {
@@ -344,7 +344,7 @@ mod tests {
                 .unwrap();
 
             println!("{}", board.fen());
-            assert_eq!(see(&board, move_, *threshold), *result);
+            assert_eq!(see(&board, move_, Eval(*threshold)), *result);
         }
     }
 }

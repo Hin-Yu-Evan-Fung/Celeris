@@ -28,7 +28,6 @@
 use std::fmt;
 
 use crate::core::Colour;
-use macros::{EnumIter, FromPrimitive};
 
 /******************************************\
 |==========================================|
@@ -87,14 +86,35 @@ use macros::{EnumIter, FromPrimitive};
 /// ```
 #[rustfmt::skip]
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Piece {
     WhitePawn, WhiteKnight, WhiteBishop, WhiteRook, WhiteQueen, WhiteKing, BlackPawn = 8, BlackKnight, BlackBishop, BlackRook, BlackQueen, BlackKing,
 }
 
 impl Piece {
     pub const NUM: usize = 14;
+
+    pub fn iter() -> impl DoubleEndedIterator<Item = Piece> {
+        use Piece::*;
+        [
+            WhitePawn,
+            WhiteKnight,
+            WhiteBishop,
+            WhiteRook,
+            WhiteQueen,
+            WhiteKing,
+            BlackPawn,
+            BlackKnight,
+            BlackBishop,
+            BlackRook,
+            BlackQueen,
+            BlackKing,
+        ]
+        .into_iter()
+    }
 }
+
+crate::impl_from_to_primitive!(Piece);
 
 /******************************************\
 |==========================================|
@@ -137,7 +157,7 @@ impl Piece {
 /// ```
 #[rustfmt::skip]
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PieceType {
    Pawn, Knight, Bishop, Rook, Queen, King,
 }
@@ -145,6 +165,9 @@ pub enum PieceType {
 impl PieceType {
     pub const NUM: usize = 6;
 }
+
+crate::impl_from_to_primitive!(PieceType);
+crate::impl_enum_iter!(PieceType);
 
 /******************************************\
 |==========================================|
@@ -159,7 +182,7 @@ impl Piece {
     ///
     /// Returns the corresponding `PieceType` enum value.
     pub const fn pt(&self) -> PieceType {
-        unsafe { PieceType::from_unchecked((*self as u8) & 0b111) }
+        PieceType::from_unchecked((*self as u8) & 0b111)
     }
 
     /// # Get Piece Colour
@@ -168,7 +191,7 @@ impl Piece {
     ///
     /// Returns the corresponding `Colour` enum value.
     pub const fn colour(&self) -> Colour {
-        unsafe { Colour::from_unchecked((*self as u8) >> 3) }
+        Colour::from_unchecked((*self as u8) >> 3)
     }
 
     /// # Create Piece from Colour and Type
@@ -177,7 +200,7 @@ impl Piece {
     ///
     /// This encodes the colour in bit 4 and the piece type in bits 1-3.
     pub const fn from_parts(colour: Colour, piece_type: PieceType) -> Self {
-        unsafe { Piece::from_unchecked((colour as u8) << 3 | piece_type as u8) }
+        Piece::from_unchecked((colour as u8) << 3 | piece_type as u8)
     }
 }
 
@@ -226,7 +249,7 @@ impl std::str::FromStr for Piece {
             .position(|c| c == piece_char && c != ' ')
             .ok_or(ParsePieceError::InvalidChar(piece_char))? as u8;
 
-        Piece::from(index).ok_or(ParsePieceError::InvalidChar(piece_char))
+        Ok(Piece::from_unchecked(index))
     }
 }
 

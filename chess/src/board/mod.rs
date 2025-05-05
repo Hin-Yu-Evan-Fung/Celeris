@@ -30,11 +30,11 @@
 //! - **State Management**: `Board::store_state()` and `Board::restore_state()` manage the move history, allowing for undoing moves.
 //! - **Piece Access**: `Board::on()` retrieves the piece on a given square.
 //! - **Bitboard Access**: `Board::piecetype_bb()`, `Board::occupied_bb()`, `Board::all_occupied_bb()
-mod fen;
-mod mask;
-mod movegen;
-mod movement;
-mod zobrist;
+pub mod fen;
+pub mod mask;
+pub mod movegen;
+pub mod movement;
+pub mod zobrist;
 
 pub use fen::{KILLER_FEN, START_FEN, TRICKY_FEN};
 pub use movegen::{

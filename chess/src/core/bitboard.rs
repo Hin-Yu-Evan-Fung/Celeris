@@ -38,7 +38,6 @@
 use std::fmt;
 
 use super::{Colour, Direction, File, Rank, Square};
-use macros::{AriOps, BitManiOps, BitOps};
 
 /// # Bitboard Representation
 ///
@@ -148,8 +147,11 @@ use macros::{AriOps, BitManiOps, BitOps};
 ///     println!("Square: {:?}", square);
 /// });
 /// ```
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, BitOps, BitManiOps, AriOps)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Bitboard(pub u64);
+
+crate::impl_bit_ops!(Bitboard);
+crate::impl_bit_mani_ops!(Bitboard, u8);
 
 /******************************************\
 |==========================================|
@@ -161,7 +163,7 @@ impl Bitboard {
     /// Empty bitboard (no bits set)
     pub const EMPTY: Bitboard = Bitboard(0);
     /// Full Bitboard (all bits set)
-    pub const FULL: Bitboard = Self::EMPTY.not();
+    pub const FULL: Bitboard = Bitboard(!Self::EMPTY.0);
     /// Bitboard with only A1 square set
     pub const A1: Bitboard = Bitboard(1);
     /// Bitboard with all squares in rank 1 set
@@ -623,40 +625,31 @@ impl Bitboard {
             return Bitboard::EMPTY;
         }
 
-        const NOT_RANK_1: Bitboard = Bitboard::RANK_1.not();
-        const NOT_RANK_8: Bitboard = Bitboard::RANK_8.not();
-        const NOT_RANK_12: Bitboard = Bitboard::RANK_12.not();
-        const NOT_RANK_78: Bitboard = Bitboard::RANK_78.not();
-        const NOT_FILE_A: Bitboard = Bitboard::FILE_A.not();
-        const NOT_FILE_H: Bitboard = Bitboard::FILE_H.not();
-        const NOT_FILE_AB: Bitboard = Bitboard::FILE_AB.not();
-        const NOT_FILE_GH: Bitboard = Bitboard::FILE_GH.not();
-
         // Apply the appropriate mask and shift for each direction
-        match dir {
+        Bitboard(match dir {
             // Knight-like moves
-            SSE => bb.bitand(NOT_RANK_12).bitand(NOT_FILE_H).shr(15),
-            SEE => bb.bitand(NOT_RANK_1).bitand(NOT_FILE_GH).shr(6),
-            SWW => bb.bitand(NOT_RANK_1).bitand(NOT_FILE_AB).shr(10),
-            SSW => bb.bitand(NOT_RANK_12).bitand(NOT_FILE_A).shr(17),
-            NNW => bb.bitand(NOT_RANK_78).bitand(NOT_FILE_A).shl(15),
-            NNE => bb.bitand(NOT_RANK_78).bitand(NOT_FILE_H).shl(17),
-            NWW => bb.bitand(NOT_RANK_8).bitand(NOT_FILE_AB).shl(6),
-            NEE => bb.bitand(NOT_RANK_8).bitand(NOT_FILE_GH).shl(10),
+            SSE => (bb.0 & !Bitboard::RANK_12.0 & !Bitboard::FILE_H.0) >> 15,
+            SEE => (bb.0 & !Bitboard::RANK_1.0 & !Bitboard::FILE_GH.0) >> 6,
+            SWW => (bb.0 & !Bitboard::RANK_1.0 & !Bitboard::FILE_AB.0) >> 10,
+            SSW => (bb.0 & !Bitboard::RANK_12.0 & !Bitboard::FILE_A.0) >> 17,
+            NNW => (bb.0 & !Bitboard::RANK_78.0 & !Bitboard::FILE_A.0) << 15,
+            NNE => (bb.0 & !Bitboard::RANK_78.0 & !Bitboard::FILE_H.0) << 17,
+            NWW => (bb.0 & !Bitboard::RANK_8.0 & !Bitboard::FILE_AB.0) << 6,
+            NEE => (bb.0 & !Bitboard::RANK_8.0 & !Bitboard::FILE_GH.0) << 10,
             // King-like moves
-            N => bb.bitand(NOT_RANK_8).shl(8),
-            S => bb.bitand(NOT_RANK_1).shr(8),
-            E => bb.bitand(NOT_FILE_H).shl(1),
-            W => bb.bitand(NOT_FILE_A).shr(1),
+            N => (bb.0 & !Bitboard::RANK_8.0) << 8,
+            S => (bb.0 & !Bitboard::RANK_1.0) >> 8,
+            E => (bb.0 & !Bitboard::FILE_H.0) << 1,
+            W => (bb.0 & !Bitboard::FILE_A.0) >> 1,
             // Diagonal directions
-            NE => bb.bitand(NOT_RANK_8).bitand(NOT_FILE_H).shl(9),
-            NW => bb.bitand(NOT_RANK_8).bitand(NOT_FILE_A).shl(7),
-            SE => bb.bitand(NOT_RANK_1).bitand(NOT_FILE_H).shr(7),
-            SW => bb.bitand(NOT_RANK_1).bitand(NOT_FILE_A).shr(9),
-            // Double moves
-            NN => bb.bitand(NOT_RANK_78).shl(16),
-            SS => bb.bitand(NOT_RANK_12).shr(16),
-        }
+            NE => (bb.0 & !Bitboard::RANK_8.0 & !Bitboard::FILE_H.0) << 9,
+            NW => (bb.0 & !Bitboard::RANK_8.0 & !Bitboard::FILE_A.0) << 7,
+            SE => (bb.0 & !Bitboard::RANK_1.0 & !Bitboard::FILE_H.0) >> 7,
+            SW => (bb.0 & !Bitboard::RANK_1.0 & !Bitboard::FILE_A.0) >> 9,
+            // Double move
+            NN => (bb.0 & !Bitboard::RANK_78.0) << 16,
+            SS => (bb.0 & !Bitboard::RANK_12.0) >> 16,
+        })
     }
 
     /// Iterates through all set bits in the bitboard, applying the given function to each square
@@ -710,9 +703,9 @@ impl Bitboard {
     /// Return the extract bits using the intrinsic PEXT instruction
     #[cfg(target_feature = "bmi2")]
     #[inline]
-    pub const fn pext(&self, mask: Bitboard) -> Bitboard {
+    pub fn pext(&self, mask: Bitboard) -> Bitboard {
         use core::arch::x86_64::_pext_u64;
-        unsafe { _pext_u64(self.0, mask.0) }
+        Bitboard(unsafe { _pext_u64(self.0, mask.0) })
     }
 
     #[inline]
