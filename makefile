@@ -25,21 +25,9 @@ build:
 	cargo clean
 	cargo rustc --release --package engine --bin engine $(FEATURES_ARG) -- -C target-cpu=native --emit link=$(NAME)
 
-run:
-	make build
-	./$(NAME)
-
-bench:
-	make build
-	./$(NAME) bench
-
 debug:
 	cargo clean
 	cargo rustc --package engine --bin engine $(FEATURES_ARG) -- -C target-cpu=native --emit link=$(DEBUG_NAME)
-
-debug_run:
-	make debug
-	./$(DEBUG_NAME)
 
 dir:
 	mkdir -p $(DIR)

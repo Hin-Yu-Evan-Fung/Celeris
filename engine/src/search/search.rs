@@ -262,17 +262,6 @@ impl SearchWorker {
         let mut tt_move = Move::NONE;
 
         if let Some(entry) = tt_entry {
-            let tt_value = entry.value.from_tt(self.ply);
-
-            if !NT::PV
-                && entry.depth >= depth as u8
-                && (entry.bound == TTBound::Exact
-                    || entry.bound == TTBound::Lower && tt_value >= beta
-                    || entry.bound == TTBound::Upper && tt_value <= alpha)
-            {
-                return tt_value;
-            }
-
             // Update best move from hash table
             tt_move = entry.best_move;
         }
@@ -307,32 +296,37 @@ impl SearchWorker {
                 return Eval::DRAW;
             }
 
-            // If the move we just search is better than best_value (The best we can do in this subtree), we can update best_value to be alpha
-            best_value = best_value.max(value); // Update the best score found locally at this node.
+            // If the move we just search is better than best_value (The best we can do in this subtree), we can update best_value to be alpha.
+            if value > best_value {
+                best_value = value; // Update best_value
+                // Alpha Update: Check if this move's score (`value`) is better than the
+                // best score we are *already guaranteed* (`alpha`) from other parts of the tree.
+                if value > alpha {
+                    // We found a new best move sequence overall.
+                    best_move = move_; // Update the best move.
 
-            // Alpha Update: Check if this move's score (`value`) is better than the
-            // best score we are *already guaranteed* (`alpha`) from other parts of the tree.
-            if value > alpha {
-                // We found a new best move sequence overall.
-                best_move = move_; // Update the best move.
-                pv.update_line(move_, &child_pv); // Update the Principal Variation (best move sequence).
-                alpha = value; // Update alpha: Raise the lower bound of our guaranteed score.
-            }
+                    // Beta Cutoff (Fail-High): Check if our guaranteed score (`alpha`)
+                    // meets or exceeds the opponent's limit (`beta`).
+                    // This move is "too good". The opponent (at a higher node)
+                    // would have already had a better alternative than allowing this position.
+                    // Therefore, exploring further sibling moves at this node is unnecessary.
+                    if value >= beta {
+                        break;
+                    }
 
-            // Beta Cutoff (Fail-High): Check if our guaranteed score (`alpha`)
-            // meets or exceeds the opponent's limit (`beta`).
-            // This move is "too good". The opponent (at a higher node)
-            // would have already had a better alternative than allowing this position.
-            // Therefore, exploring further sibling moves at this node is unnecessary.
-            if value >= beta {
-                best_value = beta;
-                break;
+                    pv.update_line(move_, &child_pv); // Update the Principal Variation (best move sequence).
+                    alpha = value; // Update alpha: Raise the lower bound of our guaranteed score.
+                }
             }
         }
 
         // If move count is 0, it is either a stalemate or a mate in self.ply
         if move_count == 0 {
-            best_value = self.terminal_score(in_check);
+            best_value = if in_check {
+                Eval::mated_in(self.ply)
+            } else {
+                Eval::DRAW
+            };
         // If there is a new best move, and it is not a capture, update the killer move and history move table
         } else if best_move.is_valid() && !best_move.is_capture() {
             self.update_search_stats(best_move, depth);
@@ -340,7 +334,23 @@ impl SearchWorker {
 
         // Write to TT, save static eval
         if !NT::ROOT {
-            self.store_results(tt, best_value, best_move, beta, Eval::ZERO, depth);
+            let bound = if best_value >= beta {
+                TTBound::Lower
+            } else if NT::PV && best_move.is_valid() {
+                TTBound::Exact
+            } else {
+                TTBound::Upper
+            };
+
+            tt.write(
+                self.board.key(),
+                bound,
+                self.ply,
+                depth as u8,
+                best_move,
+                Eval::ZERO,
+                best_value,
+            );
         }
 
         best_value
@@ -411,14 +421,7 @@ impl SearchWorker {
         let mut tt_move = Move::NONE;
 
         if let Some(entry) = tt_entry {
-            let tt_value = entry.value.from_tt(self.ply);
-
-            match entry.bound {
-                TTBound::Exact => return tt_value,
-                TTBound::Lower if !NT::PV && !in_check && tt_value >= beta => return beta,
-                TTBound::Upper if !NT::PV && !in_check && tt_value <= alpha => return alpha,
-                _ => tt_move = entry.best_move,
-            }
+            tt_move = entry.best_move;
         }
 
         // Initialize best_value with stand_pat. We are looking for captures that improve on this.
@@ -440,19 +443,27 @@ impl SearchWorker {
                 return Eval::DRAW;
             }
 
-            // --- Alpha-Beta Update (same as negamax) ---
-            best_value = best_value.max(value); // Update the best score found locally at this node.
+            // If the move we just search is better than best_value (The best we can do in this subtree), we can update best_value to be alpha.
+            if value > best_value {
+                best_value = value; // Update best_value
+                // Alpha Update: Check if this move's score (`value`) is better than the
+                // best score we are *already guaranteed* (`alpha`) from other parts of the tree.
+                if value > alpha {
+                    // We found a new best move sequence overall.
+                    best_move = move_; // Update the best move.
 
-            if value > alpha {
-                best_move = move_; // Update the best move.
-                pv.update_line(move_, &child_pv); // Update PV line for quiescence
-                alpha = value; // Update alpha
-            }
+                    // Beta Cutoff (Fail-High): Check if our guaranteed score (`alpha`)
+                    // meets or exceeds the opponent's limit (`beta`).
+                    // This move is "too good". The opponent (at a higher node)
+                    // would have already had a better alternative than allowing this position.
+                    // Therefore, exploring further sibling moves at this node is unnecessary.
+                    if value >= beta {
+                        break;
+                    }
 
-            if value >= beta {
-                // Beta Cutoff (Fail-High)
-                best_value = beta;
-                break;
+                    pv.update_line(move_, &child_pv); // Update the Principal Variation (best move sequence).
+                    alpha = value; // Update alpha: Raise the lower bound of our guaranteed score.
+                }
             }
         }
 
@@ -461,7 +472,21 @@ impl SearchWorker {
             return Eval::mated_in(self.ply);
         }
 
-        self.store_results(tt, best_value, best_move, beta, stand_pat, 0);
+        let bound = if best_value >= beta {
+            TTBound::Lower
+        } else {
+            TTBound::Upper
+        };
+
+        tt.write(
+            self.board.key(),
+            bound,
+            self.ply,
+            0,
+            best_move,
+            Eval::ZERO,
+            best_value,
+        );
 
         best_value
     }
@@ -530,13 +555,5 @@ impl SearchWorker {
 
     fn is_draw<NT: NodeTypeTrait>(&mut self) -> bool {
         !NT::ROOT && self.board.is_draw(self.ply)
-    }
-
-    fn terminal_score(&self, in_check: bool) -> Eval {
-        if in_check {
-            Eval::mated_in(self.ply)
-        } else {
-            Eval::DRAW
-        }
     }
 }
