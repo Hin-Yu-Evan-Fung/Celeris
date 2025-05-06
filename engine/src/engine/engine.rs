@@ -75,6 +75,9 @@ impl EngineController {
     /// Runs the main loop of the engine controller, listening for commands on the receiver channel.
     pub fn run(&mut self, rx: Receiver<Command>) {
         for command in rx {
+            if command == Command::Quit {
+                return;
+            }
             self.handle_command(command);
         }
     }

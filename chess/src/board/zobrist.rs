@@ -61,7 +61,7 @@ pub type Key = u64;
 |==========================================|
 \******************************************/
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
 pub struct KeyBundle {
     /// The underlying 64-bit unsigned integer representing the hash value.
     pub key: Key,

@@ -13,7 +13,10 @@ use super::{
     command::EngineOption,
     engine::{Command, EngineController},
 };
-use chess::{Board, board::movegen::init_magic_tables};
+use chess::{
+    Board, Colour, Move, PieceType,
+    board::{LegalGen, MoveList, movegen::init_magic_tables},
+};
 use std::{
     io::BufRead,
     sync::{
@@ -176,6 +179,32 @@ impl Engine {
         self.command_tx.send(Command::Go(time_control)).unwrap();
     }
 
+    fn parse_move(&self, move_str: &str, board: &Board) -> Option<Move> {
+        let mut move_list = MoveList::new();
+        board.generate_moves::<LegalGen>(&mut move_list);
+
+        move_list
+            .iter()
+            .find(|&move_| move_.to_string() == move_str)
+            .take()
+            .copied()
+    }
+
+    /// Parses the position and initialises a new board
+    pub fn get_position(&self, fen: &str, moves: &[&str]) -> Board {
+        let mut board = Board::from_fen(fen).unwrap();
+
+        for move_str in moves {
+            println!("{}", board.piece_bb(Colour::White, PieceType::Rook));
+            match self.parse_move(move_str, &board) {
+                Some(move_) => board.make_move(move_),
+                None => println!("Invalid move: {}", move_str),
+            };
+        }
+
+        board
+    }
+
     /// Sends the UCI `position` command to set the current board position.
     ///
     /// `board`: The `chess::Board` representing the position.
@@ -262,6 +291,7 @@ impl Engine {
 
 impl Drop for Engine {
     fn drop(&mut self) {
+        self.command_tx.send(Command::Quit).unwrap();
         // Signal the engine thread to stop.
         self.stop.store(true, std::sync::atomic::Ordering::Relaxed);
         // Wait for the engine thread to finish.

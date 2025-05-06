@@ -1,6 +1,28 @@
 use chess::{Board, Colour, Move, Piece, Square};
 
-use crate::{MAX_DEPTH, eval::Eval};
+use crate::eval::Eval;
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct KillerEntry {
+    killers: [Move; 2],
+}
+
+impl KillerEntry {
+    pub fn get(&self) -> [Move; 2] {
+        self.killers
+    }
+
+    pub fn clear(&mut self) {
+        self.killers = [Move::NONE; 2];
+    }
+
+    pub fn update(&mut self, move_: Move) {
+        if move_ != self.killers[0] {
+            self.killers[1] = self.killers[0];
+            self.killers[0] = move_;
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct HistoryEntry<const MAX: i16> {
@@ -28,43 +50,6 @@ impl<const MAX: i16> HistoryEntry<MAX> {
 }
 
 pub const MAX_MAIN_HISTORY: i16 = 16384;
-
-#[derive(Debug, Clone)]
-pub struct KillerTable {
-    killers: [[Move; 2]; MAX_DEPTH],
-}
-
-impl Default for KillerTable {
-    fn default() -> Self {
-        Self {
-            killers: [[Move::NONE; 2]; MAX_DEPTH],
-        }
-    }
-}
-
-impl KillerTable {
-    pub fn clear(&mut self) {
-        self.killers.fill_with(|| [Move::NONE; 2]);
-    }
-
-    pub fn clear_child(&mut self, ply: u16) {
-        self.killers[(ply + 1) as usize][1] = Move::NONE;
-        self.killers[(ply + 1) as usize][0] = Move::NONE;
-    }
-
-    /// ### Updates Killer Table with the corresponding killer move
-    pub fn update(&mut self, ply: u16, move_: Move) {
-        if move_ != self.killers[ply as usize][0] {
-            self.killers[ply as usize][1] = self.killers[ply as usize][0];
-            self.killers[ply as usize][0] = move_;
-        }
-    }
-
-    /// ### Get killers
-    pub fn get(&self, ply: u16) -> [Move; 2] {
-        self.killers[ply as usize]
-    }
-}
 
 pub trait History<const MAX: i16> {
     /// Returns an immutable reference to the history entry.

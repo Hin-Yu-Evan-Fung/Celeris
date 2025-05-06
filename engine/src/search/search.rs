@@ -3,24 +3,36 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64},
 };
 
-use chess::{Board, Move};
+use chess::{Board, Move, Piece};
 use nnue::accummulator::Accumulator;
 
 use crate::{
-    History, KillerTable, MainHistory,
+    History, KillerEntry, MainHistory,
     engine::MAX_DEPTH,
     eval::{Eval, evaluate, evaluate_nnue},
     movepick::MovePicker,
-    search::{PVLine, SearchStack},
+    search::PVLine,
 };
 
 use super::{Clock, MIN_DEPTH, NodeTypeTrait, PV, Root, TT, tt::TTBound};
 
+#[derive(Debug, Default, Copy, Clone)]
+pub(crate) struct SearchStackEntry {
+    killers: KillerEntry,
+    curr_move: Move,
+    excl_move: Move,
+    moved: Option<Piece>,
+    static_eval: Eval,
+    move_count: u8,
+    in_check: bool,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct SearchStats {
-    pub killers: KillerTable,
     pub main_history: MainHistory,
 }
+
+const OFFSET: usize = 2;
 
 #[derive(Debug, Clone)]
 pub(crate) struct SearchWorker {
@@ -28,7 +40,7 @@ pub(crate) struct SearchWorker {
     board: Board,
 
     thread_id: usize,
-    stack: SearchStack,
+    stack: [SearchStackEntry; MAX_DEPTH + OFFSET],
 
     nodes: u64,
     depth: usize,
@@ -53,7 +65,7 @@ impl SearchWorker {
             thread_id,
             eval: -Eval::INFINITY,
             board: Board::default(),
-            stack: SearchStack::default(),
+            stack: [SearchStackEntry::default(); MAX_DEPTH + OFFSET],
             nodes: 0,
             seldepth: 0,
             depth: 0,
@@ -72,11 +84,9 @@ impl SearchWorker {
 
     pub fn reset(&mut self) {
         self.stats.main_history.clear();
-        self.stats.killers.clear();
     }
 
     pub fn prepare_search(&mut self) {
-        self.stack.clear();
         self.clock.last_nodes = 0;
         self.nodes = 0;
         self.seldepth = 0;
@@ -112,11 +122,23 @@ impl SearchWorker {
         should_stop
     }
 
-    pub fn start_search(&mut self, tt: &TT) {
-        self.iterative_deepening(tt);
+    fn ss(&self) -> SearchStackEntry {
+        self.stack[self.ply as usize]
     }
 
-    fn iterative_deepening(&mut self, tt: &TT) {
+    fn ss_mut(&mut self) -> &mut SearchStackEntry {
+        &mut self.stack[self.ply as usize]
+    }
+
+    fn ss_at(&self, offset: usize) -> SearchStackEntry {
+        self.stack[self.ply as usize - offset]
+    }
+
+    fn ss_at_mut(&mut self, offset: usize) -> &mut SearchStackEntry {
+        &mut self.stack[self.ply as usize - offset]
+    }
+
+    pub fn iterative_deepening(&mut self, tt: &TT) {
         self.depth = 0;
 
         while self.should_start_iteration() {
@@ -241,23 +263,33 @@ impl SearchWorker {
             return self.quiescence::<NT>(tt, pv, alpha, beta);
         }
 
-        if self.is_draw::<NT>() {
-            return Eval::DRAW;
+        if !NT::ROOT {
+            // Check ply limit to prevent infinite recursion in rare cases
+            if self.ply >= MAX_DEPTH as u16 {
+                return evaluate_nnue(&self.board, &mut self.nnue); // Return static eval if too deep
+            }
+            // Check for draws (Repetition, 50-move rule)
+            if self.board.is_draw(self.ply) {
+                return Eval::DRAW;
+            }
         }
 
         // --- Set up Search ---
         // Make sure the depth is not going to be negative
         depth = depth.max(1);
         // Update self depth
-        self.update_seldepth::<NT>();
+        self.seldepth = if NT::ROOT {
+            0
+        } else {
+            self.seldepth.max(self.ply as usize)
+        };
         // Create child pv to pass to the next recursive call to negamax
         let mut child_pv = PVLine::default();
 
         // Reset killer child nodes
-        self.stats.killers.clear_child(self.ply);
+        // self.stats.killers.clear_child(self.ply);
 
         // --- Hash Table Lookup ---
-
         let tt_entry = tt.get(self.board.key());
         let mut tt_move = Move::NONE;
 
@@ -272,8 +304,10 @@ impl SearchWorker {
         let mut best_move = Move::NONE;
         let mut move_count = 0;
 
+        // Clear child killer moves
+        self.stack[(self.ply + 2) as usize].killers.clear();
         // Get killer moves
-        let killers = self.stats.killers.get(self.ply);
+        let killers = self.ss().killers.get();
         // Initialise move picker
         let mut move_picker = MovePicker::<false>::new(&self.board, tt_move, killers);
 
@@ -319,6 +353,11 @@ impl SearchWorker {
                 }
             }
         }
+
+        // Update search stack move count
+        self.ss_mut().move_count = move_count as u8;
+        // Update search stack in check flag
+        self.ss_mut().in_check = in_check;
 
         // If move count is 0, it is either a stalemate or a mate in self.ply
         if move_count == 0 {
@@ -379,7 +418,7 @@ impl SearchWorker {
         mut alpha: Eval,
         beta: Eval,
     ) -> Eval {
-        self.update_seldepth::<NT>();
+        self.seldepth = self.seldepth.max(self.ply as usize);
 
         pv.clear();
 
@@ -391,9 +430,8 @@ impl SearchWorker {
         if self.ply >= MAX_DEPTH as u16 {
             return evaluate_nnue(&self.board, &mut self.nnue); // Return static eval if too deep
         }
-
         // Check for draws (Repetition, 50-move rule)
-        if self.is_draw::<NT>() {
+        if self.board.is_draw(self.ply) {
             return Eval::DRAW;
         }
 
@@ -435,7 +473,7 @@ impl SearchWorker {
 
         while let Some(move_) = move_picker.next(&self.board, &self.stats) {
             self.make_move(tt, move_); // Make the capture
-            let value = -self.quiescence::<PV>(tt, &mut child_pv, -beta, -alpha); // Recursive call
+            let value = -self.quiescence::<NT>(tt, &mut child_pv, -beta, -alpha); // Recursive call
             self.undo_move(move_); // Undo the capture
 
             // Check for stop signal after recursive call
@@ -492,68 +530,31 @@ impl SearchWorker {
     }
 
     fn make_move(&mut self, tt: &TT, move_: Move) {
+        // Make move
         self.board.make_move(move_);
+        // Hint at the next hash entry
         tt.prefetch(self.board.key());
+        // Update search stack
+        self.ss_mut().curr_move = move_;
+        self.ss_mut().moved = self.board.on(move_.to());
+
         self.ply += 1;
         self.nodes += 1;
     }
 
     fn undo_move(&mut self, move_: Move) {
+        // Undo move
         self.board.undo_move(move_);
         self.ply -= 1;
     }
 
-    fn update_seldepth<NT: NodeTypeTrait>(&mut self) {
-        self.seldepth = if NT::ROOT {
-            0
-        } else {
-            self.seldepth.max(self.ply as usize)
-        };
-    }
-
     fn update_search_stats(&mut self, best_move: Move, depth: usize) {
-        self.stats.killers.update(self.ply, best_move);
+        self.ss_mut().killers.update(best_move);
 
         let bonus = (depth * depth) as i16;
 
         self.stats
             .main_history
             .update(&self.board, best_move, bonus);
-    }
-
-    fn store_results(
-        &self,
-        tt: &TT,
-        best_value: Eval,
-        best_move: Move,
-        beta: Eval,
-        eval: Eval,
-        depth: usize,
-    ) {
-        let bounds = if best_value >= beta {
-            TTBound::Lower // Means we are storing the lower bound for beta
-        // If the best we can do (alpha in some later search) is better than the best the opponent can do in this line (beta here),
-        // we can prune the tree for that branch
-        } else if best_move.is_valid() {
-            TTBound::Exact // Means we are storing the exact score for this position
-        } else {
-            TTBound::Upper // Means we are storing the upper bound for alpha
-            // If the best the opponent can do (beta in a later search) is better than the best we can do in this line (alpha here),
-            // we can prune the tree for that branch
-        };
-
-        tt.write(
-            self.board.key(),
-            bounds,
-            self.ply,
-            depth as u8,
-            best_move,
-            eval,
-            best_value,
-        );
-    }
-
-    fn is_draw<NT: NodeTypeTrait>(&mut self) -> bool {
-        !NT::ROOT && self.board.is_draw(self.ply)
     }
 }

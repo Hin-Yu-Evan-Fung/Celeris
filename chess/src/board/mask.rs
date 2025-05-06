@@ -66,7 +66,7 @@ impl Board {
     /// This mask represents all squares attacked by the side *not* currently to move.
     /// It's stored in `BoardState` and updated by `update_masks`.
     #[inline]
-    pub(crate) const fn attacked(&self) -> Bitboard {
+    pub const fn attacked(&self) -> Bitboard {
         self.state.attacked
     }
 
@@ -82,7 +82,7 @@ impl Board {
     ///
     /// It's stored in `BoardState` and updated by `update_masks`.
     #[inline]
-    pub(crate) const fn check_mask(&self) -> Bitboard {
+    pub const fn check_mask(&self) -> Bitboard {
         self.state.check_mask
     }
 
@@ -94,7 +94,7 @@ impl Board {
     /// the valid squares a pinned piece can move to *along the pin ray*.
     /// It's stored in `BoardState` and updated by `update_masks`.
     #[inline]
-    pub(crate) const fn diag_pin(&self) -> Bitboard {
+    pub const fn diag_pin(&self) -> Bitboard {
         self.state.diag_pin
     }
 
@@ -106,13 +106,13 @@ impl Board {
     /// the valid squares a pinned piece can move to *along the pin ray*.
     /// It's stored in `BoardState` and updated by `update_masks`.
     #[inline]
-    pub(crate) const fn hv_pin(&self) -> Bitboard {
+    pub const fn hv_pin(&self) -> Bitboard {
         self.state.hv_pin
     }
 
     /// Gets whether the enpassant pawn blocks a check
     #[inline]
-    pub(crate) const fn ep_pin(&self) -> bool {
+    pub const fn ep_pin(&self) -> bool {
         self.state.ep_pin
     }
 

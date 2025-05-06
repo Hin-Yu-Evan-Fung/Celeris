@@ -225,7 +225,7 @@ crate::impl_bit_ops!(Castling);
 |==========================================|
 \******************************************/
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct CastlingMask {
     pub castling: [Castling; Square::NUM],
     /// [WK rook, WQ rook, BK rook, BQ rook]

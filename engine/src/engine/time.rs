@@ -11,7 +11,7 @@ fn parse<T: FromStr>(tokens: &mut SplitWhitespace) -> Result<T, &'static str> {
 }
 
 /// Represents the different time control modes for the engine's search.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TimeControl {
     /// Search indefinitely until stopped.
     Infinite,

@@ -81,12 +81,12 @@ impl Board {
         self.board[from.index()] = None;
         // Put piece in the board
         self.board[to.index()] = Some(piece);
-
-        let from_to_bb = from.bb() | to.bb();
         // Update piece bitboards
-        self.pieces[piece.pt().index()] ^= from_to_bb;
+        self.pieces[piece.pt().index()].clear(from);
+        self.pieces[piece.pt().index()].set(to);
         // Update occupied bitboards
-        self.occupied[piece.colour().index()] ^= from_to_bb;
+        self.occupied[piece.colour().index()].clear(from);
+        self.occupied[piece.colour().index()].set(to);
     }
 
     /// Sets the en passant square based on a double pawn push originating `from`.
