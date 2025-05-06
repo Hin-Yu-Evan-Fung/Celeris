@@ -1,4 +1,5 @@
 use crate::accummulator::SideAccumulator;
+use crate::params::QA;
 
 pub fn flatten(acc: &SideAccumulator, weights: &SideAccumulator) -> i32 {
     #[cfg(not(any(target_feature = "avx2", target_feature = "avx512f")))]
@@ -43,7 +44,10 @@ mod fallback {
 mod avx2 {
     use std::arch::x86_64::*;
 
-    use crate::{accummulator::SideAccumulator, params::L1};
+    use crate::{
+        accummulator::SideAccumulator,
+        params::{L1, QA},
+    };
 
     pub unsafe fn flatten(acc: &SideAccumulator, weights: &SideAccumulator) -> i32 {
         use std::arch::x86_64::*;

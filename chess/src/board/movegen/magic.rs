@@ -64,7 +64,6 @@ pub(crate) struct Magic {
 impl Magic {
     /// A constant representing an uninitialized `Magic` entry.
     pub(crate) const EMPTY: Magic = Magic {
-        #[cfg(not(target_feature = "bmi2"))]
         magic: 0,
         mask: Bitboard::EMPTY,
         shift: 0,

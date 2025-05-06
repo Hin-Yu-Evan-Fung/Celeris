@@ -11,7 +11,6 @@ const MAX_PERM: usize = 0x1000; // 2^16
 
 #[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct Magic {
-    #[cfg(not(target_feature = "bmi2"))]
     pub(crate) magic: u64,
     mask: Bitboard,
     shift: u8,
@@ -107,6 +106,7 @@ pub(crate) const fn attacks_on_the_fly(pt: PieceType, sq: Square, occ: Bitboard)
     attacks
 }
 
+#[cfg(not(target_feature = "bmi2"))]
 /// # Populate reference and occupancy tables
 fn populate_table(
     pt: PieceType,
@@ -128,6 +128,7 @@ fn populate_table(
     }
 }
 
+#[cfg(not(target_feature = "bmi2"))]
 /// # Find suitable magic numbers
 fn find_magics<const N: usize>(
     seed: u64,
@@ -232,15 +233,31 @@ pub(crate) fn gen_slider_attacks<const N: usize>(pt: PieceType) -> SliderAttackT
         // Initialize the magic struct for the piece type on the square
         let mut m = init_magic_struct(pt, sq, &mut offset);
 
-        populate_table(pt, sq, &m, &mut reference, &mut occupancy);
+        #[cfg(target_feature = "bmi2")]
+        {
+            let perm = 1 << m.mask.count_bits();
+            // Populate the reference and occupancy tables for the piece type on the square
+            let mut occ = Bitboard::EMPTY;
+            for i in 0..perm {
+                // Generate the corresponding attack rays for the occupancy, piece type, and square
+                table[m.index(occ)] = attacks_on_the_fly(pt, sq, occ);
+                // Save occupancy bitboard at the current index
+                occ = Bitboard((occ.0.wrapping_sub(m.mask.0)) & m.mask.0);
+            }
+        }
 
-        total_attempt += find_magics::<N>(
-            seeds[sq.rank().index()],
-            &mut m,
-            &mut reference,
-            &mut occupancy,
-            &mut table,
-        );
+        #[cfg(not(target_feature = "bmi2"))]
+        {
+            populate_table(pt, sq, &m, &mut reference, &mut occupancy);
+
+            total_attempt += find_magics::<N>(
+                seeds[sq.rank().index()],
+                &mut m,
+                &mut reference,
+                &mut occupancy,
+                &mut table,
+            );
+        }
 
         // Store the magic number for the square
         magic[sq.index()] = m;
@@ -296,6 +313,7 @@ pub(crate) const fn init_magic_struct(pt: PieceType, sq: Square, offset: &mut us
     m
 }
 
+#[cfg(not(target_feature = "bmi2"))]
 /// # Find Best Magic Seeds
 pub fn find_best_magic_seeds<const N: usize>(pt: PieceType) {
     let mut offset = 0;
