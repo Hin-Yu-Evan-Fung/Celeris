@@ -304,6 +304,7 @@ impl Square {
     }
 
     #[inline]
+    #[allow(long_running_const_eval)]
     pub const fn add(self, rhs: Direction) -> Result<Self, SquareAddError> {
         // Get file and rank for bounds checking
         let file = self.file() as u8;

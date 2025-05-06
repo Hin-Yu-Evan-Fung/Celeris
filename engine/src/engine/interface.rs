@@ -13,7 +13,7 @@ use super::{
     command::EngineOption,
     engine::{Command, EngineController},
 };
-use chess::Board;
+use chess::{Board, board::movegen::init_magic_tables};
 use std::{
     io::BufRead,
     sync::{
@@ -70,6 +70,8 @@ impl Engine {
     /// `Engine` instance is dropped.
     /// This spawns a new thread where the `EngineController` runs, listening for commands.
     pub fn new() -> Self {
+        // initialise magic tables
+        init_magic_tables();
         // Create a channel for sending commands to the engine thread.
         let (tx, rx) = mpsc::channel();
         // Create a shared atomic boolean to signal the engine thread to stop.
@@ -297,6 +299,9 @@ impl UCI {
     /// 4. Enters the main UCI command loop (`run`), reading from stdin.
     /// This function takes control of the main thread, running the UCI command loop.
     pub fn init() {
+        // initialise magic tables
+        init_magic_tables();
+
         let (tx, rx) = mpsc::channel();
 
         let stop = Arc::new(AtomicBool::new(false));

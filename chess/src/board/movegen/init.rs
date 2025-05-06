@@ -27,7 +27,7 @@
 //! These functions are typically called during the initialization of the chess engine to precompute
 //! the lookup tables. The tables are then used by other modules, such as `lookup`, to efficiently
 //! generate moves and evaluate board positions.
-use super::{lookup::*, magic::attacks_on_the_fly};
+use super::lookup::*;
 use crate::core::*;
 
 // Returns the line crossing 2 squares
@@ -36,15 +36,15 @@ const fn line_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
     let to_bb: Bitboard = to.bb();
     // Use the public attacks_on_the_fly function which relies on the (potentially lazy) tables
 
-    let from_ray = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
-    let to_ray = attacks_on_the_fly(pt, to, Bitboard::EMPTY);
+    let from_ray = Bitboard::attack_on_the_fly(pt, from.bb(), Bitboard::EMPTY);
+    let to_ray = Bitboard::attack_on_the_fly(pt, to.bb(), Bitboard::EMPTY);
 
     Bitboard((from_ray.0 & to_ray.0) | from_bb.0 | to_bb.0)
 }
 
 // Populate line bb table for Diagonal or Vertical lines (Depending on Piece Type)
 const fn populate_line_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
-    let mut bb = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
+    let mut bb = Bitboard::attack_on_the_fly(pt, from.bb(), Bitboard::EMPTY);
     while !bb.is_empty() {
         let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
@@ -75,15 +75,15 @@ pub(super) const fn init_line_bb_table() -> SquarePairTable {
 // If the squares are adjacent, the result is an empty bitboard.
 // If the squares are the same, the result is an empty bitboard.
 const fn between_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
-    let from_ray = attacks_on_the_fly(pt, from, to.bb());
-    let to_ray = attacks_on_the_fly(pt, to, from.bb());
+    let from_ray = Bitboard::attack_on_the_fly(pt, from.bb(), to.bb());
+    let to_ray = Bitboard::attack_on_the_fly(pt, to.bb(), from.bb());
 
     Bitboard(from_ray.0 & to_ray.0)
 }
 
 // Populate between bb table for Diagonal or Vertical lines (Depending on Piece Type)
 const fn populate_between_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
-    let mut bb = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
+    let mut bb = Bitboard::attack_on_the_fly(pt, from.bb(), Bitboard::EMPTY);
     while !bb.is_empty() {
         let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
@@ -114,15 +114,15 @@ pub(super) const fn init_between_bb_table() -> SquarePairTable {
 // The resulting mask represents squares the pinned piece *could* move to along the pin line.
 const fn pin_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
     // Use the public attacks_on_the_fly function
-    let from_ray = attacks_on_the_fly(pt, from, to.bb());
-    let to_ray = attacks_on_the_fly(pt, to, from.bb());
+    let from_ray = Bitboard::attack_on_the_fly(pt, from.bb(), to.bb());
+    let to_ray = Bitboard::attack_on_the_fly(pt, to.bb(), from.bb());
 
     Bitboard(from_ray.0 & to_ray.0 | to.bb().0) // Include the 'to' square (pinner)
 }
 
 // Populate pin bb table for Diagonal or Vertical lines (Depending on Piece Type)
 const fn populate_pin_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
-    let mut bb = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
+    let mut bb = Bitboard::attack_on_the_fly(pt, from.bb(), Bitboard::EMPTY);
     while !bb.is_empty() {
         let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
@@ -153,8 +153,8 @@ pub(super) const fn init_pin_bb_table() -> SquarePairTable {
 // Assuming 'from' is the attacker and 'to' is the king.
 const fn check_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
     // Use the public attacks_on_the_fly function
-    let from_ray = attacks_on_the_fly(pt, from, to.bb());
-    let to_ray = attacks_on_the_fly(pt, to, from.bb());
+    let from_ray = Bitboard::attack_on_the_fly(pt, from.bb(), to.bb());
+    let to_ray = Bitboard::attack_on_the_fly(pt, to.bb(), from.bb());
 
     let dir = match Direction::try_from(to, from) {
         Ok(dir) => dir,
@@ -171,7 +171,7 @@ const fn check_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
 
 // Populate check bb table for Diagonal or Vertical lines (Depending on Piece Type)
 const fn populate_check_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
-    let mut bb = attacks_on_the_fly(pt, from, Bitboard::EMPTY);
+    let mut bb = Bitboard::attack_on_the_fly(pt, from.bb(), Bitboard::EMPTY);
     while !bb.is_empty() {
         let to = unsafe { bb.pop_lsb_unchecked() };
         // Populate the table entry for the pair (from, to)
@@ -185,7 +185,7 @@ pub(super) const fn init_check_bb_table() -> SquarePairTable {
 
     let mut i = 0;
     while i < Square::NUM {
-        let from = unsafe { Square::from_unchecked(i as u8) };
+        let from = Square::from_unchecked(i as u8);
 
         populate_check_bb(&mut table, PieceType::Bishop, from);
         populate_check_bb(&mut table, PieceType::Rook, from);
@@ -204,8 +204,8 @@ pub(super) const fn init_check_bb_table() -> SquarePairTable {
 //     to: Square,
 // ) {
 //     // Use the public attacks_on_the_fly function
-//     let from_ray = attacks_on_the_fly(pt, from, to.bb()); // Ray from attacker towards king
-//     let to_ray = attacks_on_the_fly(pt, to, from.bb()); // Ray from king towards attacker
+//     let from_ray = Bitboard::attack_on_the_fly(pt, from.bb(), to.bb()); // Ray from attacker towards king
+//     let to_ray = Bitboard::attack_on_the_fly(pt, to.bb(), from.bb()); // Ray from king towards attacker
 //     let between = from_ray & to_ray; // Squares between attacker and king
 
 //     table[from.index()][to.index()] = between | from.bb(); // Include the 'from' square (attacker)

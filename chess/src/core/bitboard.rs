@@ -37,7 +37,7 @@
 
 use std::fmt;
 
-use super::{Colour, Direction, File, Rank, Square};
+use super::{Colour, Direction, File, PieceType, Rank, Square};
 
 /// # Bitboard Representation
 ///
@@ -604,54 +604,6 @@ impl Bitboard {
         self.0 ^= 1u64 << (square as u8 as u64);
     }
 
-    /// Shifts the bitboard in the given direction, preventing edge wrapping.
-    ///
-    /// This function provides safe shifting operations that respect the chess board
-    /// boundaries. This means bits that would wrap around the edge of the board are
-    /// properly masked out before the shift operation.
-    ///
-    /// # Arguments
-    /// * `dir` - The direction to shift the bitboard
-    ///
-    /// # Returns
-    /// * `Bitboard` - The shifted bitboard. If the shift would move all bits off the board,
-    ///                an empty bitboard is returned.
-    #[inline]
-    pub const fn shift(&self, dir: Direction) -> Bitboard {
-        use Direction::*;
-
-        let bb = *self;
-        if bb.is_empty() {
-            return Bitboard::EMPTY;
-        }
-
-        // Apply the appropriate mask and shift for each direction
-        Bitboard(match dir {
-            // Knight-like moves
-            SSE => (bb.0 & !Bitboard::RANK_12.0 & !Bitboard::FILE_H.0) >> 15,
-            SEE => (bb.0 & !Bitboard::RANK_1.0 & !Bitboard::FILE_GH.0) >> 6,
-            SWW => (bb.0 & !Bitboard::RANK_1.0 & !Bitboard::FILE_AB.0) >> 10,
-            SSW => (bb.0 & !Bitboard::RANK_12.0 & !Bitboard::FILE_A.0) >> 17,
-            NNW => (bb.0 & !Bitboard::RANK_78.0 & !Bitboard::FILE_A.0) << 15,
-            NNE => (bb.0 & !Bitboard::RANK_78.0 & !Bitboard::FILE_H.0) << 17,
-            NWW => (bb.0 & !Bitboard::RANK_8.0 & !Bitboard::FILE_AB.0) << 6,
-            NEE => (bb.0 & !Bitboard::RANK_8.0 & !Bitboard::FILE_GH.0) << 10,
-            // King-like moves
-            N => (bb.0 & !Bitboard::RANK_8.0) << 8,
-            S => (bb.0 & !Bitboard::RANK_1.0) >> 8,
-            E => (bb.0 & !Bitboard::FILE_H.0) << 1,
-            W => (bb.0 & !Bitboard::FILE_A.0) >> 1,
-            // Diagonal directions
-            NE => (bb.0 & !Bitboard::RANK_8.0 & !Bitboard::FILE_H.0) << 9,
-            NW => (bb.0 & !Bitboard::RANK_8.0 & !Bitboard::FILE_A.0) << 7,
-            SE => (bb.0 & !Bitboard::RANK_1.0 & !Bitboard::FILE_H.0) >> 7,
-            SW => (bb.0 & !Bitboard::RANK_1.0 & !Bitboard::FILE_A.0) >> 9,
-            // Double move
-            NN => (bb.0 & !Bitboard::RANK_78.0) << 16,
-            SS => (bb.0 & !Bitboard::RANK_12.0) >> 16,
-        })
-    }
-
     /// Iterates through all set bits in the bitboard, applying the given function to each square
     ///
     /// This function processes squares from least significant bit to most significant bit.
@@ -768,6 +720,133 @@ impl Bitboard {
             Colour::White => bb.shift(Direction::NE) | bb.shift(Direction::NW),
             Colour::Black => bb.shift(Direction::SE) | bb.shift(Direction::SW),
         }
+    }
+
+    /// ### Rotate bitboard to the left
+    #[allow(long_running_const_eval)]
+    #[inline]
+    const fn rotate_left(&self, shift: i16) -> Bitboard {
+        let bb = if shift >= 0 {
+            self.0.rotate_left(shift as u32)
+        } else {
+            self.0.rotate_right(-shift as u32)
+        };
+        Bitboard(bb)
+    }
+    /// Shifts the bitboard in the given direction, preventing edge wrapping.
+    ///
+    /// This function provides safe shifting operations that respect the chess board
+    /// boundaries. This means bits that would wrap around the edge of the board are
+    /// properly masked out before the shift operation.
+    ///
+    /// # Arguments
+    /// * `dir` - The direction to shift the bitboard
+    ///
+    /// # Returns
+    /// * `Bitboard` - The shifted bitboard. If the shift would move all bits off the board,
+    ///                an empty bitboard is returned.
+    #[inline]
+    #[allow(long_running_const_eval)]
+    pub const fn shift(&self, dir: Direction) -> Bitboard {
+        let bb = *self;
+
+        Bitboard(bb.0 & Self::avoid_wrap(dir).0).rotate_left(dir as i16)
+
+        // // Apply the appropriate mask and shift for each direction
+        // Bitboard(match dir {
+        //     // Knight-like moves
+        //     SSE => (bb.0 & !Bitboard::RANK_12.0 & !Bitboard::FILE_H.0) >> 15,
+        //     SEE => (bb.0 & !Bitboard::RANK_1.0 & !Bitboard::FILE_GH.0) >> 6,
+        //     SWW => (bb.0 & !Bitboard::RANK_1.0 & !Bitboard::FILE_AB.0) >> 10,
+        //     SSW => (bb.0 & !Bitboard::RANK_12.0 & !Bitboard::FILE_A.0) >> 17,
+        //     NNW => (bb.0 & !Bitboard::RANK_78.0 & !Bitboard::FILE_A.0) << 15,
+        //     NNE => (bb.0 & !Bitboard::RANK_78.0 & !Bitboard::FILE_H.0) << 17,
+        //     NWW => (bb.0 & !Bitboard::RANK_8.0 & !Bitboard::FILE_AB.0) << 6,
+        //     NEE => (bb.0 & !Bitboard::RANK_8.0 & !Bitboard::FILE_GH.0) << 10,
+        //     // King-like moves
+        //     N => (bb.0 & !Bitboard::RANK_8.0) << 8,
+        //     S => (bb.0 & !Bitboard::RANK_1.0) >> 8,
+        //     E => (bb.0 & !Bitboard::FILE_H.0) << 1,
+        //     W => (bb.0 & !Bitboard::FILE_A.0) >> 1,
+        //     // Diagonal directions
+        //     NE => (bb.0 & !Bitboard::RANK_8.0 & !Bitboard::FILE_H.0) << 9,
+        //     NW => (bb.0 & !Bitboard::RANK_8.0 & !Bitboard::FILE_A.0) << 7,
+        //     SE => (bb.0 & !Bitboard::RANK_1.0 & !Bitboard::FILE_H.0) >> 7,
+        //     SW => (bb.0 & !Bitboard::RANK_1.0 & !Bitboard::FILE_A.0) >> 9,
+        //     // Double move
+        //     NN => (bb.0 & !Bitboard::RANK_78.0) << 16,
+        //     SS => (bb.0 & !Bitboard::RANK_12.0) >> 16,
+        // })
+    }
+
+    #[allow(long_running_const_eval)]
+    pub const fn avoid_wrap(dir: Direction) -> Bitboard {
+        use Direction::*;
+        let bb = match dir {
+            // Knight-like moves
+            SSE => Self::RANK_12.0 | Self::FILE_H.0,
+            SEE => Self::RANK_1.0 | Self::FILE_GH.0,
+            SWW => Self::RANK_1.0 | Self::FILE_AB.0,
+            SSW => Self::RANK_12.0 | Self::FILE_A.0,
+            NNW => Self::RANK_78.0 | Self::FILE_A.0,
+            NNE => Self::RANK_78.0 | Self::FILE_H.0,
+            NWW => Self::RANK_8.0 | Self::FILE_AB.0,
+            NEE => Self::RANK_8.0 | Self::FILE_GH.0,
+            // King-like moves
+            N => Self::RANK_8.0,
+            S => Self::RANK_1.0,
+            E => Self::FILE_H.0,
+            W => Self::FILE_A.0,
+            // Diagonal directions
+            NE => Self::RANK_8.0 | Self::FILE_H.0,
+            NW => Self::RANK_8.0 | Self::FILE_A.0,
+            SE => Self::RANK_1.0 | Self::FILE_H.0,
+            SW => Self::RANK_1.0 | Self::FILE_A.0,
+            // Double move
+            NN => Self::RANK_78.0,
+            SS => Self::RANK_12.0,
+        };
+        Bitboard(!bb)
+    }
+
+    /// ### Occluded fill (Kogge Stone Algorithm)
+    /// https://www.chessprogramming.org/Kogge-Stone_Algorithm
+    #[allow(long_running_const_eval)]
+    pub const fn occluded_fill(self, mut empty: Bitboard, dir: Direction) -> Bitboard {
+        let shift = dir as i16;
+        empty.0 &= Self::avoid_wrap(dir).0;
+        let mut bb = Bitboard(self.0 & Self::avoid_wrap(dir).0);
+        bb.0 |= empty.0 & bb.rotate_left(shift).0;
+        empty.0 &= empty.rotate_left(shift).0;
+        bb.0 |= empty.0 & bb.rotate_left(2 * shift).0;
+        empty.0 &= empty.rotate_left(2 * shift).0;
+        bb.0 |= empty.0 & bb.rotate_left(4 * shift).0;
+        bb
+    }
+
+    #[allow(long_running_const_eval)]
+    pub const fn sliding_attack(bb: Bitboard, occ: Bitboard, dir: Direction) -> Bitboard {
+        bb.occluded_fill(Bitboard(!occ.0), dir).shift(dir)
+    }
+
+    #[allow(long_running_const_eval)]
+    pub const fn attack_on_the_fly(pt: PieceType, bb: Bitboard, occ: Bitboard) -> Bitboard {
+        let bb = match pt {
+            PieceType::Bishop => {
+                Bitboard::sliding_attack(bb, occ, Direction::NE).0
+                    | Bitboard::sliding_attack(bb, occ, Direction::NW).0
+                    | Bitboard::sliding_attack(bb, occ, Direction::SE).0
+                    | Bitboard::sliding_attack(bb, occ, Direction::SW).0
+            }
+            PieceType::Rook => {
+                Bitboard::sliding_attack(bb, occ, Direction::N).0
+                    | Bitboard::sliding_attack(bb, occ, Direction::S).0
+                    | Bitboard::sliding_attack(bb, occ, Direction::E).0
+                    | Bitboard::sliding_attack(bb, occ, Direction::W).0
+            }
+            _ => unreachable!(),
+        };
+        Bitboard(bb)
     }
 }
 

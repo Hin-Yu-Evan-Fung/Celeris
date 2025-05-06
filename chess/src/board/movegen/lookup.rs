@@ -63,7 +63,7 @@ pub(super) type CastlingTable = [Castling; Square::NUM];
 
 use Direction::*;
 
-use super::magic::populate_magic_table;
+use super::magic::{BISHOP_MAGICS, BISHOP_TABLE, ROOK_MAGICS, ROOK_TABLE};
 
 /// Precomputed pawn attacks, indexed by `[Colour][Square]`.
 const PAWN_ATTACKS: PawnAttackTable = [
@@ -77,16 +77,10 @@ const KNIGHT_ATTACKS: AttackTable = init_pseudo_attacks(&[NNE, NNW, NEE, NWW, SE
 /// Precomputed king attacks, indexed by `[Square]`.
 const KING_ATTACKS: AttackTable = init_pseudo_attacks(&[N, NE, NW, E, W, SE, SW, S]);
 
-// --- Include the generated magic attack tables ---
-// This line pastes the contents of target/.../out/magic_table.rs here during compilation
-// It defines: BISHOP_TABLE_SIZE, ROOK_TABLE_SIZE, BISHOP_MAGIC_NUMS, ROOK_MAGIC_NUMS, BISHOP_TABLE, ROOK_TABLE
-include!(concat!(env!("OUT_DIR"), "/magic_table.rs"));
-
-/// Precomputed bishop magic table
-const BISHOP_MAGICS: MagicTable = populate_magic_table(PieceType::Bishop);
-
-/// Precomputed rook magic table
-const ROOK_MAGICS: MagicTable = populate_magic_table(PieceType::Rook);
+// // --- Include the generated magic attack tables ---
+// // This line pastes the contents of target/.../out/magic_table.rs here during compilation
+// // It defines: BISHOP_TABLE_SIZE, ROOK_TABLE_SIZE, BISHOP_MAGIC_NUMS, ROOK_MAGIC_NUMS, BISHOP_TABLE, ROOK_TABLE
+// include!(concat!(env!("OUT_DIR"), "/magic_table.rs"));
 
 /******************************************\
 |==========================================|
@@ -422,7 +416,6 @@ pub fn aligned(sq1: Square, sq2: Square, sq3: Square) -> bool {
 mod test {
     use super::*;
     // Assuming attacks_on_the_fly is pub(crate) or pub(super) in magic.rs
-    use super::super::magic::attacks_on_the_fly;
     use crate::utils::PRNG;
 
     // Removed ensure_init() helper function
@@ -507,7 +500,7 @@ mod test {
             for sq in Square::iter() {
                 occ.clear(sq); // Attacker doesn't block itself
                 let attack = bishop_attacks(sq, occ);
-                let naive_attack = attacks_on_the_fly(PieceType::Bishop, sq, occ);
+                let naive_attack = Bitboard::attack_on_the_fly(PieceType::Bishop, sq.bb(), occ);
                 assert_eq!(
                     attack, naive_attack,
                     "Bishop attack mismatch for {:?} with occ {}",
@@ -529,7 +522,7 @@ mod test {
             for sq in Square::iter() {
                 occ.clear(sq);
                 let attack = rook_attacks(sq, occ);
-                let naive_attack = attacks_on_the_fly(PieceType::Rook, sq, occ);
+                let naive_attack = Bitboard::attack_on_the_fly(PieceType::Rook, sq.bb(), occ);
                 assert_eq!(
                     attack, naive_attack,
                     "Rook attack mismatch for {:?} with occ {}",
@@ -551,8 +544,8 @@ mod test {
             for sq in Square::iter() {
                 occ.clear(sq);
                 let attack = queen_attacks(sq, occ);
-                let naive_attack = attacks_on_the_fly(PieceType::Bishop, sq, occ)
-                    | attacks_on_the_fly(PieceType::Rook, sq, occ);
+                let naive_attack = Bitboard::attack_on_the_fly(PieceType::Bishop, sq.bb(), occ)
+                    | Bitboard::attack_on_the_fly(PieceType::Rook, sq.bb(), occ);
                 assert_eq!(
                     attack, naive_attack,
                     "Queen attack mismatch for {:?} with occ {}",
