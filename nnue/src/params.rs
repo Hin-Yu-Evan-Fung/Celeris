@@ -23,7 +23,7 @@ pub fn screlu(x: i16) -> i32 {
 pub struct NNUEParams {
     pub feature_weights: Align64<[i16; INPUT * L1]>,
     pub feature_bias:    Align64<[i16; L1]>,
-    pub output_weights:  Align64<[i16; L1 * 2]>,
+    pub output_weights:  [Align64<[i16; L1]>; 2],
     pub output_bias: i16,
 }
 

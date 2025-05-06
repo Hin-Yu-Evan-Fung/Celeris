@@ -1,11 +1,12 @@
 use chess::{Bitboard, Board, Colour};
 
 use crate::{
+    flatten::flatten,
     params::{L1, MODEL, QA, QAB, SCALE},
     utils::Align64,
 };
 
-type SideAccumulator = Align64<[i16; L1]>;
+pub type SideAccumulator = Align64<[i16; L1]>;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Accumulator {
@@ -98,23 +99,18 @@ impl Accumulator {
     pub fn evaluate(&mut self, board: &Board) -> i32 {
         self.update(board);
 
-        let (stm, opp) = match board.stm() {
-            Colour::White => (self.white.iter(), self.black.iter()),
-            Colour::Black => (self.black.iter(), self.white.iter()),
-        };
-
-        let mut out = 0;
-
-        out += stm
-            .zip(&MODEL.output_weights[..L1])
-            .map(|(&value, &weight)| screlu(value) * (weight as i32))
-            .sum::<i32>();
-
-        out += opp
-            .zip(&MODEL.output_weights[L1..])
-            .map(|(&value, &weight)| screlu(value) * (weight as i32))
-            .sum::<i32>();
+        let out = self.propagate(board.stm());
 
         (out / QA + MODEL.output_bias as i32) * SCALE / QAB
+    }
+
+    pub fn propagate(&self, c: Colour) -> i32 {
+        let (stm, opp) = match c {
+            Colour::White => (self.white, self.black),
+            Colour::Black => (self.black, self.white),
+        };
+
+        let weights = MODEL.output_weights;
+        return flatten(&stm, &weights[0]) + flatten(&opp, &weights[1]);
     }
 }
