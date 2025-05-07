@@ -25,12 +25,12 @@ pub struct MovePicker<const SKIP_QUIET: bool> {
 impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
     pub fn new(board: &Board, tt_move: Move, mut killers: [Move; 2]) -> Self {
         // A valid killer must be legal and a non capture
-        if !killers[0].is_valid() || board.is_capture(killers[0]) || !board.is_legal(killers[0]) {
+        if !killers[0].is_valid() || !board.is_legal(killers[0]) {
             killers[0] = Move::NONE;
         }
 
         // A valid killer must be legal and a non capture
-        if !killers[1].is_valid() || board.is_capture(killers[1]) || !board.is_legal(killers[1]) {
+        if !killers[1].is_valid() || !board.is_legal(killers[1]) {
             killers[1] = Move::NONE;
         }
 
@@ -173,7 +173,7 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
             }
             MoveStage::Killer1 => {
                 self.stage = MoveStage::Killer2;
-                if self.killers[0].is_valid() {
+                if self.killers[0].is_valid() && self.killers[0] != self.tt_move {
                     Some(self.killers[0])
                 } else {
                     self.next(board, stats)
@@ -181,7 +181,7 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
             }
             MoveStage::Killer2 => {
                 self.stage = MoveStage::GenQuiets;
-                if self.killers[1].is_valid() {
+                if self.killers[1].is_valid() && self.killers[1] != self.tt_move {
                     Some(self.killers[1])
                 } else {
                     self.next(board, stats)

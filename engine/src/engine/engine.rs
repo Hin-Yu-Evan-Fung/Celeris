@@ -205,8 +205,9 @@ impl EngineController {
             calc_psqt(&self.board).0,
             calc_psqt(&self.board).1
         );
+        println!("Eval:{}", evaluate(&self.board));
         println!(
-            "{}",
+            "NNUE Eval:{}",
             evaluate_nnue(&self.board, &mut self.thread_pool.main_worker.nnue)
         )
     }

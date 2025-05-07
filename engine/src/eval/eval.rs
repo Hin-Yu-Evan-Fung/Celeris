@@ -3,15 +3,15 @@ use super::{Eval, PawnTable};
 use chess::{Board, Colour, PieceType};
 use nnue::accummulator::Accumulator;
 
-pub fn evaluate(board: &Board, pawn_table: &mut PawnTable) -> Eval {
+pub fn evaluate(board: &Board) -> Eval {
     let mut score = calc_psqt(board);
 
-    let pawn_entry = &mut pawn_table.get(board);
+    // let pawn_entry = &mut pawn_table.get(board);
 
-    score += pawn_entry.pawn_score(Colour::White);
-    score -= pawn_entry.pawn_score(Colour::Black);
-    score += pawn_entry.king_safety(board, Colour::White);
-    score -= pawn_entry.king_safety(board, Colour::Black);
+    // score += pawn_entry.pawn_score(Colour::White);
+    // score -= pawn_entry.pawn_score(Colour::Black);
+    // score += pawn_entry.king_safety(board, Colour::White);
+    // score -= pawn_entry.king_safety(board, Colour::Black);
 
     let (mg_phase, eg_phase) = calc_game_phase(board);
 
@@ -39,7 +39,6 @@ pub fn evaluate(board: &Board, pawn_table: &mut PawnTable) -> Eval {
      ) / 32;
  
      v = (v * (700 + material_scale)) / 1024;
-    //  v = if board.stm() == Colour::White { v } else { -v };
  
      Eval(v as i16)
  }
