@@ -2,7 +2,7 @@ use super::S;
 
 use super::{Eval, Score};
 
-use chess::{Board, Colour, Piece, PieceType, Square};
+use chess::{Colour, Piece, PieceType, Square, board::Board};
 
 // Game Phase Increment for different piece typess
 const GAMEPHASE_INC: [i16; PieceType::NUM] = [0, 1, 1, 2, 4, 0];

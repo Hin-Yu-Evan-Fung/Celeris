@@ -39,10 +39,8 @@
 //! is used in conjunction with the compile-time generated attack tables (`BISHOP_TABLE`, `ROOK_TABLE`)
 //! within the `slider_attack` function in `lookup.rs` to perform the fast attack lookups.
 
-use std::sync::LazyLock;
-
-use super::lookup::AttackTable;
 use crate::core::*;
+use std::sync::LazyLock;
 
 /******************************************\
 |==========================================|
@@ -52,22 +50,26 @@ use crate::core::*;
 
 /// Holds the necessary parameters for magic bitboard lookups for a single square.
 #[derive(Debug, Default, Clone, Copy)]
-pub(crate) struct Magic {
+pub struct Magic {
+    #[cfg(not(target_feature = "bmi2"))]
     /// The pre-generated magic number for this square and piece type.
-    pub(crate) magic: u64,
+    magic: u64,
     /// The bitmask representing relevant blockers for this square.
-    pub(crate) mask: Bitboard,
+    mask: Bitboard,
+    #[cfg(not(target_feature = "bmi2"))]
     /// The right-shift amount to apply after multiplying by the magic number.
-    pub(crate) shift: u8,
+    shift: u8,
     /// The base offset into the global attack table (`BISHOP_TABLE` or `ROOK_TABLE`).
-    pub(crate) offset: usize,
+    offset: usize,
 }
 
 impl Magic {
     /// A constant representing an uninitialized `Magic` entry.
-    pub(crate) const EMPTY: Magic = Magic {
+    const EMPTY: Magic = Magic {
+        #[cfg(not(target_feature = "bmi2"))]
         magic: 0,
         mask: Bitboard::EMPTY,
+        #[cfg(not(target_feature = "bmi2"))]
         shift: 0,
         offset: 0,
     };
@@ -136,6 +138,7 @@ pub fn init_magic_tables() {
 |==========================================|
 \******************************************/
 
+#[cfg(not(target_feature = "bmi2"))]
 pub(super) const BISHOP_MAGIC_NUMS: [u64; 64] = [
     0x1200440A0890200,
     0x2040122021A0407,
@@ -203,6 +206,7 @@ pub(super) const BISHOP_MAGIC_NUMS: [u64; 64] = [
     0x82100116240041,
 ];
 
+#[cfg(not(target_feature = "bmi2"))]
 pub(super) const ROOK_MAGIC_NUMS: [u64; 64] = [
     0x80002018804000,
     0xA040004010002000,
@@ -272,58 +276,6 @@ pub(super) const ROOK_MAGIC_NUMS: [u64; 64] = [
 
 /******************************************\
 |==========================================|
-|            Attacks on the fly            |
-|==========================================|
-\******************************************/
-
-/// Calculates sliding piece attacks without using magic bitboards.
-///
-/// This is a relatively slow approach used during the compile-time calculation
-/// within `populate_magic_table` to determine the correct `mask` for each square.
-///
-/// # Arguments
-/// * `pt`: The `PieceType` (must be `Rook` or `Bishop`).
-/// * `sq`: The `Square` the piece is on.
-/// * `occ`: A `Bitboard` representing occupied squares (blockers).
-///
-/// # Returns
-/// A `Bitboard` of attacked squares.
-// #[allow(long_running_const_eval)]
-// pub(crate) const fn attacks_on_the_fly(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
-//     use Direction::*;
-//     // Directions for rook and bishop
-//     let dirs: [Direction; 4] = match pt {
-//         PieceType::Rook => [N, E, W, S],
-//         PieceType::Bishop => [NE, NW, SE, SW],
-//         _ => unreachable!(), // Should only be called for Rook or Bishop
-//     };
-
-//     let mut attacks = Bitboard::EMPTY;
-//     let mut i = 0;
-//     // Loop through the directions for the piece type
-//     while i < dirs.len() {
-//         let mut to = sq;
-//         // Loop along the ray direction
-//         loop {
-//             // Try to move one step in the current direction
-//             to = match to.add(dirs[i]) {
-//                 Ok(next_sq) => next_sq,
-//                 Err(_) => break, // Stop if we hit the edge of the board
-//             };
-//             // Add the new square to the attacks
-//             attacks = Bitboard(attacks.0 | to.bb().0);
-//             // Stop if the new square is occupied (it blocks further attacks)
-//             if occ.contains(to) {
-//                 break;
-//             }
-//         }
-//         i += 1;
-//     }
-//     attacks
-// }
-
-/******************************************\
-|==========================================|
 |        Populating Magic Parameters       |
 |==========================================|
 \******************************************/
@@ -349,6 +301,7 @@ const fn populate_magic_table(pt: PieceType) -> MagicTable {
     let mut offset = 0;
     let mut magic = [Magic::EMPTY; Square::NUM];
 
+    #[cfg(not(target_feature = "bmi2"))]
     // Select the appropriate pre-generated magic numbers (included via build.rs -> lookup.rs)
     let magic_numbers = match pt {
         PieceType::Bishop => BISHOP_MAGIC_NUMS,
@@ -364,15 +317,18 @@ const fn populate_magic_table(pt: PieceType) -> MagicTable {
         let mask = Bitboard(
             Bitboard::attack_on_the_fly(pt, sq.bb(), Bitboard::EMPTY).0 & !get_edge_mask(sq).0,
         );
+        #[cfg(not(target_feature = "bmi2"))]
         // Calculate the shift: 64 minus the number of relevant blocker squares (bits in the mask).
         let shift = 64 - mask.count_bits() as u8;
 
         // Create the Magic entry for this square
         let m = Magic {
+            #[cfg(not(target_feature = "bmi2"))]
             magic: magic_numbers[i], // Use the pre-generated magic number
-            mask,                    // Use the calculated mask
-            shift,                   // Use the calculated shift
-            offset,                  // Use the current offset
+            mask, // Use the calculated mask
+            #[cfg(not(target_feature = "bmi2"))]
+            shift, // Use the calculated shift
+            offset, // Use the current offset
         };
 
         // Store the calculated Magic entry

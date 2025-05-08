@@ -46,7 +46,7 @@ const fn line_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
 const fn populate_line_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
     let mut bb = Bitboard::attack_on_the_fly(pt, from.bb(), Bitboard::EMPTY);
     while !bb.is_empty() {
-        let to = unsafe { bb.pop_lsb_unchecked() };
+        let to = bb.pop_lsb_unchecked();
         // Populate the table entry for the pair (from, to)
         table[from.index()][to.index()] = line_bb(pt, from, to);
     }
@@ -58,7 +58,7 @@ pub(super) const fn init_line_bb_table() -> SquarePairTable {
 
     let mut i = 0;
     while i < Square::NUM {
-        let from = unsafe { Square::from_unchecked(i as u8) };
+        let from = Square::from_unchecked(i as u8);
 
         populate_line_bb(&mut table, PieceType::Bishop, from);
         populate_line_bb(&mut table, PieceType::Rook, from);
@@ -85,7 +85,7 @@ const fn between_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
 const fn populate_between_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
     let mut bb = Bitboard::attack_on_the_fly(pt, from.bb(), Bitboard::EMPTY);
     while !bb.is_empty() {
-        let to = unsafe { bb.pop_lsb_unchecked() };
+        let to = bb.pop_lsb_unchecked();
         // Populate the table entry for the pair (from, to)
         table[from.index()][to.index()] = between_bb(pt, from, to);
     }
@@ -97,7 +97,7 @@ pub(super) const fn init_between_bb_table() -> SquarePairTable {
 
     let mut i = 0;
     while i < Square::NUM {
-        let from = unsafe { Square::from_unchecked(i as u8) };
+        let from = Square::from_unchecked(i as u8);
 
         populate_between_bb(&mut table, PieceType::Bishop, from);
         populate_between_bb(&mut table, PieceType::Rook, from);
@@ -124,7 +124,7 @@ const fn pin_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
 const fn populate_pin_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
     let mut bb = Bitboard::attack_on_the_fly(pt, from.bb(), Bitboard::EMPTY);
     while !bb.is_empty() {
-        let to = unsafe { bb.pop_lsb_unchecked() };
+        let to = bb.pop_lsb_unchecked();
         // Populate the table entry for the pair (from, to)
         table[from.index()][to.index()] = pin_bb(pt, from, to);
     }
@@ -136,7 +136,7 @@ pub(super) const fn init_pin_bb_table() -> SquarePairTable {
 
     let mut i = 0;
     while i < Square::NUM {
-        let from = unsafe { Square::from_unchecked(i as u8) };
+        let from = Square::from_unchecked(i as u8);
 
         populate_pin_bb(&mut table, PieceType::Bishop, from);
         populate_pin_bb(&mut table, PieceType::Rook, from);
@@ -173,7 +173,7 @@ const fn check_bb(pt: PieceType, from: Square, to: Square) -> Bitboard {
 const fn populate_check_bb(table: &mut SquarePairTable, pt: PieceType, from: Square) {
     let mut bb = Bitboard::attack_on_the_fly(pt, from.bb(), Bitboard::EMPTY);
     while !bb.is_empty() {
-        let to = unsafe { bb.pop_lsb_unchecked() };
+        let to = bb.pop_lsb_unchecked();
         // Populate the table entry for the pair (from, to)
         table[from.index()][to.index()] = check_bb(pt, from, to);
     }
@@ -219,8 +219,8 @@ pub(super) const fn init_dist_table() -> [[u8; Square::NUM]; Square::NUM] {
     while i < Square::NUM {
         let mut j = 0;
         while j < Square::NUM {
-            let sq1 = unsafe { Square::from_unchecked(i as u8) };
-            let sq2 = unsafe { Square::from_unchecked(j as u8) };
+            let sq1 = Square::from_unchecked(i as u8);
+            let sq2 = Square::from_unchecked(j as u8);
 
             let rank_dist = Square::rank_dist(sq1, sq2);
             let file_dist = Square::file_dist(sq1, sq2);

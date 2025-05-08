@@ -1,12 +1,7 @@
-use std::sync::{
-    Arc,
-    // Atomic types for thread-safe sharing of stop signals and node counts.
-    atomic::{AtomicBool, AtomicU64},
-    mpsc::Receiver,
-};
+use std::sync::{Arc, atomic::AtomicBool, mpsc::Receiver};
 
 use chess::{
-    Board,
+    board::Board,
     utils::{perft_bench, perft_test},
 };
 
@@ -25,7 +20,6 @@ pub use super::{Command, TimeControl};
 /// Defines constants used by the engine controller and potentially other parts.
 pub mod constants {
     // Import necessary types for constants.
-    use crate::eval::Eval;
     use chess::board::MAX_MOVES;
 
     pub const NAME: &str = "Celeris";

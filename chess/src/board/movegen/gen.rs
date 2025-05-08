@@ -37,7 +37,7 @@
 //! - The main [`generate_move`] function that calls the appropriate piece generators based on
 //!   the check state and `GenType`.
 use super::*;
-use crate::Board;
+use crate::board::Board;
 use crate::core::*;
 use crate::{Move, MoveFlag};
 

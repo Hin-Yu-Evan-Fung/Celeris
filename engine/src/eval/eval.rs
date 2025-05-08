@@ -1,17 +1,10 @@
+use super::Eval;
 use super::psqt::{calc_game_phase, calc_psqt};
-use super::{Eval, PawnTable};
-use chess::{Board, Colour, PieceType};
+use chess::{Colour, PieceType, board::Board};
 use nnue::accummulator::Accumulator;
 
 pub fn evaluate(board: &Board) -> Eval {
-    let mut score = calc_psqt(board);
-
-    // let pawn_entry = &mut pawn_table.get(board);
-
-    // score += pawn_entry.pawn_score(Colour::White);
-    // score -= pawn_entry.pawn_score(Colour::Black);
-    // score += pawn_entry.king_safety(board, Colour::White);
-    // score -= pawn_entry.king_safety(board, Colour::Black);
+    let score = calc_psqt(board);
 
     let (mg_phase, eg_phase) = calc_game_phase(board);
 

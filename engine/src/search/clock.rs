@@ -81,6 +81,10 @@ impl Clock {
         self.start_time.elapsed()
     }
 
+    pub fn update_node_counts(&mut self, m: Move, delta: u64) {
+        self.node_count[m.from().index()][m.to().index()] += delta;
+    }
+
     fn get_time_and_increment(
         stm: Colour,
         wtime: u64,
@@ -162,24 +166,17 @@ impl Clock {
             TimeControl::FixedDepth(d) => depth <= d,
             TimeControl::FixedNodes(n) => self.global_nodes() <= n,
             TimeControl::FixedTime(_) | TimeControl::Variable { .. } => {
-                // let opt_scale = if best_move.is_valid() && nodes != 0 {
-                //     let bm_nodes =
-                //         self.node_count[best_move.from().index()][best_move.to().index()];
-                //     let bm_fraction = bm_nodes as f64 / nodes as f64;
+                let opt_scale = if best_move.is_valid() && nodes != 0 {
+                    let bm_nodes =
+                        self.node_count[best_move.from().index()][best_move.to().index()];
+                    let bm_fraction = bm_nodes as f64 / nodes as f64;
 
-                //     (0.4 + (1.0 - bm_fraction) * 2.0 as f64).max(0.5)
-                // } else {
-                //     1.0
-                // };
+                    (0.4 + (1.0 - bm_fraction) * 2.0 as f64).max(0.5)
+                } else {
+                    1.0
+                };
 
-                println!(
-                    "opt scale: 1, elapsed: {:#?}, max time: {:#?}",
-                    self.elapsed(),
-                    self.max_time
-                );
-
-                // self.elapsed() < self.opt_time.mul_f64(opt_scale)
-                self.elapsed() < self.opt_time
+                self.elapsed() < self.opt_time.mul_f64(opt_scale)
             }
             _ => true,
         };

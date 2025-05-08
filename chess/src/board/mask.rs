@@ -58,7 +58,7 @@ impl Board {
         );
 
         // Okay to use unchecked because a valid board state guarantees a king.
-        unsafe { self.piece_bb(col, PieceType::King).lsb_unchecked() }
+        self.piece_bb(col, PieceType::King).lsb_unchecked()
     }
 
     /// Gets the pre-calculated bitboard of squares attacked by the opponent.
@@ -343,7 +343,7 @@ impl Board {
             Bitboard::FULL
         } else if !all_checkers.more_than_one() {
             // Single check. Determine if it's a slider or non-slider.
-            let checker_sq = unsafe { all_checkers.lsb_unchecked() }; // Safe because count is 1.
+            let checker_sq = all_checkers.lsb_unchecked(); // Safe because count is 1.
 
             // Check if the single checker is a pawn or knight.
             if (pawn_checkers | knight_checkers).contains(checker_sq) {

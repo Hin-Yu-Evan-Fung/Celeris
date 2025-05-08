@@ -23,16 +23,16 @@ pub struct Root;
 
 pub struct NonPV;
 
-impl NodeType for PV {
-    const PV: bool = true;
-    const ROOT: bool = false;
-    type Next = Self;
-}
-
 impl NodeType for Root {
     const PV: bool = true;
     const ROOT: bool = true;
     type Next = PV;
+}
+
+impl NodeType for PV {
+    const PV: bool = true;
+    const ROOT: bool = false;
+    type Next = Self;
 }
 
 impl NodeType for NonPV {

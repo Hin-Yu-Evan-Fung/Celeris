@@ -108,9 +108,12 @@ macro_rules! impl_ari_ops {
         $crate::impl_op!($struct_name, Add, add, +);
         $crate::impl_op!($struct_name, Sub, sub, -);
         $crate::impl_op!($struct_name, Mul, mul, *);
+        $crate::impl_op!($struct_name, Div, div, /);
 
         $crate::impl_assign_op!($struct_name, AddAssign, add_assign, +, $struct_name);
         $crate::impl_assign_op!($struct_name, SubAssign, sub_assign, -, $struct_name);
         $crate::impl_assign_op!($struct_name, MulAssign, mul_assign, *, $struct_name);
+        $crate::impl_assign_op!($struct_name, DivAssign, div_assign, /, $struct_name);
+
     }
 }

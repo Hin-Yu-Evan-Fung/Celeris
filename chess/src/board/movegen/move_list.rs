@@ -69,22 +69,6 @@ impl MoveList {
     }
 
     #[inline]
-    pub(super) fn pop_move(&mut self) -> Move {
-        // Bounds check
-        debug_assert!(self.num_moves > 0);
-
-        // Decrement count *before* reading.
-        self.num_moves -= 1;
-
-        // Safety:
-        // 1. We decremented `num_moves`, so it now refers to the index of the last *initialized* element.
-        // 2. The invariant guarantees that `self.moves[self.num_moves]` has been initialized via `write`.
-        // 3. `assume_init_read()` safely reads the value *assuming* it's initialized.
-        //    (Assumes `Move` is `Copy`. If not, this might leak, but `Move` is likely `Copy`).
-        unsafe { self.moves[self.num_moves].assume_init_read() }
-    }
-
-    #[inline]
     pub fn len(&self) -> usize {
         self.num_moves
     }

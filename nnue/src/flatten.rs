@@ -1,4 +1,5 @@
 use crate::accummulator::SideAccumulator;
+#[cfg(any(target_feature = "avx2", target_feature = "avx512f"))]
 use crate::params::QA;
 
 pub fn flatten(acc: &SideAccumulator, weights: &SideAccumulator) -> i32 {

@@ -604,8 +604,8 @@ mod tests {
         // Test all squares by creating them from file and rank and then extracting file and rank back
         for file in 0..8 {
             for rank in 0..8 {
-                let f = unsafe { File::from_unchecked(file) };
-                let r = unsafe { Rank::from_unchecked(rank) };
+                let f = File::from_unchecked(file);
+                let r = Rank::from_unchecked(rank);
                 let square = Square::from_parts(f, r);
                 assert_eq!(square.file(), f);
                 assert_eq!(square.rank(), r);

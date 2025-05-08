@@ -33,8 +33,7 @@
 //!   - `slider_attack`: Gets the attack bitboard for a bishop, rook, or
 
 use super::init::*;
-use super::magic::*;
-use crate::core::{Bitboard, Castling, Colour, Direction, PieceType, Square};
+use crate::core::{Bitboard, Colour, Direction, PieceType, Square};
 
 /******************************************\
 |==========================================|
@@ -52,8 +51,6 @@ type PawnAttackTable = [[Bitboard; Square::NUM]; Colour::NUM];
 pub(super) type SquarePairTable = [[Bitboard; Square::NUM]; Square::NUM];
 /// Table mapping square pairs to distances
 pub(super) type DistanceTable = [[u8; Square::NUM]; Square::NUM];
-/// Castling rights lookup table
-pub(super) type CastlingTable = [Castling; Square::NUM];
 
 /******************************************\
 |==========================================|

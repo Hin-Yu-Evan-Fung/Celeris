@@ -275,7 +275,7 @@ impl Bitboard {
     pub const fn lsb(&self) -> Option<Square> {
         match self.0 {
             0 => None,
-            bits => Some(unsafe { Square::from_unchecked(bits.trailing_zeros() as u8) }),
+            bits => Some(Square::from_unchecked(bits.trailing_zeros() as u8)),
         }
     }
 
@@ -297,9 +297,9 @@ impl Bitboard {
     /// let e4_bitboard = Square::E4.bb();
     /// assert_eq!(e4_bitboard.lsb_unchecked(), Square::E4);
     /// ```
-    pub const unsafe fn lsb_unchecked(&self) -> Square {
+    pub const fn lsb_unchecked(&self) -> Square {
         debug_assert!(self.0 != 0, "Bitboard is empty");
-        unsafe { Square::from_unchecked(self.0.trailing_zeros() as u8) }
+        Square::from_unchecked(self.0.trailing_zeros() as u8)
     }
 
     /// Returns the most significant bit (MSB) of the bitboard as a Square
@@ -326,7 +326,7 @@ impl Bitboard {
     pub const fn msb(&self) -> Option<Square> {
         match self.0 {
             0 => None,
-            bits => Some(unsafe { Square::from_unchecked(63 - bits.leading_zeros() as u8) }),
+            bits => Some(Square::from_unchecked(63 - bits.leading_zeros() as u8)),
         }
     }
 
@@ -355,7 +355,7 @@ impl Bitboard {
         match self.0 {
             0 => None,
             _ => {
-                let lsb_square = unsafe { self.lsb_unchecked() };
+                let lsb_square = self.lsb_unchecked();
                 self.0 &= self.0 - 1; // Clear the LSB
                 Some(lsb_square)
             }
@@ -384,9 +384,9 @@ impl Bitboard {
     /// assert_eq!(multi_square.pop_lsb_unchecked(), None); // Now empty
     /// ```
     #[inline]
-    pub const unsafe fn pop_lsb_unchecked(&mut self) -> Square {
+    pub const fn pop_lsb_unchecked(&mut self) -> Square {
         debug_assert!(self.0 != 0, "Bitboard is empty");
-        let lsb_square = unsafe { self.lsb_unchecked() };
+        let lsb_square = self.lsb_unchecked();
         self.0 &= self.0 - 1; // Clear the LSB
         lsb_square
     }
@@ -636,7 +636,7 @@ impl Bitboard {
     {
         let mut bb = *self;
         while bb.0 != 0 {
-            f(unsafe { bb.pop_lsb_unchecked() });
+            f(bb.pop_lsb_unchecked());
         }
     }
 

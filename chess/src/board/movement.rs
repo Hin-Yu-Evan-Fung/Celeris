@@ -258,6 +258,13 @@ impl Board {
         }
     }
 
+    fn store_state(&mut self) {
+        // Cache the current state (becomes the previous state after this function)
+        let state = self.state.snapshot();
+        let old = std::mem::replace(&mut self.state, state);
+        self.history.push(old);
+    }
+
     /// Applies a `Move` to the board, updating the state.
     ///
     /// This is the primary function for changing the board position. It handles:
@@ -278,10 +285,7 @@ impl Board {
     ///
     /// * `move_` - The `Move` to apply. Assumed to be pseudo-legal or legal for the current position.
     pub fn make_move(&mut self, move_: Move) {
-        // Cache the current state (becomes the previous state after this function)
-        let state = self.state.snapshot();
-        let old = std::mem::replace(&mut self.state, state);
-        self.history.push(old);
+        self.store_state();
         // Increment the half move counter (ply count)
         self.half_moves += 1;
 
@@ -459,7 +463,7 @@ impl Board {
         // Toggle side to move *after* all other updates
         self.stm = !self.stm;
         // Update hash key for the change in side to move
-        self.state.keys.toggle_colour();
+        self.state.keys.toggle_side();
         // Update masks
         self.update_masks();
         // Update repetitions
@@ -587,9 +591,32 @@ impl Board {
                 // Castling rights restored by restore_state
             }
         }
-        // Note: No Zobrist key toggling is needed here, as restore_state reset the key entirely.
-        // Note: The .unwrap() in restore_state itself remains, as popping from an empty history
-        // is considered a fatal logic error in the engine's operation (calling undo without a prior make).
+    }
+
+    pub fn make_null_move(&mut self) {
+        self.store_state();
+        // Reset Enpassant Square
+        if self.state.enpassant.is_some() {
+            self.state
+                .keys
+                .toggle_ep(unsafe { self.ep_target().unwrap_unchecked().file() });
+            self.state.enpassant = None;
+        }
+        // Update fifty move
+        self.state.fifty_move = 0;
+        // Update Zobrist key
+        self.state.keys.toggle_side();
+        // Change side to move
+        self.stm = !self.stm;
+        // Update attack masks
+        self.update_masks();
+    }
+
+    pub fn undo_null_move(&mut self) {
+        // Change side to move
+        self.stm = !self.stm;
+        // Restore state
+        self.state = self.history.pop().unwrap();
     }
 
     pub fn is_legal(&self, move_: Move) -> bool {

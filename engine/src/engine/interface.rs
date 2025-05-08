@@ -14,7 +14,8 @@ use super::{
     engine::{Command, EngineController},
 };
 use chess::{
-    Board, Colour, Move, PieceType,
+    Colour, Move, PieceType,
+    board::Board,
     board::{LegalGen, MoveList, movegen::init_magic_tables},
 };
 use std::{

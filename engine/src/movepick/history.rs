@@ -1,4 +1,4 @@
-use chess::{Board, Colour, Move, Piece, Square};
+use chess::{Colour, Move, Piece, Square, board::Board};
 
 use crate::eval::Eval;
 

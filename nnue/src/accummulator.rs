@@ -1,4 +1,4 @@
-use chess::{Bitboard, Board, Colour};
+use chess::{Bitboard, Colour, board::Board};
 
 use crate::{
     flatten::flatten,

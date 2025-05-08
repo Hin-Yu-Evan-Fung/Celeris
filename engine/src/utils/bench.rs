@@ -1,5 +1,5 @@
 use crate::{TimeControl, search::TT, thread::ThreadPool};
-use chess::Board;
+use chess::board::Board;
 use std::{
     sync::{Arc, atomic::AtomicBool},
     time::Instant,

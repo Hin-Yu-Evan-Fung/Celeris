@@ -413,30 +413,30 @@ mod tests {
     #[test]
     fn test_piece_from_numeric_value() {
         // Test piece from numeric value
-        assert_eq!(unsafe { Piece::from_unchecked(0) }, Piece::WhitePawn);
-        assert_eq!(unsafe { Piece::from_unchecked(1) }, Piece::WhiteKnight);
-        assert_eq!(unsafe { Piece::from_unchecked(2) }, Piece::WhiteBishop);
-        assert_eq!(unsafe { Piece::from_unchecked(3) }, Piece::WhiteRook);
-        assert_eq!(unsafe { Piece::from_unchecked(4) }, Piece::WhiteQueen);
-        assert_eq!(unsafe { Piece::from_unchecked(5) }, Piece::WhiteKing);
+        assert_eq!(Piece::from_unchecked(0), Piece::WhitePawn);
+        assert_eq!(Piece::from_unchecked(1), Piece::WhiteKnight);
+        assert_eq!(Piece::from_unchecked(2), Piece::WhiteBishop);
+        assert_eq!(Piece::from_unchecked(3), Piece::WhiteRook);
+        assert_eq!(Piece::from_unchecked(4), Piece::WhiteQueen);
+        assert_eq!(Piece::from_unchecked(5), Piece::WhiteKing);
 
-        assert_eq!(unsafe { Piece::from_unchecked(8) }, Piece::BlackPawn);
-        assert_eq!(unsafe { Piece::from_unchecked(9) }, Piece::BlackKnight);
-        assert_eq!(unsafe { Piece::from_unchecked(10) }, Piece::BlackBishop);
-        assert_eq!(unsafe { Piece::from_unchecked(11) }, Piece::BlackRook);
-        assert_eq!(unsafe { Piece::from_unchecked(12) }, Piece::BlackQueen);
-        assert_eq!(unsafe { Piece::from_unchecked(13) }, Piece::BlackKing);
+        assert_eq!(Piece::from_unchecked(8), Piece::BlackPawn);
+        assert_eq!(Piece::from_unchecked(9), Piece::BlackKnight);
+        assert_eq!(Piece::from_unchecked(10), Piece::BlackBishop);
+        assert_eq!(Piece::from_unchecked(11), Piece::BlackRook);
+        assert_eq!(Piece::from_unchecked(12), Piece::BlackQueen);
+        assert_eq!(Piece::from_unchecked(13), Piece::BlackKing);
     }
 
     #[test]
     fn test_piece_type_from_numeric_value() {
         // Test piece type from numeric value
-        assert_eq!(unsafe { PieceType::from_unchecked(0) }, PieceType::Pawn);
-        assert_eq!(unsafe { PieceType::from_unchecked(1) }, PieceType::Knight);
-        assert_eq!(unsafe { PieceType::from_unchecked(2) }, PieceType::Bishop);
-        assert_eq!(unsafe { PieceType::from_unchecked(3) }, PieceType::Rook);
-        assert_eq!(unsafe { PieceType::from_unchecked(4) }, PieceType::Queen);
-        assert_eq!(unsafe { PieceType::from_unchecked(5) }, PieceType::King);
+        assert_eq!(PieceType::from_unchecked(0), PieceType::Pawn);
+        assert_eq!(PieceType::from_unchecked(1), PieceType::Knight);
+        assert_eq!(PieceType::from_unchecked(2), PieceType::Bishop);
+        assert_eq!(PieceType::from_unchecked(3), PieceType::Rook);
+        assert_eq!(PieceType::from_unchecked(4), PieceType::Queen);
+        assert_eq!(PieceType::from_unchecked(5), PieceType::King);
     }
 
     #[test]

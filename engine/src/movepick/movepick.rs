@@ -1,14 +1,16 @@
 use chess::{
     Move, MoveFlag,
-    board::{CaptureGen, LegalGen, MoveList, QuietGen},
+    board::{Board, CaptureGen, MoveList, QuietGen},
 };
 
 use crate::{eval::Eval, search::SearchStats};
 
-use super::{Board, History, MoveStage, see::see};
+use super::{History, MoveStage, see::see};
 
 pub struct MovePicker<const SKIP_QUIET: bool> {
     pub stage: MoveStage,
+    pub skip_quiets: bool,
+
     tt_move: Move,
     killers: [Move; 2],
     // list: ScoredMoveList,
@@ -36,6 +38,7 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
 
         Self {
             stage: MoveStage::TTMove,
+            skip_quiets: SKIP_QUIET,
             tt_move,
             killers,
             move_list: MoveList::new(),
@@ -46,7 +49,7 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
         }
     }
 
-    fn score_captures(&mut self, board: &Board, stats: &SearchStats) {
+    fn score_captures(&mut self, board: &Board, _stats: &SearchStats) {
         let mut next_good_cap = 0;
 
         for i in 0..self.move_list.len() {
@@ -162,7 +165,7 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
                 if let Some(move_) = self.next_best(self.bad_cap_start, cap_pred) {
                     Some(move_)
                 } else {
-                    self.stage = if SKIP_QUIET {
+                    self.stage = if self.skip_quiets {
                         self.index = self.bad_cap_start;
                         MoveStage::BadCaptures
                     } else {
@@ -173,7 +176,10 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
             }
             MoveStage::Killer1 => {
                 self.stage = MoveStage::Killer2;
-                if self.killers[0].is_valid() && self.killers[0] != self.tt_move {
+                if !self.skip_quiets
+                    && self.killers[0].is_valid()
+                    && self.killers[0] != self.tt_move
+                {
                     Some(self.killers[0])
                 } else {
                     self.next(board, stats)
@@ -181,7 +187,10 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
             }
             MoveStage::Killer2 => {
                 self.stage = MoveStage::GenQuiets;
-                if self.killers[1].is_valid() && self.killers[1] != self.tt_move {
+                if !self.skip_quiets
+                    && self.killers[1].is_valid()
+                    && self.killers[1] != self.tt_move
+                {
                     Some(self.killers[1])
                 } else {
                     self.next(board, stats)
@@ -195,8 +204,9 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
                 self.next(board, stats)
             }
             MoveStage::Quiets => {
-                if let Some(move_) = self.next_best(self.move_list.len(), quiet_pred) {
-                    Some(move_)
+                let next_best = self.next_best(self.move_list.len(), quiet_pred);
+                if !self.skip_quiets && next_best.is_some() {
+                    next_best
                 } else {
                     self.stage = MoveStage::BadCaptures;
                     self.index = self.bad_cap_start;
@@ -216,8 +226,6 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
 
 #[cfg(test)]
 mod tests {
-
-    use crate::search;
 
     use super::*;
 
@@ -275,7 +283,7 @@ mod tests {
 
         let mut move_picker =
             MovePicker::<false>::new(&board, Move::NONE, [Move::NONE, Move::NONE]);
-        let mut search_stats = SearchStats::default();
+        let search_stats = SearchStats::default();
 
         let mut nodes = 0;
 
@@ -288,10 +296,9 @@ mod tests {
         nodes
     }
 
-    fn perft_bench() -> bool {
+    fn perft_bench() {
         use std::time::Instant;
 
-        let mut passed = true;
         println!("=============  START BENCH  =============");
 
         for (fen, depth, expected_nodes) in BENCH_LIST.iter() {
@@ -314,8 +321,6 @@ mod tests {
                 (nodes as f64 / time as f64 / 1000.0)
             )
         }
-
-        passed
     }
 
     #[test]

@@ -540,7 +540,7 @@ impl Board {
 
     /// Returns whether the file is open
     #[inline]
-    pub fn is_open_file(&self, col: Colour, sq: Square) -> bool {
+    pub fn is_open_file(&self, sq: Square) -> bool {
         (sq.file().bb() & self.piecetype_bb(PieceType::Pawn)).is_empty()
     }
 
@@ -553,6 +553,13 @@ impl Board {
             | bishop_attacks(to, occ) & (self.piecetype_bb(Bishop) | self.piecetype_bb(Queen))
             | rook_attacks(to, occ) & (self.piecetype_bb(Rook) | self.piecetype_bb(Queen))
             | king_attack(to) & self.piecetype_bb(King)
+    }
+
+    /// Check if there is non pawn material on the board
+    pub fn has_non_pawn_material(&self, col: Colour) -> bool {
+        (self.occupied_bb(col)
+            & !(self.piecetype_bb(PieceType::Pawn) | self.piecetype_bb(PieceType::King)))
+        .is_occupied()
     }
 }
 
