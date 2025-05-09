@@ -7,9 +7,9 @@ use crate::{eval::Eval, search::SearchStats};
 
 use super::{History, MoveStage, see::see};
 
-pub struct MovePicker<const SKIP_QUIET: bool> {
+pub struct MovePicker<const TACTICAL: bool> {
     pub stage: MoveStage,
-    pub skip_quiets: bool,
+    skip_quiets: bool,
 
     tt_move: Move,
     killers: [Move; 2],
@@ -24,8 +24,14 @@ pub struct MovePicker<const SKIP_QUIET: bool> {
     bad_cap_start: usize,
 }
 
-impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
-    pub fn new(board: &Board, tt_move: Move, mut killers: [Move; 2]) -> Self {
+impl<const TACTICAL: bool> MovePicker<TACTICAL> {
+    pub fn new(board: &Board, mut tt_move: Move, mut killers: [Move; 2]) -> Self {
+        let in_check = board.in_check();
+
+        if TACTICAL && !in_check && board.is_capture(tt_move) {
+            tt_move = Move::NONE;
+        }
+
         // A valid killer must be legal and a non capture
         if !killers[0].is_valid() || !board.is_legal(killers[0]) {
             killers[0] = Move::NONE;
@@ -38,7 +44,7 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
 
         Self {
             stage: MoveStage::TTMove,
-            skip_quiets: SKIP_QUIET,
+            skip_quiets: !in_check && TACTICAL,
             tt_move,
             killers,
             move_list: MoveList::new(),
@@ -47,6 +53,10 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
             quiet_start: 0,
             bad_cap_start: 0,
         }
+    }
+
+    pub fn skip_quiets(&mut self) {
+        self.skip_quiets = true;
     }
 
     fn score_captures(&mut self, board: &Board, _stats: &SearchStats) {

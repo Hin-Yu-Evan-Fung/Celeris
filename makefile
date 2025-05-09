@@ -1,17 +1,10 @@
 EXE := Celeris
-DEBUG_EXE := Celeris_Debug
 DIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))/build
 
 ifeq ($(OS),Windows_NT)
 	NAME := $(EXE).exe
 else
 	NAME := $(EXE)
-endif
-
-ifeq ($(OS),Windows_NT)
-	DEBUG_NAME := $(DEBUG_EXE).exe
-else
-	DEBUG_NAME := $(DEBUG_EXE)
 endif
 
 FEATURES_ARG :=
@@ -22,11 +15,6 @@ endif
 build:
 	cargo clean
 	cargo rustc --release --package engine --bin engine $(FEATURES_ARG) -- -C target-cpu=native --emit link=$(NAME)
-
-debug:
-	cargo clean
-	cargo rustc --package engine --bin engine $(FEATURES_ARG) -- -C target-cpu=native --emit link=$(DEBUG_NAME)
-
 dir:
 	mkdir -p $(DIR)
 

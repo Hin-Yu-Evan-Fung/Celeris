@@ -5,8 +5,6 @@ use std::{
     time::Instant,
 };
 
-const SEARCH_DEPTH: usize = 6;
-
 const FENS: [&str; 66] = [
     "1r2r2k/1b4q1/pp5p/2pPp1p1/P3Pn2/1P1B1Q1P/2R3P1/4BR1K b - - 1 37",
     "1r4k1/4ppb1/2n1b1qp/pB4p1/1n1BP1P1/7P/2PNQPK1/3RN3 w - - 8 29",
@@ -76,7 +74,7 @@ const FENS: [&str; 66] = [
     "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq c3 0 2",
 ];
 
-pub fn run_bench() {
+pub fn run_bench(depth: usize) {
     let stop = Arc::new(AtomicBool::new(false));
     let mut tt = TT::default();
     let mut thread = ThreadPool::new(Arc::clone(&stop));
@@ -93,7 +91,7 @@ pub fn run_bench() {
 
         let start = Instant::now();
 
-        thread.start_search(TimeControl::FixedDepth(SEARCH_DEPTH), &tt, &mut board);
+        thread.start_search(TimeControl::FixedDepth(depth), &tt, &mut board);
 
         total_time += start.elapsed().as_micros();
 
@@ -103,7 +101,7 @@ pub fn run_bench() {
 
     let num_positions = FENS.len() as u64;
     let avg_nodes_per_pos = total_nodes as f64 / num_positions as f64;
-    let depth = SEARCH_DEPTH as f64;
+    let depth = depth as f64;
     let avg_branch_factor = if avg_nodes_per_pos > 0.0 && depth > 0.0 {
         avg_nodes_per_pos.powf(1.0 / depth)
     } else {

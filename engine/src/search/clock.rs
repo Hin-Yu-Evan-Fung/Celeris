@@ -46,12 +46,6 @@ impl Clock {
             _ => (Duration::ZERO, Duration::ZERO),
         };
 
-        println!(
-            "opt time: {}, max time: {}",
-            opt_time.as_millis(),
-            max_time.as_millis()
-        );
-
         Self {
             global_stop,
             global_nodes,

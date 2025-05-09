@@ -109,23 +109,14 @@ impl Command {
             return Err(UCICommandError("Missing option name".to_string()));
         }
 
-        // Collect the rest as value (values can also have spaces, though less common for standard UCI options)
-        let value_str = tokens.collect::<Vec<&str>>().join(" ");
-        if value_str.is_empty() {
-            return Err(UCICommandError(format!(
-                "Missing value for option '{}'",
-                option_name
-            )));
-        }
-
         // Note: UCI option names are case-sensitive according to some sources,
         // but often treated case-insensitively. Using lowercase matching here for robustness.
         let option = match option_name.to_ascii_lowercase().as_str() {
             // --- Standard UCI Options (Add more as needed) ---
             // --- Custom/Non-standard Options ---
             "clear hash" => EngineOption::ClearHash(), // Assuming "Clear Hash" is the name
-            "hash" => EngineOption::ResizeHash(Self::parse_value(value_str)?),
-            "threads" => EngineOption::ResizeThreads(Self::parse_value(value_str)?),
+            "hash" => EngineOption::ResizeHash(Self::parse_value("hash", tokens)?),
+            "threads" => EngineOption::ResizeThreads(Self::parse_value("threads", tokens)?),
             // Add other standard options like "Ponder", "OwnBook", "UCI_Chess960" if needed
             _ => {
                 return Err(UCICommandError(format!(
@@ -139,8 +130,20 @@ impl Command {
     }
 
     /// Helper to parse the value part of a "setoption" command into a specific type.
-    fn parse_value<T: FromStr>(value: String) -> Result<T, UCICommandError> {
-        value
+    fn parse_value<T: FromStr>(
+        option_name: &str,
+        tokens: SplitWhitespace,
+    ) -> Result<T, UCICommandError> {
+        // Collect the rest as value (values can also have spaces, though less common for standard UCI options)
+        let value_str = tokens.collect::<Vec<&str>>().join(" ");
+
+        if value_str.is_empty() {
+            return Err(UCICommandError(format!(
+                "Missing value for option '{}'",
+                option_name
+            )));
+        }
+        value_str
             .parse::<T>()
             .map_err(|_| UCICommandError(format!("Invalid value type")))
     }

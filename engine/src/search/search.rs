@@ -3,7 +3,10 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64},
 };
 
-use chess::{Move, Piece, board::Board};
+use chess::{
+    Move, Piece,
+    board::{Board, LegalGen, MoveList, movegen::move_list},
+};
 use nnue::accummulator::Accumulator;
 
 use crate::{
@@ -70,12 +73,6 @@ pub(crate) struct SearchWorker {
 
     // NNUE
     pub nnue: Accumulator,
-
-    // Search stats
-    best_first_move: u64,
-    best_move_updates: u64,
-    tt_move_hit: u64,
-    tt_probes: u64,
 }
 
 impl SearchWorker {
@@ -95,10 +92,6 @@ impl SearchWorker {
             stop: false,
             stats: SearchStats::default(),
             nnue: Accumulator::default(),
-            best_first_move: 0,
-            best_move_updates: 0,
-            tt_move_hit: 0,
-            tt_probes: 0,
         }
     }
 
@@ -119,8 +112,6 @@ impl SearchWorker {
         self.pv = PVLine::default();
         self.eval = -Eval::INFINITY;
         self.stop = false;
-        self.tt_move_hit = 0;
-        self.tt_probes = 0;
     }
 
     pub fn setup(&mut self, board: Board) {
@@ -171,9 +162,6 @@ impl SearchWorker {
         while self.should_start_iteration() {
             self.search_position(tt);
 
-            self.best_move_updates = 0;
-            self.best_first_move = 0;
-
             if self.stop {
                 break;
             }
@@ -201,15 +189,6 @@ impl SearchWorker {
         self.pv = pv;
 
         self.print_info(tt);
-
-        println!(
-            "First best move percentage: {}",
-            self.best_first_move as f64 / self.best_move_updates as f64 * 100.0
-        );
-        println!(
-            "TT move hit percentage: {}",
-            self.tt_move_hit as f64 / self.tt_probes as f64 * 100.0
-        );
     }
 
     fn print_info(&self, tt: &TT) {
@@ -288,6 +267,7 @@ impl SearchWorker {
         mut beta: Eval,
         mut depth: usize,
     ) -> Eval {
+        let us = self.board.stm();
         // Clear pv for new search
         pv.clear();
 
@@ -305,7 +285,8 @@ impl SearchWorker {
         if !NT::ROOT {
             // Check ply limit to prevent infinite recursion in rare cases
             if self.ply >= MAX_DEPTH as u16 && !in_check {
-                return evaluate_nnue(&self.board, &mut self.nnue); // Return static eval if too deep
+                // return evaluate_nnue(&self.board, &mut self.nnue); // Return static eval if too deep
+                return self.evaluate();
             }
             // Check for draws (Repetition, 50-move rule)
             if self.board.is_draw(self.ply) {
@@ -337,11 +318,8 @@ impl SearchWorker {
         let tt_entry = tt.get(self.board.key());
         let mut tt_move = Move::NONE;
         let mut tt_capture = false;
-        self.tt_probes += 1;
 
         if let Some(tt_entry) = tt_entry {
-            self.tt_move_hit += 1;
-
             let tt_value = tt_entry.value.from_tt(self.ply);
 
             if !NT::PV && tt_entry.depth >= depth as u8 {
@@ -367,6 +345,43 @@ impl SearchWorker {
 
         let opp_worsening = self.opp_worsening();
 
+        // Reverse Futility pruning (If eval is well enough, assume the eval will hold
+        // above beta or cause a cutoff)
+        if !NT::PV
+            && depth <= 8
+            && eval - Eval(70 * (depth - improving as usize).max(0) as i16) >= beta
+            && (!tt_move.is_valid() || tt_capture)
+            && beta > -Eval::MATE_BOUND
+            && eval < Eval::MATE_BOUND
+        {
+            return eval;
+        }
+
+        // --- Null Move Pruning ---
+        if !NT::PV
+            && depth >= 2
+            && !in_check
+            && self.ply_from_null > 0
+            && eval >= beta
+            && self.board.has_non_pawn_material(us)
+            && beta >= -Eval::MATE_BOUND
+        {
+            let r = ((eval.0 - beta.0) as usize / 200).min(6) + depth / 3 + 5;
+
+            let reduced_depth = depth.max(r) - r;
+
+            self.make_null_move(tt);
+
+            let value =
+                -self.negamax::<NonPV>(tt, &mut child_pv, -beta, -beta + Eval(1), reduced_depth);
+
+            self.undo_null_move();
+
+            if value >= beta {
+                return beta;
+            }
+        }
+
         // --- Set up main loop ---
         let mut best_value = -Eval::INFINITY;
         let mut best_move = Move::NONE;
@@ -382,6 +397,13 @@ impl SearchWorker {
 
         // --- Main Loop ---
         while let Some(move_) = move_picker.next(&self.board, &self.stats) {
+            // Late move pruning
+            if !NT::ROOT && self.board.has_non_pawn_material(us) && best_value >= -Eval::MATE_BOUND
+            {
+                if move_count >= (3 + depth * depth) / (2 - improving as usize) {
+                    move_picker.skip_quiets();
+                }
+            }
             // Update number of moves searched in this node
             move_count += 1;
             // Make move and update ply, node counters, prefetch hash entry, etc...
@@ -396,7 +418,6 @@ impl SearchWorker {
             let new_depth = depth.max(1) - 1;
 
             // Recursive search
-            // let value = -self.negamax::<NT::Next>(tt, &mut child_pv, -beta, -alpha, depth - 1);
             let mut value = alpha;
 
             // Late Move Reduction, search moves that are sufficiently far from the terminal nodes and are not tactical using a reduced depth zero window search to see if it is promising or not.
@@ -454,11 +475,6 @@ impl SearchWorker {
                 if value > alpha {
                     // We found a new best move sequence overall.
                     best_move = move_; // Update the best move.
-
-                    if move_count == 1 {
-                        self.best_first_move += 1;
-                    }
-                    self.best_move_updates += 1;
 
                     // Beta Cutoff (Fail-High): Check if our guaranteed score (`alpha`)
                     // meets or exceeds the opponent's limit (`beta`).
@@ -553,11 +569,12 @@ impl SearchWorker {
 
         // Check ply limit to prevent infinite recursion in rare cases
         if self.ply >= MAX_DEPTH as u16 {
+            // evaluate_nnue(&self.board, &mut self.nnue)
             return if in_check {
-                -Eval::INFINITY
+                Eval::DRAW
             } else {
-                evaluate_nnue(&self.board, &mut self.nnue)
-            }; // Return static eval if too deep
+                self.evaluate()
+            };
         }
 
         // Check for draws (Repetition, 50-move rule)
@@ -569,11 +586,7 @@ impl SearchWorker {
         let tt_entry = tt.get(self.board.key());
         let mut tt_move = Move::NONE;
 
-        self.tt_probes += 1;
-
         if let Some(entry) = tt_entry {
-            self.tt_move_hit += 1;
-
             let tt_value = entry.value.from_tt(self.ply);
 
             if !NT::PV {
@@ -591,10 +604,9 @@ impl SearchWorker {
         // --- Stand Pat Score ---
         // Get the static evaluation of the current position.
         // This score assumes no further captures are made (the "stand pat" score).
+        // let eval = self.static_eval(in_check, tt_entry);
         let eval = self.static_eval(in_check, tt_entry);
-
         // --- Alpha-Beta Pruning based on Stand Pat ---
-
         // If the static evaluation is already >= beta, the opponent won't allow this position.
         // We can prune immediately, assuming the static eval is a reasonable lower bound.
         if eval >= beta {
@@ -628,7 +640,8 @@ impl SearchWorker {
 
             // If the move we just search is better than best_value (The best we can do in this subtree), we can update best_value to be alpha.
             if value > best_value {
-                best_value = value; // Update best_value
+                // Update best_value
+                best_value = value;
                 // Alpha Update: Check if this move's score (`value`) is better than the
                 // best score we are *already guaranteed* (`alpha`) from other parts of the tree.
                 if value > alpha {
@@ -647,12 +660,12 @@ impl SearchWorker {
                     if NT::PV {
                         pv.update_line(move_, &child_pv); // Update the Principal Variation (best move sequence).
                     }
+
                     alpha = value; // Update alpha: Raise the lower bound of our guaranteed score.
                 }
             }
         }
 
-        // No moves left, but still in check: checkmate
         if in_check && best_value == -Eval::INFINITY {
             return Eval::mated_in(self.ply);
         }
@@ -737,13 +750,13 @@ impl SearchWorker {
     fn static_eval(&mut self, in_check: bool, tt_entry: Option<TTEntry>) -> Eval {
         if in_check {
             self.ss_mut().eval = -Eval::INFINITY;
-            -Eval::INFINITY
+            self.ss().eval
         } else if let Some(tt_entry) = tt_entry {
             let tt_eval = tt_entry.eval;
             let tt_value = tt_entry.value.from_tt(self.ply);
 
             let eval = if tt_eval == -Eval::INFINITY {
-                evaluate_nnue(&self.board, &mut self.nnue)
+                self.evaluate()
             } else {
                 tt_eval
             };
@@ -762,9 +775,14 @@ impl SearchWorker {
                 _ => eval,
             }
         } else {
-            self.ss_mut().eval = evaluate_nnue(&self.board, &mut self.nnue);
+            // self.ss_mut().eval = evaluate_nnue(&self.board, &mut self.nnue);
+            self.ss_mut().eval = self.evaluate();
             self.ss().eval
         }
+    }
+
+    fn evaluate(&mut self) -> Eval {
+        evaluate_nnue(&self.board, &mut self.nnue)
     }
 
     fn improving(&self) -> bool {
