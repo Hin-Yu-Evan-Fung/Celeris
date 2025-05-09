@@ -23,7 +23,7 @@ pub fn flatten(acc: &SideAccumulator, weights: &SideAccumulator) -> i32 {
 mod fallback {
     use crate::{accummulator::SideAccumulator, params::QA};
 
-    /// Squared Clipped ReLU
+     
     #[inline]
     pub fn screlu(x: i16) -> i32 {
         (x.clamp(0, QA as i16) as i32).pow(2)

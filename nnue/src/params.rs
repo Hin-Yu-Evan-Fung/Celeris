@@ -2,17 +2,17 @@ use std::mem;
 
 use crate::utils::Align64;
 
-// Layer sizes
+ 
 pub const INPUT: usize = 768;
 pub const L1: usize = 1024;
 
-// Quantization factors
+ 
 pub const QA: i32 = 255;
 pub const QB: i32 = 64;
 pub const QAB: i32 = QA * QB;
 pub const SCALE: i32 = 400;
 
-// Squared Clipped ReLU
+ 
 #[inline]
 pub fn screlu(x: i16) -> i32 {
     (x.clamp(0, QA as i16) as i32).pow(2)

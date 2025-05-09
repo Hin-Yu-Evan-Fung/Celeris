@@ -1,9 +1,12 @@
 mod command;
 mod engine;
 mod interface;
+mod options;
+mod params;
 mod time;
 
 pub use command::Command;
-pub use engine::constants::*;
-pub use interface::{Engine, UCI};
+pub use interface::UCI;
+pub use options::EngineOption;
+pub use params::{constants, tunables};
 pub use time::TimeControl;

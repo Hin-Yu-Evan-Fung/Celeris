@@ -43,14 +43,14 @@ pub fn perft_test(board: &mut Board, depth: usize) {
     for move_ in move_list.iter() {
         board.make_move(*move_);
         if depth == 1 {
-            println!("              {move_}: 1");
+            println!("              {}: 1", move_.to_str(&board));
             continue;
         }
         let nodes = perft(board, depth - 1);
         total_nodes += nodes;
         board.undo_move(*move_);
 
-        println!("              {move_}: {nodes:?}");
+        println!("              {}: {nodes:?}", move_.to_str(&board));
     }
 
     let time = start.elapsed().as_millis();

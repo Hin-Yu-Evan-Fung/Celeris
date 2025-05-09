@@ -2,7 +2,9 @@
 name = "chess"
 version = "0.1.0"
 edition = "2024"
-# build = "src/build.rs"
 
 [lib]
 doctest = false
+
+[dependencies]
+thiserror = "1.0"

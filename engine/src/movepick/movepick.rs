@@ -7,16 +7,14 @@ use crate::{eval::Eval, search::SearchStats};
 
 use super::{History, MoveStage, see::see};
 
-pub struct MovePicker<const SKIP_QUIET: bool> {
+pub struct MovePicker<const TACTICAL: bool> {
     pub stage: MoveStage,
-    pub skip_quiets: bool,
+    skip_quiets: bool,
 
     tt_move: Move,
     killers: [Move; 2],
-    // list: ScoredMoveList,
 
-    // Scored move list items
-    move_list: MoveList,
+    pub move_list: MoveList,
     scores: [Eval; 256],
     index: usize,
 
@@ -24,21 +22,25 @@ pub struct MovePicker<const SKIP_QUIET: bool> {
     bad_cap_start: usize,
 }
 
-impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
-    pub fn new(board: &Board, tt_move: Move, mut killers: [Move; 2]) -> Self {
-        // A valid killer must be legal and a non capture
+impl<const TACTICAL: bool> MovePicker<TACTICAL> {
+    pub fn new(board: &Board, mut tt_move: Move, mut killers: [Move; 2]) -> Self {
+        let in_check = board.in_check();
+
+        if TACTICAL && !in_check && board.is_capture(tt_move) {
+            tt_move = Move::NONE;
+        }
+
         if !killers[0].is_valid() || !board.is_legal(killers[0]) {
             killers[0] = Move::NONE;
         }
 
-        // A valid killer must be legal and a non capture
         if !killers[1].is_valid() || !board.is_legal(killers[1]) {
             killers[1] = Move::NONE;
         }
 
         Self {
             stage: MoveStage::TTMove,
-            skip_quiets: SKIP_QUIET,
+            skip_quiets: !in_check && TACTICAL,
             tt_move,
             killers,
             move_list: MoveList::new(),
@@ -47,6 +49,10 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
             quiet_start: 0,
             bad_cap_start: 0,
         }
+    }
+
+    pub fn skip_quiets(&mut self) {
+        self.skip_quiets = true;
     }
 
     fn score_captures(&mut self, board: &Board, _stats: &SearchStats) {
@@ -65,7 +71,8 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
             };
 
             if move_.is_promotion() {
-                score += Eval(10000 + (move_.promotion_pt() as i16) * 1000);
+                // Safety: Justified as the move is a promotion.
+                score += unsafe { Eval(10000 + (move_.promotion_pt() as i16) * 1000) };
             }
 
             self.scores[i] = score;
@@ -126,7 +133,7 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
     where
         F: Fn(Move) -> bool,
     {
-        let slice_len = end.saturating_sub(self.index); // How many items to potentially look at
+        let slice_len = end.saturating_sub(self.index);
 
         let found = self
             .move_list
@@ -134,12 +141,11 @@ impl<const SKIP_QUIET: bool> MovePicker<SKIP_QUIET> {
             .skip(self.index)
             .take(slice_len)
             .enumerate()
-            .find(|&(_i, &m)| pred(m) && m != self.tt_move); // Find the first suitable move
+            .find(|&(_i, &m)| pred(m) && m != self.tt_move);
 
-        // Update the main index based on whether a move was found
         self.index = found.map_or(end, |(i, _m)| self.index + i + 1);
 
-        found.map(|(_, m)| *m) // Return the move itself if found
+        found.map(|(_, m)| *m)
     }
 
     pub fn next(&mut self, board: &Board, stats: &SearchStats) -> Option<Move> {
