@@ -16,11 +16,7 @@ use crate::core::Colour;
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Piece {
-<<<<<<< HEAD
     WhitePawn, BlackPawn, WhiteKnight, BlackKnight, WhiteBishop, BlackBishop, WhiteRook, BlackRook, WhiteQueen, BlackQueen, WhiteKing, BlackKing
-=======
-    WhitePawn, BlackPawn, WhiteKnight, BlackKnight, WhiteBishop, BlackBishop, WhiteRook, BlackRook, WhiteQueen, BlackQueen, WhiteKing, BlackKing,
->>>>>>> b4d739f (Changed piece representation to make the engine more efficient.)
 }
 
 impl Piece {
@@ -66,17 +62,6 @@ impl Piece {
     /// Returns the piece type of the piece
     pub const fn pt(self) -> PieceType {
         unsafe { PieceType::from_unchecked(self as u8 >> 1) }
-<<<<<<< HEAD
-=======
-    }
-    /// # Get Piece Colour
-    ///
-    /// Extracts the colour from a piece by checking the colour bit.
-    ///
-    /// Returns the corresponding `Colour` enum value.
-    pub const fn colour(self) -> Colour {
-        unsafe { Colour::from_unchecked(self as u8 & 1) }
->>>>>>> b4d739f (Changed piece representation to make the engine more efficient.)
     }
 
     /// Returns the colour of the piece
