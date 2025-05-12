@@ -100,6 +100,12 @@ impl EngineController {
         println!("id name {} {}", constants::NAME, constants::VERSION);
         println!("id author {}", constants::AUTHORS);
         println!("uciok");
+
+        // Print command options
+        println!("option name UCI_Chess960 type check default false");
+        println!("option name ClearHash type button");
+        println!("option name Hash type spin default 128 min 1 max ");
+        println!("option name Threads type spin default 1 min 12 max ");
     }
 
     fn set_debug(&mut self, is_debug: bool) {
@@ -116,6 +122,10 @@ impl EngineController {
     fn resize_hash(&mut self, size_mb: usize) {
         if self.is_debug {
             println!("info string Attempting to resize hash to {} MB...", size_mb);
+        }
+
+        if size_mb < 1 || size_mb > 128 {
+            println!("info string hash spin value out of bounds (1 to 128).");
         }
 
         self.tt.resize(size_mb);
@@ -149,6 +159,10 @@ impl EngineController {
             );
         }
 
+        if threads < 1 || threads > 12 {
+            println!("info string threads spin value out of bounds (1 to 12).");
+        }
+
         self.thread_pool.resize(threads);
 
         if self.is_debug {
@@ -159,7 +173,8 @@ impl EngineController {
     /// Handles the "setoption" command by dispatching to specific option handlers.
     fn set_option(&mut self, option: EngineOption) {
         match option {
-            EngineOption::ClearHash() => self.clear_hash(),
+            EngineOption::Chess960(option) => self.board.set_chess960(option),
+            EngineOption::ClearHash => self.clear_hash(),
             EngineOption::ResizeHash(size_mb) => self.resize_hash(size_mb),
             EngineOption::ResizeThreads(threads) => self.resize_threads(threads),
         }

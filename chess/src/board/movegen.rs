@@ -160,7 +160,7 @@ impl Board {
 
         let ksq = self.ksq(us);
         // Safety: rook_sq lookup is safe if castling rights are present initially.
-        let rook_sq = unsafe { self.rook_sq(castle.0.trailing_zeros() as usize) };
+        let rook_sq = self.rook_sq(castle);
         // Rook destination (depends on castling rights)
         let rook_dest = self.castling_rook_dest(castle);
 

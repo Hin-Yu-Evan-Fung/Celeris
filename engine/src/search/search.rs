@@ -3,10 +3,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64},
 };
 
-use chess::{
-    Move, Piece,
-    board::{Board, LegalGen, MoveList, movegen::move_list},
-};
+use chess::{Move, Piece, board::Board};
 use nnue::accummulator::Accumulator;
 
 use crate::{
@@ -55,7 +52,7 @@ pub(crate) struct SearchWorker {
 
     // Search Info
     nodes: u64,
-    depth: usize,
+    pub depth: usize,
     seldepth: usize,
     ply: u16,
     // Plies from previous null move
@@ -166,10 +163,12 @@ impl SearchWorker {
                 break;
             }
 
+            if self.thread_id == 0 {
+                self.print_info(tt);
+            }
+
             self.depth += 1;
         }
-
-        println!("bestmove {}", self.pv[0]);
     }
 
     fn search_position(&mut self, tt: &TT) {
@@ -187,14 +186,12 @@ impl SearchWorker {
         self.eval = eval;
 
         self.pv = pv;
-
-        self.print_info(tt);
     }
 
     fn print_info(&self, tt: &TT) {
         let time = self.clock.elapsed().as_millis();
 
-        let nodes_per_second = (self.nodes * 1000) as u128 / time.max(1);
+        let nodes_per_second = (self.clock.global_nodes() * 1000) as u128 / time.max(1);
 
         println!(
             "info depth {} seldepth {} score {} time {} nodes {} nps {} hashfull {} {}",
@@ -202,10 +199,10 @@ impl SearchWorker {
             self.seldepth + 1,
             self.eval,
             time,
-            self.nodes,
+            self.clock.global_nodes(),
             nodes_per_second,
             tt.hashfull(),
-            self.pv
+            self.pv.to_str(&self.board)
         );
     }
 

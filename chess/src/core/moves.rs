@@ -39,7 +39,7 @@
 //! `Move::new_promotion()`. Properties can then be queried using methods like `is_capture()`,
 //! `promotion_piece_type()`, etc. The `Display` trait is implemented for basic algebraic
 //! notation output (e.g., "e2e4", "a7a8q").
-use crate::core::*;
+use crate::{board::Board, core::*};
 
 /// Represents the type of a chess move, encoded in the upper 4 bits of a `Move`.
 ///
@@ -160,7 +160,7 @@ impl MoveFlag {
 ///
 /// Use the associated methods (`from()`, `to()`, `flag()`, `is_capture()`, etc.) to access
 /// the move's components and properties.
-#[derive(Debug, PartialEq, Clone, Copy, Eq)] // Default makes Move(0) - often represents a null move
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)] // Default makes Move(0) - often represents a null move
 pub struct Move {
     data: u16,
 }
@@ -350,24 +350,31 @@ impl Move {
     pub const fn is_valid(&self) -> bool {
         !self.is_none() && !self.is_null()
     }
-}
 
-/// Formats the move in standard algebraic notation (e.g., "e2e4", "a7a8q").
-///
-/// Note: This basic implementation does not include capture 'x' or check '+' symbols.
-/// It simply shows the 'from' square, 'to' square, and the promotion piece character if applicable.
-impl std::fmt::Display for Move {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    /// Print move in format of
+    /// Formats the move in standard algebraic notation (e.g., "e2e4", "a7a8q").
+    ///
+    /// Note: This basic implementation does not include capture 'x' or check '+' symbols.
+    /// It simply shows the 'from' square, 'to' square, and the promotion piece character if applicable.
+    pub fn to_str(&self, board: &Board) -> String {
         if self.is_null() {
-            write!(f, "null")
+            return "null".to_string();
         } else {
-            // Check if it's a promotion move to append the piece character
-            if self.is_promotion() {
+            if board.chess960() && self.is_castle() {
+                let to = match (board.stm(), self.flag()) {
+                    (Colour::White, MoveFlag::KingCastle) => board.rook_sq(Castling::WK),
+                    (Colour::White, MoveFlag::QueenCastle) => board.rook_sq(Castling::WQ),
+                    (Colour::Black, MoveFlag::KingCastle) => board.rook_sq(Castling::BK),
+                    (Colour::Black, MoveFlag::QueenCastle) => board.rook_sq(Castling::BQ),
+                    _ => unreachable!(),
+                };
+                format!("{}{}", self.from(), to)
+            } else if self.is_promotion() {
+                // Check if it's a promotion move to append the piece character
                 // Get the lowercase character for the promotion piece
                 // Assumes PieceType Display implementation gives lowercase 'n', 'b', 'r', 'q'
                 // Or implement a specific mapping here:
-                write!(
-                    f,
+                format!(
                     "{}{}{}",
                     self.from(),
                     self.to(),
@@ -375,7 +382,7 @@ impl std::fmt::Display for Move {
                 )
             } else {
                 // Standard move format
-                write!(f, "{}{}", self.from(), self.to())
+                format!("{}{}", self.from(), self.to())
             }
         }
     }
@@ -582,33 +589,6 @@ mod tests {
         assert!(!quiet.is_double_push());
         assert!(dpp.is_double_push());
         assert!(!capture.is_double_push());
-    }
-
-    #[test]
-    fn test_display_format() {
-        // Use Move::new for non-promotion moves as helper constructors aren't present
-        assert_eq!(Move::new(E2, E4, MoveFlag::QuietMove).to_string(), "e2e4");
-        assert_eq!(Move::new(E4, D5, MoveFlag::Capture).to_string(), "e4d5"); // Display doesn't show capture 'x'
-        assert_eq!(Move::new(E5, D6, MoveFlag::EPCapture).to_string(), "e5d6");
-        assert_eq!(Move::new(E1, G1, MoveFlag::KingCastle).to_string(), "e1g1");
-
-        // Use new_promotion for promotion moves
-        assert_eq!(
-            Move::new_promotion(A7, A8, PieceType::Queen, false).to_string(),
-            "a7a8q"
-        );
-        assert_eq!(
-            Move::new_promotion(B7, C8, PieceType::Knight, true).to_string(),
-            "b7c8n"
-        );
-        assert_eq!(
-            Move::new_promotion(G7, G8, PieceType::Rook, false).to_string(),
-            "g7g8r"
-        );
-        assert_eq!(
-            Move::new_promotion(H7, G8, PieceType::Bishop, true).to_string(),
-            "h7g8b"
-        );
     }
 
     #[test]

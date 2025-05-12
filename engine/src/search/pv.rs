@@ -1,4 +1,7 @@
-use chess::{Move, board::MAX_MOVES};
+use chess::{
+    Move,
+    board::{Board, MAX_MOVES},
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct PVLine {
@@ -23,17 +26,6 @@ impl std::ops::Index<usize> for PVLine {
     }
 }
 
-impl std::fmt::Display for PVLine {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut s = String::from("pv");
-        for m in &self.moves[0..self.length] {
-            s.push_str(&format!(" {m}"));
-        }
-
-        write!(f, "{}", s)
-    }
-}
-
 impl PVLine {
     pub fn update_line(&mut self, move_: Move, old: &Self) {
         self.length = old.length + 1;
@@ -43,5 +35,14 @@ impl PVLine {
 
     pub fn clear(&mut self) {
         self.length = 0;
+    }
+
+    pub fn to_str(&self, board: &Board) -> String {
+        let mut s = String::from("pv");
+        for m in &self.moves[0..self.length] {
+            s.push_str(&format!(" {}", m.to_str(board)));
+        }
+
+        format!("{}", s)
     }
 }

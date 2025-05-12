@@ -181,6 +181,9 @@ pub struct Board {
     /// Indicates which player's turn it is (White or Black).
     stm: Colour,
 
+    /// Chess 960
+    chess960: bool,
+
     /// Current board state
     pub state: BoardState,
     // /// A stack-like structure storing previous board states (`BoardState`).
@@ -220,7 +223,18 @@ impl Board {
             half_moves: 0,
             state: BoardState::default(),
             history: Vec::with_capacity(MAX_MOVES),
+            chess960: false,
         }
+    }
+
+    /// Set Chess960 option
+    pub fn set_chess960(&mut self, chess960: bool) {
+        self.chess960 = chess960;
+    }
+
+    /// Get Chess960 option
+    pub fn chess960(&self) -> bool {
+        self.chess960
     }
 
     /// # Get Piece on Square
@@ -433,15 +447,16 @@ impl Board {
 
     /// # Get Rook Squares
     ///
+    /// ## Arguments
+    /// * `Index` - The index of the castling type
     /// ## Returns
-    ///
-    /// * `[Square; 4]` - The squares where the rooks start from, in order of white king side, white queen side, black king side, black queen side
+    /// * `Square` - The square where the rooks start from, according to the index
     #[inline]
-    pub(crate) unsafe fn rook_sq(&self, index: usize) -> Square {
+    pub(crate) fn rook_sq(&self, rights: Castling) -> Square {
         unsafe {
             self.castling_mask
                 .rook_sq
-                .get_unchecked(index)
+                .get_unchecked(rights.0.trailing_zeros() as usize)
                 .unwrap_unchecked()
         }
     }
@@ -462,7 +477,7 @@ impl Board {
     ///
     /// * `Castling` - The castling rights for the current position for the side
     #[inline]
-    pub fn castling_side(&self, side: Colour) -> Castling {
+    pub fn castling_rights_for_side(&self, side: Colour) -> Castling {
         self.state.castle
             & match side {
                 Colour::White => Castling::WHITE_CASTLING,

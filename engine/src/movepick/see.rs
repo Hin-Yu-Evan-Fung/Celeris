@@ -336,7 +336,7 @@ mod tests {
 
             let move_ = *move_list
                 .iter()
-                .find(|&move_| move_.to_string() == *move_str)
+                .find(|&move_| move_.to_str(&board) == *move_str)
                 .unwrap();
 
             println!("{}", board.fen());

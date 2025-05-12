@@ -801,31 +801,25 @@ mod tests {
         let non_pawn_key_after_make = board.state.keys.non_pawn_key;
 
         // Assert board state after make_move
-        assert_eq!(
-            board.fen(),
-            fen_after,
-            "FEN mismatch after make_move for '{}'",
-            move_to_test
-        );
+        assert_eq!(board.fen(), fen_after, "FEN mismatch after make_move for",);
         // Assert main key is different
         assert_ne!(
             key_before, key_after_make,
-            "Key should change after make_move for '{}'",
-            move_to_test
+            "Key should change after make_move for",
         );
 
         // --- Verify Pawn Key Change (or lack thereof) ---
         let expected_pawn_key_after = Board::from_fen(fen_after).unwrap().calc_pawn_key();
         assert_eq!(
             pawn_key_after_make, expected_pawn_key_after,
-            "Pawn key incorrect after make_move for '{}'. Expected {:?}, Got {:?}",
-            move_to_test, expected_pawn_key_after, pawn_key_after_make
+            "Pawn key incorrect after make_move for. Expected {:?}, Got {:?}",
+            expected_pawn_key_after, pawn_key_after_make
         );
         let expected_non_pawn_key_after = Board::from_fen(fen_after).unwrap().calc_non_pawn_key();
         assert_eq!(
             non_pawn_key_after_make, expected_non_pawn_key_after,
-            "Pawn key incorrect after make_move for '{}'. Expected {:?}, Got {:?}",
-            move_to_test, expected_non_pawn_key_after, non_pawn_key_after_make
+            "Pawn key incorrect after make_move for. Expected {:?}, Got {:?}",
+            expected_non_pawn_key_after, non_pawn_key_after_make
         );
         // Optionally assert if pawn key *should* have changed
         let piece = Board::from_fen(fen_before)
@@ -845,14 +839,12 @@ mod tests {
         if affects_pawn_key {
             assert_ne!(
                 pawn_key_before, pawn_key_after_make,
-                "Pawn key should change after pawn-related move '{}'",
-                move_to_test
+                "Pawn key should change after pawn-related move",
             );
         } else {
             assert_eq!(
                 pawn_key_before, pawn_key_after_make,
-                "Pawn key should NOT change after non-pawn move '{}'",
-                move_to_test
+                "Pawn key should NOT change after non-pawn move",
             );
         }
 
@@ -863,27 +855,19 @@ mod tests {
         let non_pawn_key_after_undo = board.state.keys.non_pawn_key;
 
         // Assert board state is restored
-        assert_eq!(
-            board.fen(),
-            fen_before,
-            "FEN mismatch after undo_move for '{}'",
-            move_to_test
-        );
+        assert_eq!(board.fen(), fen_before, "FEN mismatch after undo_move for",);
         // Assert keys are restored exactly
         assert_eq!(
             key_after_undo, key_before,
-            "Key mismatch after undo_move for '{}'",
-            move_to_test
+            "Key mismatch after undo_move for",
         );
         assert_eq!(
             pawn_key_after_undo, pawn_key_before,
-            "Pawn key mismatch after undo_move for '{}'",
-            move_to_test
+            "Pawn key mismatch after undo_move for",
         );
         assert_eq!(
             non_pawn_key_after_undo, non_pawn_key_before,
-            "Non Pawn key mismatch after undo_move for '{}'",
-            move_to_test
+            "Non Pawn key mismatch after undo_move for",
         );
 
         // --- Optional: Verify key calculation consistency after undo ---
@@ -891,13 +875,11 @@ mod tests {
         let calculated_pawn_key_after_undo = board.calc_pawn_key();
         assert_eq!(
             calculated_key_after_undo, key_before,
-            "Recalculated key mismatch after undo_move for '{}'",
-            move_to_test
+            "Recalculated key mismatch after undo_move for",
         );
         assert_eq!(
             calculated_pawn_key_after_undo, pawn_key_before,
-            "Recalculated pawn key mismatch after undo_move for '{}'",
-            move_to_test
+            "Recalculated pawn key mismatch after undo_move for",
         );
     }
 

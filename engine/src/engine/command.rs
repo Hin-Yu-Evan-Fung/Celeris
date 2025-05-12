@@ -9,8 +9,10 @@ use chess::{
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum EngineOption {
+    /// Command to enable chess960 option
+    Chess960(bool),
     /// Command to clear the transposition table.
-    ClearHash(),
+    ClearHash,
     /// Command to resize the transposition table (value in MB).
     ResizeHash(usize),
     /// Command to change the number of search threads.
@@ -97,13 +99,6 @@ impl Command {
             next_token = tokens.next();
         }
 
-        // Check if we actually found "value"
-        if next_token != Some("value") {
-            return Err(UCICommandError(
-                "Expected 'value' after option name".to_string(),
-            ));
-        }
-
         let option_name = name_parts.join(" ");
         if option_name.is_empty() {
             return Err(UCICommandError("Missing option name".to_string()));
@@ -114,10 +109,10 @@ impl Command {
         let option = match option_name.to_ascii_lowercase().as_str() {
             // --- Standard UCI Options (Add more as needed) ---
             // --- Custom/Non-standard Options ---
-            "clear hash" => EngineOption::ClearHash(), // Assuming "Clear Hash" is the name
-            "hash" => EngineOption::ResizeHash(Self::parse_value("hash", tokens)?),
-            "threads" => EngineOption::ResizeThreads(Self::parse_value("threads", tokens)?),
-            // Add other standard options like "Ponder", "OwnBook", "UCI_Chess960" if needed
+            "uci_chess960" => EngineOption::Chess960(Self::parse_value("UCI_Chess960", tokens)?),
+            "clear hash" => EngineOption::ClearHash,
+            "hash" => EngineOption::ResizeHash(Self::parse_value("Hash", tokens)?),
+            "threads" => EngineOption::ResizeThreads(Self::parse_value("Threads", tokens)?),
             _ => {
                 return Err(UCICommandError(format!(
                     "Unknown option name: '{}'",
@@ -143,6 +138,7 @@ impl Command {
                 option_name
             )));
         }
+
         value_str
             .parse::<T>()
             .map_err(|_| UCICommandError(format!("Invalid value type")))
@@ -199,7 +195,7 @@ impl Command {
         board.generate_moves::<LegalGen>(&mut move_list);
 
         let move_match = |move_: &&Move| {
-            move_.to_string() == move_str
+            move_.to_str(&board) == move_str
                 || (move_.is_king_castle() && move_str == "O-O")
                 || (move_.is_queen_castle() && move_str == "O-O-O")
         };

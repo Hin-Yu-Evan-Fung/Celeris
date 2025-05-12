@@ -15,6 +15,7 @@ endif
 build:
 	cargo clean
 	cargo rustc --release --package engine --bin engine $(FEATURES_ARG) -- -C target-cpu=native --emit link=$(NAME)
+	
 dir:
 	mkdir -p $(DIR)
 

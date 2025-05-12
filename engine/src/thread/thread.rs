@@ -1,9 +1,13 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, AtomicU64, Ordering},
+use std::{
+    collections::HashMap,
+    iter,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
 };
 
-use chess::board::Board;
+use chess::{Move, board::Board};
 
 use crate::{
     TimeControl,
@@ -90,6 +94,30 @@ impl ThreadPool {
         });
 
         self.stop.store(true, Ordering::Relaxed);
+
+        println!("bestmove {}", self.find_best_move().to_str(board));
+    }
+
+    fn find_best_move(&self) -> Move {
+        let threads = iter::once(&self.main_worker).chain(self.workers.iter());
+        // Safe unwrap as main worker always exists
+        let highest_depth = threads
+            .clone()
+            .max_by(|a, b| a.depth.cmp(&b.depth))
+            .unwrap()
+            .depth;
+
+        threads
+            .filter(|w| w.depth == highest_depth)
+            .map(|w| w.best_move())
+            .fold(HashMap::new(), |mut acc, move_| {
+                *acc.entry(move_).or_insert(0) += 1;
+                acc
+            })
+            .into_iter()
+            .max_by_key(|(_, count)| *count)
+            .map(|(move_, _)| move_)
+            .unwrap_or(Move::NULL)
     }
 
     /// Get the total nodes searched
