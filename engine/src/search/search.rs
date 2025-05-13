@@ -314,10 +314,14 @@ impl SearchWorker {
         // --- Hash Table Lookup ---
         let tt_entry = tt.get(self.board.key());
         let mut tt_move = Move::NONE;
+        let mut tt_value = -Eval::INFINITY;
+        let mut tt_bound = TTBound::None;
         let mut tt_capture = false;
+        let tt_hit = tt_entry.is_some();
 
         if let Some(tt_entry) = tt_entry {
-            let tt_value = tt_entry.value.from_tt(self.ply);
+            tt_value = tt_entry.value.from_tt(self.ply);
+            tt_bound = tt_entry.bound;
 
             if !NT::PV && tt_entry.depth >= depth as u8 {
                 match tt_entry.bound {
@@ -342,18 +346,6 @@ impl SearchWorker {
 
         let opp_worsening = self.opp_worsening();
 
-        // Reverse Futility pruning (If eval is well enough, assume the eval will hold
-        // above beta or cause a cutoff)
-        if !NT::PV
-            && depth <= 8
-            && eval - Eval(70 * (depth - improving as usize).max(0) as i16) >= beta
-            && (!tt_move.is_valid() || tt_capture)
-            && beta > -Eval::MATE_BOUND
-            && eval < Eval::MATE_BOUND
-        {
-            return eval;
-        }
-
         // --- Null Move Pruning ---
         if !NT::PV
             && depth >= 2
@@ -362,10 +354,11 @@ impl SearchWorker {
             && eval >= beta
             && self.board.has_non_pawn_material(us)
             && beta >= -Eval::MATE_BOUND
+            && (!tt_hit || tt_bound == TTBound::Lower || tt_value >= beta)
         {
-            let r = ((eval.0 - beta.0) as usize / 200).min(6) + depth / 3 + 5;
+            let r = ((eval.0 - beta.0) as usize / 200).min(3) + depth / 5 + 4;
 
-            let reduced_depth = depth.max(r) - r;
+            let reduced_depth = depth.max(r + 1) - r;
 
             self.make_null_move(tt);
 
@@ -375,7 +368,11 @@ impl SearchWorker {
             self.undo_null_move();
 
             if value >= beta {
-                return beta;
+                return if value > -Eval::MATE_BOUND {
+                    beta
+                } else {
+                    value
+                };
             }
         }
 
@@ -394,13 +391,6 @@ impl SearchWorker {
 
         // --- Main Loop ---
         while let Some(move_) = move_picker.next(&self.board, &self.stats) {
-            // Late move pruning
-            if !NT::ROOT && self.board.has_non_pawn_material(us) && best_value >= -Eval::MATE_BOUND
-            {
-                if move_count >= (3 + depth * depth) / (2 - improving as usize) {
-                    move_picker.skip_quiets();
-                }
-            }
             // Update number of moves searched in this node
             move_count += 1;
             // Make move and update ply, node counters, prefetch hash entry, etc...
@@ -410,7 +400,6 @@ impl SearchWorker {
             // Move flags
             let is_capture = move_.is_capture();
             // let is_promotion = move_.is_promotion();
-
             // New depth
             let new_depth = depth.max(1) - 1;
 
@@ -422,7 +411,7 @@ impl SearchWorker {
                 // Calculate dynamic depth reduction
                 let r = 1 + ((move_count > 6) as usize) * depth / 3;
 
-                let reduced_depth = new_depth.max(r) - r;
+                let reduced_depth = new_depth.max(r + 1) - r;
 
                 value = -self.negamax::<NonPV>(
                     tt,
