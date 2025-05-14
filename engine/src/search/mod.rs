@@ -2,14 +2,12 @@ mod clock;
 mod pv;
 mod search;
 mod tt;
-mod tune;
 
 pub use clock::Clock;
 pub use pv::PVLine;
 pub use search::SearchStats;
 pub(crate) use search::SearchWorker;
 pub use tt::TT;
-pub use tune::tunables;
 
 const MIN_DEPTH: usize = 4;
 

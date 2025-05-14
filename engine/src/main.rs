@@ -1,4 +1,7 @@
-use engine::{UCI, run_bench, tunables::spsa_output_txt};
+#[cfg(feature = "tune")]
+use engine::tunables::spsa_output_txt;
+
+use engine::{UCI, run_bench};
 use std::env::args;
 
 const DEFAULT_CMD_BENCH_DEPTH: usize = 13;
@@ -8,6 +11,7 @@ fn main() {
     cli_args.next(); // Skip the program name
 
     match cli_args.next().as_deref() {
+        #[cfg(feature = "tune")]
         Some("spsa") => println!("{}", spsa_output_txt()),
 
         Some("bench") => {

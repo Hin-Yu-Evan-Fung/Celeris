@@ -1,5 +1,5 @@
 // https://github.com/AndyGrant/OpenBench/wiki/SPSA-Tuning-Workloads
-
+#[macro_export]
 macro_rules! init_tunables {
     ($($name:ident: $t:ty = $val:expr, $min:expr, $max:expr, $step:expr;)*) => {
         pub mod tunables {
@@ -72,18 +72,4 @@ macro_rules! init_tunables {
             }
         }
     }
-}
-
-init_tunables! {
-    // value: type = val, min, max, step;
-
-    // Piece values
-    pawn_val:   i32 = 82, 60, 140, 5;
-    knight_val: i32 = 337, 250, 370, 5;
-    bishop_val: i32 = 365, 300, 400, 5;
-    rook_val:   i32 = 477, 450, 550, 5;
-    queen_val:  i32 = 1025, 950, 1100, 5;
-
-    // NNUE scaling value
-    nnue_base: i32 = 700, 600, 800, 10;
 }

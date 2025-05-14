@@ -7,7 +7,9 @@ else
 	NAME := $(EXE)
 endif
 
-FEATURES_ARG :=
+features := "tune"
+
+FEATURES_ARG := 
 ifneq ($(strip $(features)),)
 FEATURES_ARG := --features $(features)
 endif

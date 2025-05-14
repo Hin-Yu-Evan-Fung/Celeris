@@ -8,7 +8,7 @@ use nnue::accummulator::Accumulator;
 
 use crate::{
     History, KillerEntry, MainHistory,
-    engine::MAX_DEPTH,
+    constants::MAX_DEPTH,
     eval::{Eval, evaluate_nnue},
     movepick::MovePicker,
     search::PVLine,

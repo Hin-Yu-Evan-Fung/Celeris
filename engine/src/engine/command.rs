@@ -1,7 +1,5 @@
 use std::str::{FromStr, SplitWhitespace};
 
-use crate::tunables::set_tunable;
-
 // Import necessary types from the chess crate and the parent module.
 use super::TimeControl;
 use chess::{
@@ -9,20 +7,7 @@ use chess::{
     board::{Board, LegalGen, MoveList},
 };
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum EngineOption {
-    /// Command to enable chess960 option
-    Chess960(bool),
-    /// Command to clear the transposition table.
-    ClearHash,
-    /// Command to resize the transposition table (value in MB).
-    ResizeHash(usize),
-    /// Command to change the number of search threads.
-    ResizeThreads(usize),
-
-    /// Temporary option for tunables.
-    TunableSet,
-}
+use super::options::EngineOption;
 
 #[derive(Debug, PartialEq, Eq)]
 /// Represents commands that can be sent to the chess engine, primarily following the UCI protocol.
@@ -109,55 +94,9 @@ impl Command {
             return Err(UCICommandError("Missing option name".to_string()));
         }
 
-        // Note: UCI option names are case-sensitive according to some sources,
-        // but often treated case-insensitively. Using lowercase matching here for robustness.
-        let option = match option_name.to_ascii_lowercase().as_str() {
-            // --- Standard UCI Options (Add more as needed) ---
-            // --- Custom/Non-standard Options ---
-            "uci_chess960" => EngineOption::Chess960(Self::parse_value("UCI_Chess960", tokens)?),
-            "clear hash" => EngineOption::ClearHash,
-            "hash" => EngineOption::ResizeHash(Self::parse_value("Hash", tokens)?),
-            "threads" => EngineOption::ResizeThreads(Self::parse_value("Threads", tokens)?),
-
-            #[cfg(not(feature = "tune"))]
-            _ => {
-                return Err(UCICommandError(format!(
-                    "Unknown option name: '{}'",
-                    option_name
-                )));
-            }
-
-            #[cfg(feature = "tune")]
-            _ => {
-                let val = tokens.last().unwrap();
-                match set_tunable(&option_name, val) {
-                    Ok(_) => EngineOption::TunableSet,
-                    Err(e) => return Err(UCICommandError(e.to_string())),
-                }
-            }
-        };
+        let option = EngineOption::try_from((option_name, tokens))?;
 
         Ok(Command::SetOption(option))
-    }
-
-    /// Helper to parse the value part of a "setoption" command into a specific type.
-    fn parse_value<T: FromStr>(
-        option_name: &str,
-        tokens: SplitWhitespace,
-    ) -> Result<T, UCICommandError> {
-        // Collect the rest as value (values can also have spaces, though less common for standard UCI options)
-        let value_str = tokens.collect::<Vec<&str>>().join(" ");
-
-        if value_str.is_empty() {
-            return Err(UCICommandError(format!(
-                "Missing value for option '{}'",
-                option_name
-            )));
-        }
-
-        value_str
-            .parse::<T>()
-            .map_err(|_| UCICommandError(format!("Invalid value type")))
     }
 
     fn parse_position<'a>(mut tokens: SplitWhitespace) -> Result<Self, UCICommandError> {
@@ -250,7 +189,7 @@ impl Command {
 
 /// Custom error type for UCI command parsing failures.
 #[derive(Debug)]
-pub struct UCICommandError(String);
+pub struct UCICommandError(pub String);
 
 impl std::fmt::Display for UCICommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

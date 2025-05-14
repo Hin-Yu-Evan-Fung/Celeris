@@ -11,30 +11,13 @@ use crate::{
     evaluate_nnue,
     search::TT,
     thread::ThreadPool,
-    tunables::spsa_output_opts,
 };
 
-use super::command::EngineOption;
-// Re-export Command and TimeControl for easier use by the interface module.
-pub use super::{Command, TimeControl};
-
-/// Defines constants used by the engine controller and potentially other parts.
-pub mod constants {
-    // Import necessary types for constants.
-    use chess::board::MAX_MOVES;
-
-    pub const NAME: &str = "Celeris";
-    pub const VERSION: &str = "0.0.1";
-    pub const AUTHORS: &str = "0mn1verze, TheGogy";
-
-    // Default configuration values.
-    pub const THREADS: usize = 1;
-    pub const DEBUG: bool = true;
-    pub const TT_SIZE: usize = 64;
-
-    // Search-related constants.
-    pub const MAX_DEPTH: usize = MAX_MOVES;
-}
+use super::EngineOption;
+use super::constants::*;
+#[cfg(feature = "tune")]
+use super::tunables::{set_tunable, spsa_output_opts};
+use super::{Command, TimeControl};
 
 /// The core engine controller that manages the board state, search threads, and handles commands.
 ///
@@ -57,10 +40,10 @@ impl EngineController {
         let tt = TT::default();
         let mut thread_pool = ThreadPool::new(stop);
 
-        thread_pool.resize(constants::THREADS);
+        thread_pool.resize(THREADS);
 
         Self {
-            is_debug: constants::DEBUG,
+            is_debug: DEBUG,
             board: Board::default(),
             tt,
             thread_pool,
@@ -98,8 +81,8 @@ impl EngineController {
 
     /// Handles the "uci" command: Prints engine identification and options.
     fn introduce(&self) {
-        println!("id name {} {}", constants::NAME, constants::VERSION);
-        println!("id author {}", constants::AUTHORS);
+        println!("id name {} {}", NAME, VERSION);
+        println!("id author {}", AUTHORS);
 
         // Print command options
         println!("option name UCI_Chess960 type check default false");
@@ -172,6 +155,15 @@ impl EngineController {
         }
     }
 
+    #[cfg(feature = "tune")]
+    fn set_tunable(&mut self, tunable_name: &str, val: &str) {
+        if let Err(e) = set_tunable(&tunable_name, &val) {
+            println!("info string {}", e);
+        } else if self.is_debug {
+            println!("info string value {tunable_name} set to {val}.");
+        }
+    }
+
     /// Handles the "setoption" command by dispatching to specific option handlers.
     fn set_option(&mut self, option: EngineOption) {
         match option {
@@ -179,7 +171,8 @@ impl EngineController {
             EngineOption::ClearHash => self.clear_hash(),
             EngineOption::ResizeHash(size_mb) => self.resize_hash(size_mb),
             EngineOption::ResizeThreads(threads) => self.resize_threads(threads),
-            EngineOption::TunableSet => (),
+            #[cfg(feature = "tune")]
+            EngineOption::SetTunable(tunable_name, val) => self.set_tunable(&tunable_name, &val),
         }
     }
 

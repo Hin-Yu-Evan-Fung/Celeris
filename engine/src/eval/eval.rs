@@ -1,4 +1,4 @@
-use crate::tunables::*;
+use crate::engine::tunables::*;
 
 use super::Eval;
 use super::psqt::{calc_game_phase, calc_psqt};

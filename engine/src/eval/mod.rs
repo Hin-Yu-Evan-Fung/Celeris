@@ -4,7 +4,7 @@ mod psqt;
 pub use eval::{evaluate, evaluate_nnue};
 pub use psqt::calc_psqt;
 
-use crate::MAX_DEPTH;
+use crate::constants::*;
 use chess::impl_ari_ops;
 
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
