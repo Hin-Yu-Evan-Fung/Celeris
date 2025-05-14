@@ -105,7 +105,7 @@ pub fn run_bench(depth: usize) {
     let avg_branch_factor = if avg_nodes_per_pos > 0.0 && depth > 0.0 {
         avg_nodes_per_pos.powf(1.0 / depth)
     } else {
-        0.0 // Avoid NaN if nodes or depth is zero
+        0.0
     };
 
     println!(

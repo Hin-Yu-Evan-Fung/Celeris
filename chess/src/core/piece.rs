@@ -1,30 +1,3 @@
-//! # Module: `piece`
-//!
-//! This module defines the core types for representing chess pieces and their types.
-//! It provides the `Piece` and `PieceType` enums, along with methods for manipulating and
-//! converting between these types.
-//!
-//! ## Overview
-//!
-//! This module is a fundamental part of the chess engine, providing the basic building blocks for
-//! representing the pieces on the board. It defines the 12 pieces (6 types, each with 2 colours),
-//! along with methods for converting between them and performing common operations.
-//!
-//! ## Key Components
-//!
-//! - **`Piece`**: An enum representing the 12 chess pieces (6 types, each with 2 colours).
-//!   - Each piece is identified by its type (Pawn, Knight, Bishop, Rook, Queen, King) and colour (White, Black).
-//!   - Implements `From<(Colour, PieceType)>` for creating pieces from colour and type.
-//!   - Provides methods to extract type and colour components (`piecetype()`, `colour()`).
-//!   - Implements `FromStr` for parsing pieces from algebraic notation (e.g., "P", "n").
-//!   - Supports iteration with `Piece::iter()`.
-//!   - Length variable: `Piece::NUM = 12`.
-//! - **`PieceType`**: An enum representing the 6 types of chess pieces.
-//!   - Pieces are ordered by their approximate value (Pawn → Knight → Bishop → Rook → Queen → King).
-//!   - Implements `From<u8>` for numeric conversion.
-//!   - Supports iteration with `PieceType::iter()`.
-//!   - Length variable: `PieceType::NUM = 6`.
-
 use std::fmt;
 
 use crate::core::Colour;
@@ -34,56 +7,7 @@ use crate::core::Colour;
 |                  Piece                   |
 |==========================================|
 \******************************************/
-/// # Piece Representation
-/// 
-/// Represents chess pieces with both colour and type information encoded.
-/// Piece values are designed to allow easy extraction of type and colour.
-/// 
-/// ```rust,no_run
-/// WhitePawn = 0, WhiteKnight = 1, WhiteBishop = 2, WhiteRook = 3, WhiteQueen = 4, WhiteKing = 5,
-/// BlackPawn = 8, BlackKnight = 9, BlackBishop = 10, BlackRook = 11, BlackQueen = 12, BlackKing = 13,
-/// ```
-/// 
-/// ## Encoding Format
-/// Each piece is stored in a single byte with the following bit layout:
-/// 
-/// | Bits   | Purpose                     | Values                |
-/// |--------|-----------------------------|-----------------------|
-/// | 0-2    | Piece type                  | 0=Pawn, 1=Knight, ... |
-/// | 3      | Colour                       | 0=White, 1=Black      |
-/// 
-/// This encoding results in these numeric values:
-/// 
-/// | Piece       | White | Black |
-/// |-------------|-------|-------|
-/// | Pawn        | 0     | 8     |
-/// | Knight      | 1     | 9     |
-/// | Bishop      | 2     | 10    |
-/// | Rook        | 3     | 11    |
-/// | Queen       | 4     | 12    |
-/// | King        | 5     | 13    |
-/// 
-/// ## Features
-/// - Implements `EnumIter` for iteration
-/// - Implements `FromPrimitive` for numeric conversion
-/// - Methods for extracting `piece_type()` and `piece_colour()`
-/// - Creation from colour and type via `From<(Colour, PieceType)>`
-/// - Length variable: `Piece::NUM = 12`
-/// 
-/// ## Usage Examples
-/// ```rust,no_run
-/// 
-/// // Create piece from colour and type
-/// let white_queen = Piece::from_unchecked((Colour::White, PieceType::Queen));
-/// 
-/// // Extract piece components
-/// let piece_type = white_queen.piece_type();  // PieceType::Queen
-/// let colour = white_queen.piece_colour();      // Colour::White
-/// 
-/// // Convert between numeric value and piece
-/// let numeric_value = white_queen as u8;      // 4
-/// let piece = Piece::from_unchecked(numeric_value);     // Piece::WhiteQueen
-/// ```
+
 #[rustfmt::skip]
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -122,39 +46,6 @@ crate::impl_from_to_primitive!(Piece);
 |==========================================|
 \******************************************/
 
-/// # Piece Type Representation  (Type: u8)
-/// 
-/// Represents the types of chess pieces without colour information.
-/// 
-/// ```rust,no_run
-/// Pawn = 0, Knight = 1, Bishop = 2, Rook = 3, Queen = 4, King = 5,
-/// ```
-/// 
-/// ## Features
-/// - Implements `FromPrimitive` for numeric conversion
-/// - Supports iteration with `PieceType::iter()`
-/// - Length variable: `PieceType::NUM = 6`
-/// - Pieces are ordered by their approximate value (Pawn → Knight → Bishop → Rook → Queen → King)
-/// - Used in combination with `Colour` to form complete `Piece` representations
-/// 
-/// ## Usage Examples
-/// ```rust,no_run
-/// 
-/// // Creating a piece from colour and type
-/// let black_bishop = Piece::from_unchecked((Colour::Black, PieceType::Bishop));
-/// 
-/// // Extracting type from a piece
-/// let piece_type = black_bishop.piece_type();  // PieceType::Bishop
-/// 
-/// // Converting between numeric value and piece type
-/// let numeric_value = piece_type as u8;       // 2
-/// let piece_type = PieceType::from_unchecked(numeric_value); // PieceType::Bishop
-/// 
-/// // Iterate over all piece types
-/// for pt in PieceType::iter() {
-///     println!("{:?}", pt);
-/// }
-/// ```
 #[rustfmt::skip]
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -176,29 +67,14 @@ crate::impl_enum_iter!(PieceType);
 \******************************************/
 
 impl Piece {
-    /// # Get Piece Type
-    ///
-    /// Extracts the piece type from a piece by masking out the colour bit.
-    ///
-    /// Returns the corresponding `PieceType` enum value.
     pub const fn pt(&self) -> PieceType {
         PieceType::from_unchecked((*self as u8) & 0b111)
     }
 
-    /// # Get Piece Colour
-    ///
-    /// Extracts the colour from a piece by checking the colour bit.
-    ///
-    /// Returns the corresponding `Colour` enum value.
     pub const fn colour(&self) -> Colour {
         Colour::from_unchecked((*self as u8) >> 3)
     }
 
-    /// # Create Piece from Colour and Type
-    ///
-    /// Allows creating a piece by combining a colour and a piece type.
-    ///
-    /// This encodes the colour in bit 4 and the piece type in bits 1-3.
     pub const fn from_parts(colour: Colour, piece_type: PieceType) -> Self {
         Piece::from_unchecked((colour as u8) << 3 | piece_type as u8)
     }
@@ -212,7 +88,6 @@ impl Piece {
 
 const PIECE_STR: &str = "PNBRQK  pnbrqk";
 
-/// Display function for piece types
 impl std::fmt::Display for Piece {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let piece_char = PIECE_STR.chars().nth(self.index()).unwrap();
@@ -220,7 +95,6 @@ impl std::fmt::Display for Piece {
     }
 }
 
-/// Display function for piece types
 impl std::fmt::Display for PieceType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let piece_char = PIECE_STR.chars().nth(8 + self.index()).unwrap();
@@ -234,7 +108,6 @@ impl std::fmt::Display for PieceType {
 |==========================================|
 \******************************************/
 
-/// Parses a piece from its standard FEN character (e.g., 'P', 'n', 'K').
 impl std::str::FromStr for Piece {
     type Err = ParsePieceError;
 
@@ -259,34 +132,10 @@ impl std::str::FromStr for Piece {
 |==========================================|
 \******************************************/
 
-/// Represents errors that can occur when attempting to parse a [`Piece`](crate::core::Piece) from a string.
-///
-/// Typically expects a single character string corresponding to FEN notation (e.g., 'P', 'n', 'K').
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParsePieceError {
-    /// The input string did not have the expected length (usually 1 character).
-    /// Contains the actual length received.
-    ///
-    /// # Example
-    /// ```
-    /// # use chess::core::errors::ParsePieceError;
-    /// # use chess::core::Piece;
-    /// let result = "Pn".parse::<Piece>();
-    /// assert!(matches!(result, Err(ParsePieceError::InvalidLength(2))));
-    /// ```
     InvalidLength(usize),
 
-    /// The character provided in the input string is not a valid FEN representation
-    /// of any chess piece (e.g., 'x', '1', ' ').
-    /// Contains the invalid character.
-    ///
-    /// # Example
-    /// ```
-    /// # use chess::core::errors::ParsePieceError; // Corrected path
-    /// # use chess::core::Piece; // Assuming Piece is in core
-    /// let result = "X".parse::<Piece>(); // 'X' is not a valid piece character
-    /// assert!(matches!(result, Err(ParsePieceError::InvalidChar('X'))));
-    /// ```
     InvalidChar(char),
 }
 
@@ -294,15 +143,10 @@ impl fmt::Display for ParsePieceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ParsePieceError::InvalidLength(len) => {
-                // Corrected expected length in message
                 write!(f, "Invalid piece string length: {}, expected 1", len)
             }
             ParsePieceError::InvalidChar(char) => {
-                write!(
-                    f,
-                    "Invalid FEN character for piece: '{}'", // Adjusted message for clarity
-                    char
-                )
+                write!(f, "Invalid FEN character for piece: '{}'", char)
             }
         }
     }
@@ -322,7 +166,6 @@ mod tests {
 
     #[test]
     fn test_piece_type_extraction() {
-        // Test extracting piece type from pieces
         assert_eq!(Piece::WhitePawn.pt(), PieceType::Pawn);
         assert_eq!(Piece::WhiteKnight.pt(), PieceType::Knight);
         assert_eq!(Piece::WhiteBishop.pt(), PieceType::Bishop);
@@ -340,7 +183,6 @@ mod tests {
 
     #[test]
     fn test_piece_colour_extraction() {
-        // Test extracting colour from pieces
         assert_eq!(Piece::WhitePawn.colour(), Colour::White);
         assert_eq!(Piece::WhiteKnight.colour(), Colour::White);
         assert_eq!(Piece::WhiteBishop.colour(), Colour::White);
@@ -358,7 +200,6 @@ mod tests {
 
     #[test]
     fn test_create_piece_from_colour_and_type() {
-        // Test creating pieces from colour and type
         assert_eq!(
             Piece::from_parts(Colour::White, PieceType::Pawn),
             Piece::WhitePawn
@@ -412,7 +253,6 @@ mod tests {
 
     #[test]
     fn test_piece_from_numeric_value() {
-        // Test piece from numeric value
         assert_eq!(Piece::from_unchecked(0), Piece::WhitePawn);
         assert_eq!(Piece::from_unchecked(1), Piece::WhiteKnight);
         assert_eq!(Piece::from_unchecked(2), Piece::WhiteBishop);
@@ -430,7 +270,6 @@ mod tests {
 
     #[test]
     fn test_piece_type_from_numeric_value() {
-        // Test piece type from numeric value
         assert_eq!(PieceType::from_unchecked(0), PieceType::Pawn);
         assert_eq!(PieceType::from_unchecked(1), PieceType::Knight);
         assert_eq!(PieceType::from_unchecked(2), PieceType::Bishop);
@@ -441,7 +280,6 @@ mod tests {
 
     #[test]
     fn test_piece_conversion_roundtrip() {
-        // Test roundtrip: piece -> (colour, type) -> piece
         for piece in Piece::iter() {
             let colour = piece.colour();
             let piece_type = piece.pt();
@@ -468,7 +306,6 @@ mod tests {
 
     #[test]
     fn test_piece_from_str_invalid() {
-        // Invalid Length
         assert!(matches!(
             "".parse::<Piece>(),
             Err(ParsePieceError::InvalidLength(0))
@@ -482,7 +319,6 @@ mod tests {
             Err(ParsePieceError::InvalidLength(2))
         ));
 
-        // Invalid Character
         assert!(matches!(
             "X".parse::<Piece>(),
             Err(ParsePieceError::InvalidChar('X'))
@@ -498,11 +334,11 @@ mod tests {
         assert!(matches!(
             "o".parse::<Piece>(),
             Err(ParsePieceError::InvalidChar('o'))
-        )); // 'o' is not 'Q' or 'q'
+        ));
         assert!(matches!(
             "O".parse::<Piece>(),
             Err(ParsePieceError::InvalidChar('O'))
-        )); // 'O' is not 'Q' or 'q'
+        ));
         assert!(matches!(
             "a".parse::<Piece>(),
             Err(ParsePieceError::InvalidChar('a'))

@@ -2,12 +2,13 @@
 macro_rules! impl_from_to_primitive {
     ($enum_name:ident) => {
         impl $enum_name {
-            /// Converts u8 to Rank
+            #[doc=concat!("Converts primitive type u8 to ", stringify!($enum_name))]
             pub const fn from_unchecked(index: u8) -> Self {
                 debug_assert!(index < Self::NUM as u8, "Index out of bounds");
                 unsafe { std::mem::transmute(index) }
             }
 
+            #[doc=concat!("Converts ", stringify!($enum_name), " to primitive type usize")]
             pub const fn index(&self) -> usize {
                 *self as usize
             }
@@ -16,7 +17,7 @@ macro_rules! impl_from_to_primitive {
 
     ($enum_name:ident, $type_name:ty) => {
         impl $enum_name {
-            /// Converts $type to Rank
+            #[doc=concat!("Converts primitive type", stringify!($type_name), "to ", stringify!($enum_name))]
             pub const fn from_unchecked(index: $type_name) -> Self {
                 unsafe { std::mem::transmute(index) }
             }
@@ -28,7 +29,7 @@ macro_rules! impl_from_to_primitive {
 macro_rules! impl_enum_iter {
     ($enum_name:ident) => {
         impl $enum_name {
-            /// Returns an iterator for the enum
+            #[doc=concat!("Returns iterator for all the elements in ", stringify!($enum_name))]
             pub fn iter() -> impl DoubleEndedIterator<Item = Self> {
                 (0..Self::NUM as u8).map(Self::from_unchecked)
             }

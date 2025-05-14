@@ -22,7 +22,7 @@ pub fn evaluate(board: &Board) -> Eval {
 
 #[rustfmt::skip]
  pub fn evaluate_nnue(board: &Board, nnue: &mut Accumulator) -> Eval {
-     // nnue output
+      
      let mut v = nnue.evaluate(board);
  
      let material_scale = (

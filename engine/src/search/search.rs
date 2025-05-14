@@ -40,35 +40,28 @@ const OFFSET: usize = 2;
 
 #[derive(Debug, Clone)]
 pub(crate) struct SearchWorker {
-    // Search Clock
     pub clock: Clock,
-    // Main Board
+
     board: Board,
 
     thread_id: usize,
 
-    // Search Stack
     stack: [SearchStackEntry; MAX_DEPTH + OFFSET],
 
-    // Search Info
     nodes: u64,
     pub depth: usize,
     seldepth: usize,
     ply: u16,
-    // Plies from previous null move
+
     ply_from_null: u16,
 
-    // Move orderin statistics
     stats: SearchStats,
 
-    // Search results
     pv: PVLine,
     eval: Eval,
 
-    // Search thread internal stop flag
     stop: bool,
 
-    // NNUE
     pub nnue: Accumulator,
 }
 
@@ -119,7 +112,6 @@ impl SearchWorker {
         self.pv[0]
     }
 
-    // Search control
     pub fn should_start_iteration(&mut self) -> bool {
         self.depth < MAX_DEPTH
             && self
@@ -128,7 +120,6 @@ impl SearchWorker {
     }
 
     pub fn should_stop_search(&mut self) -> bool {
-        // Search up to at least depth 3
         let should_stop =
             self.depth >= MIN_DEPTH && (self.stop || !self.clock.continue_search(self.nodes));
         if should_stop {
@@ -206,56 +197,6 @@ impl SearchWorker {
         );
     }
 
-    /// Performs a Negamax search with Alpha-Beta pruning to find the best move and evaluation.
-    ///
-    /// This is the core recursive function of the chess engine's search algorithm. It explores
-    /// the game tree from the current board position (`self.board`) up to a specified `depth`.
-    /// It evaluates positions from the perspective of the player whose turn it is (`self.board.stm()`).
-    ///
-    /// # Algorithm
-    ///
-    /// Implements the Negamax framework, which simplifies Minimax by always maximizing the score
-    /// relative to the current player. The score of the opponent's moves is negated (`-negamax(...)`).
-    ///
-    /// Alpha-Beta pruning is used to significantly reduce the search space by cutting off branches
-    /// that cannot possibly influence the final score within the current `(alpha, beta)` window.
-    ///
-    /// # Parameters
-    ///
-    /// * `NT`: A generic type parameter implementing `NodeTypeTrait`. This distinguishes between
-    ///   the `Root` (the initial call) and `PV` (recursive calls), allowing for
-    ///   slightly different behavior (e.g., root move printing, draw checks).
-    /// * `pv`: A mutable reference to a `PVLine` struct. This will be updated to store the
-    ///   Principal Variation (the sequence of best moves found) for the current node.
-    /// * `alpha`: The lower bound of the search window (`Eval`). Represents the minimum score
-    ///   that the *current player* is already guaranteed to achieve based on previously explored
-    ///   moves. The function aims to find a score greater than `alpha`.
-    /// * `beta`: The upper bound of the search window (`Eval`). Represents the maximum score
-    ///   that the *opponent* will allow the current player to achieve. If a move results in a
-    ///   score `>= beta`, the opponent would have had a better alternative earlier, so this
-    ///   branch can be pruned (Beta Cutoff).
-    /// * `depth`: The remaining search depth (`usize`). The search stops when `depth` reaches 0.
-    ///
-    /// # Returns
-    ///
-    /// An `Eval` representing the score of the current position from the perspective of the
-    /// player whose turn it is. The score is guaranteed to be within the `(alpha, beta)`
-    /// window if a cutoff occurs.
-    /// - If the exact score is found, it will be between `alpha` and `beta`.
-    /// - If `score >= beta` (Beta Cutoff / Fail-High), the returned score is at least `beta`.
-    /// - If `score <= alpha` (Fail-Low), the returned score is at most `alpha`.
-    ///
-    /// Returns `Eval::DRAW` immediately if the search is stopped (`self.stop == true`).
-    ///
-    /// # Pruning Logic
-    ///
-    /// 1.  **Alpha Update:** If a move yields a `value` better than the current `alpha`, `alpha` is updated
-    ///     to `value`. This means we've found a better guaranteed score for the current player.
-    ///     The `pv` line is also updated with this better move sequence.
-    /// 2.  **Beta Cutoff (Fail-High):** If a move yields a `value >= beta`, it means this move is "too good".
-    ///     The opponent (at a higher node) would have already had a better alternative than allowing
-    ///     this position. Therefore, exploring further sibling moves at this node is unnecessary.
-    ///     The function immediately returns the current `best_value` (which is `>= beta`).
     fn negamax<NT: NodeType>(
         &mut self,
         tt: &TT,
@@ -265,7 +206,7 @@ impl SearchWorker {
         mut depth: usize,
     ) -> Eval {
         let us = self.board.stm();
-        // Clear pv for new search
+
         pv.clear();
 
         if self.should_stop_search() {
@@ -274,18 +215,15 @@ impl SearchWorker {
 
         let in_check = self.board.in_check();
 
-        // --- Quiescence search in base case ---
         if depth == 0 && !in_check {
             return self.quiescence::<NT::Next>(tt, pv, alpha, beta);
         }
 
         if !NT::ROOT {
-            // Check ply limit to prevent infinite recursion in rare cases
             if self.ply >= MAX_DEPTH as u16 && !in_check {
-                // return evaluate_nnue(&self.board, &mut self.nnue); // Return static eval if too deep
                 return self.evaluate();
             }
-            // Check for draws (Repetition, 50-move rule)
+
             if self.board.is_draw(self.ply) {
                 return Eval::DRAW;
             }
@@ -298,20 +236,16 @@ impl SearchWorker {
             }
         }
 
-        // --- Set up Search ---
-        // Make sure the depth is not going to be negative
         depth = depth.max(1);
-        // Update self depth
+
         self.seldepth = if NT::ROOT {
             0
         } else {
             self.seldepth.max(self.ply as usize)
         };
 
-        // Create child pv to pass to the next recursive call to negamax
         let mut child_pv = PVLine::default();
 
-        // --- Hash Table Lookup ---
         let tt_entry = tt.get(self.board.key());
         let mut tt_move = Move::NONE;
         let mut tt_value = -Eval::INFINITY;
@@ -325,17 +259,15 @@ impl SearchWorker {
 
             if !NT::PV && tt_entry.depth >= depth as u8 {
                 match tt_entry.bound {
-                    // If we already evaluated this position at a higher depth, then we can prune this branch (Redundant).
                     TTBound::Exact => return tt_value,
-                    // If we already established an upper bound for alpha, if we have some better moves then we can prune this branch.
+
                     TTBound::Upper if tt_value <= alpha => return tt_value,
-                    // If we already established a lower bound for beta, if the opponent has some better moves then this node is too good.
+
                     TTBound::Lower if tt_value >= beta => return tt_value,
                     _ => {}
                 }
             }
 
-            // Update best move from hash table
             tt_move = tt_entry.best_move;
             tt_capture = self.board.is_capture(tt_move);
         }
@@ -346,7 +278,6 @@ impl SearchWorker {
 
         let opp_worsening = self.opp_worsening();
 
-        // --- Null Move Pruning ---
         if !NT::PV
             && depth >= 2
             && !in_check
@@ -376,39 +307,31 @@ impl SearchWorker {
             }
         }
 
-        // --- Set up main loop ---
         let mut best_value = -Eval::INFINITY;
         let mut best_move = Move::NONE;
 
         let mut move_count = 0;
 
-        // Clear child killer moves
         self.stack[(self.ply + 2) as usize].killers.clear();
-        // Get killer moves
+
         let killers = self.ss().killers.get();
-        // Initialise move picker
+
         let mut move_picker = MovePicker::<false>::new(&self.board, tt_move, killers);
 
-        // --- Main Loop ---
         while let Some(move_) = move_picker.next(&self.board, &self.stats) {
-            // Update number of moves searched in this node
             move_count += 1;
-            // Make move and update ply, node counters, prefetch hash entry, etc...
+
             self.make_move(tt, move_);
-            // Remember previous node count
+
             let start_nodes = self.nodes;
-            // Move flags
+
             let is_capture = move_.is_capture();
-            // let is_promotion = move_.is_promotion();
-            // New depth
+
             let new_depth = depth.max(1) - 1;
 
-            // Recursive search
             let mut value = alpha;
 
-            // Late Move Reduction, search moves that are sufficiently far from the terminal nodes and are not tactical using a reduced depth zero window search to see if it is promising or not.
             let full_search = if !NT::PV && depth >= 2 && move_count > 1 && !is_capture {
-                // Calculate dynamic depth reduction
                 let r = 1 + ((move_count > 6) as usize) * depth / 3;
 
                 let reduced_depth = new_depth.max(r + 1) - r;
@@ -426,77 +349,58 @@ impl SearchWorker {
                 !NT::PV || move_count > 1 || is_capture
             };
 
-            // We do a zero window full depth search if the reduced depth search revealed a potentially better move,
-            // or if other conditions like being in a NonPV node, searching non-first moves, are met.
             if full_search {
                 value =
                     -self.negamax::<NonPV>(tt, &mut child_pv, -alpha - Eval(1), -alpha, new_depth);
             }
 
-            // If we are current searching in a PV node, the if its the first move or further searches revealed a potentially better move,
-            // we do a full search to further investigate
             if NT::PV && (move_count == 1 || value > alpha) {
                 value = -self.negamax::<NT::Next>(tt, &mut child_pv, -beta, -alpha, new_depth);
             }
 
-            // Undo move and decrement ply counter
             self.undo_move(move_);
 
-            // Check for engine stop flag
             if self.stop {
                 return Eval::DRAW;
             }
 
-            // If this is a root node, update the node counts.
             if NT::ROOT {
                 self.clock
                     .update_node_counts(move_, self.nodes - start_nodes);
             }
 
-            // If the move we just search is better than best_value (The best we can do in this subtree), we can update best_value to be alpha.
             if value > best_value {
-                best_value = value; // Update best_value
-                // Alpha Update: Check if this move's score (`value`) is better than the
-                // best score we are *already guaranteed* (`alpha`) from other parts of the tree.
-                if value > alpha {
-                    // We found a new best move sequence overall.
-                    best_move = move_; // Update the best move.
+                best_value = value;
 
-                    // Beta Cutoff (Fail-High): Check if our guaranteed score (`alpha`)
-                    // meets or exceeds the opponent's limit (`beta`).
-                    // This move is "too good". The opponent (at a higher node)
-                    // would have already had a better alternative than allowing this position.
-                    // Therefore, exploring further sibling moves at this node is unnecessary.
+                if value > alpha {
+                    best_move = move_;
+
                     if value >= beta {
                         break;
                     }
 
-                    alpha = value; // Update alpha: Raise the lower bound of our guaranteed score.
+                    alpha = value;
                     if NT::PV {
-                        pv.update_line(move_, &child_pv); // Update the Principal Variation (best move sequence).
+                        pv.update_line(move_, &child_pv);
                     }
                 }
             }
         }
 
-        // Update search stack move count
         self.ss_mut().move_count = move_count as u8;
-        // Update search stack in check flag
+
         self.ss_mut().in_check = in_check;
 
-        // If move count is 0, it is either a stalemate or a mate in self.ply
         if move_count == 0 {
             best_value = if in_check {
                 Eval::mated_in(self.ply)
             } else {
                 Eval::DRAW
             };
-            // If there is a new best move, and it is not a capture, update the killer move and history move table
         } else if best_move.is_valid() && !best_move.is_capture() {
             self.update_search_stats(best_move, depth);
         }
 
-        // Write to TT, save static eval
         if !NT::ROOT {
             let bound = if best_value >= beta {
                 TTBound::Lower
@@ -520,22 +424,6 @@ impl SearchWorker {
         best_value
     }
 
-    /// Performs a Quiescence Search to stabilize the evaluation at tactical leaves.
-    ///
-    /// Extends the search beyond the nominal depth limit (`depth == 0` in `negamax`)
-    /// by considering only non-quiet moves (primarily captures) until a position
-    /// is reached where no immediate, significant tactical changes are likely.
-    ///
-    /// # Parameters
-    ///
-    /// * `NT`: Generic node type (usually `PV` when called from `negamax`).
-    /// * `pv`: Mutable reference to a `PVLine` (less critical in qsearch but kept for consistency).
-    /// * `alpha`: The lower bound of the search window.
-    /// * `beta`: The upper bound of the search window.
-    ///
-    /// # Returns
-    ///
-    /// An `Eval` representing the stabilized score of the position, considering captures.
     fn quiescence<NT: NodeType>(
         &mut self,
         tt: &TT,
@@ -553,9 +441,7 @@ impl SearchWorker {
 
         let in_check = self.board.in_check();
 
-        // Check ply limit to prevent infinite recursion in rare cases
         if self.ply >= MAX_DEPTH as u16 {
-            // evaluate_nnue(&self.board, &mut self.nnue)
             return if in_check {
                 Eval::DRAW
             } else {
@@ -563,12 +449,10 @@ impl SearchWorker {
             };
         }
 
-        // Check for draws (Repetition, 50-move rule)
         if self.board.is_draw(self.ply) {
             return Eval::DRAW;
         }
 
-        // --- Hash table probe ---
         let tt_entry = tt.get(self.board.key());
         let mut tt_move = Move::NONE;
 
@@ -587,67 +471,46 @@ impl SearchWorker {
             tt_move = entry.best_move;
         }
 
-        // --- Stand Pat Score ---
-        // Get the static evaluation of the current position.
-        // This score assumes no further captures are made (the "stand pat" score).
-        // let eval = self.static_eval(in_check, tt_entry);
         let eval = self.static_eval(in_check, tt_entry);
-        // --- Alpha-Beta Pruning based on Stand Pat ---
-        // If the static evaluation is already >= beta, the opponent won't allow this position.
-        // We can prune immediately, assuming the static eval is a reasonable lower bound.
+
         if eval >= beta {
-            return beta; // Fail-High based on static eval
+            return beta;
         }
-        // If the static evaluation is better than alpha, update alpha.
-        // This becomes the baseline score we need to beat with captures.
+
         alpha = alpha.max(eval);
 
-        // Initialize best_value with stand_pat. We are looking for captures that improve on this.
         let mut best_value = eval;
         let mut child_pv = PVLine::default();
         let mut best_move = Move::NONE;
 
-        // --- Generate and Explore Captures Only ---
-        // The generic parameter 'true' tells MovePicker to skip quiet moves.
         let mut move_picker = MovePicker::<true>::new(&self.board, tt_move, [Move::NONE; 2]);
 
         while let Some(move_) = move_picker.next(&self.board, &self.stats) {
-            // Make the capture
             self.make_move(tt, move_);
-            // Recursive call
+
             let value = -self.quiescence::<NT::Next>(tt, &mut child_pv, -beta, -alpha);
-            // Undo the capture
+
             self.undo_move(move_);
 
-            // Check for stop signal after recursive call
             if self.stop {
                 return Eval::DRAW;
             }
 
-            // If the move we just search is better than best_value (The best we can do in this subtree), we can update best_value to be alpha.
             if value > best_value {
-                // Update best_value
                 best_value = value;
-                // Alpha Update: Check if this move's score (`value`) is better than the
-                // best score we are *already guaranteed* (`alpha`) from other parts of the tree.
-                if value > alpha {
-                    // We found a new best move sequence overall.
-                    best_move = move_; // Update the best move.
 
-                    // Beta Cutoff (Fail-High): Check if our guaranteed score (`alpha`)
-                    // meets or exceeds the opponent's limit (`beta`).
-                    // This move is "too good". The opponent (at a higher node)
-                    // would have already had a better alternative than allowing this position.
-                    // Therefore, exploring further sibling moves at this node is unnecessary.
+                if value > alpha {
+                    best_move = move_;
+
                     if value >= beta {
                         break;
                     }
 
                     if NT::PV {
-                        pv.update_line(move_, &child_pv); // Update the Principal Variation (best move sequence).
+                        pv.update_line(move_, &child_pv);
                     }
 
-                    alpha = value; // Update alpha: Raise the lower bound of our guaranteed score.
+                    alpha = value;
                 }
             }
         }
@@ -676,11 +539,10 @@ impl SearchWorker {
     }
 
     fn make_move(&mut self, tt: &TT, move_: Move) {
-        // Make move
         self.board.make_move(move_);
-        // Hint at the next hash entry
+
         tt.prefetch(self.board.key());
-        // Update search stack
+
         self.ss_mut().curr_move = move_;
         self.ss_mut().moved = self.board.on(move_.to());
         self.ss_mut().ply_from_null = self.ply_from_null;
@@ -691,11 +553,10 @@ impl SearchWorker {
     }
 
     fn make_null_move(&mut self, tt: &TT) {
-        // Make null move
         self.board.make_null_move();
-        // Hint at the next hash entry
+
         tt.prefetch(self.board.key());
-        // Update search stack
+
         self.ss_mut().curr_move = Move::NULL;
         self.ss_mut().moved = None;
         self.ss_mut().ply_from_null = 0;
@@ -706,20 +567,18 @@ impl SearchWorker {
     }
 
     fn undo_move(&mut self, move_: Move) {
-        // Undo move
         self.board.undo_move(move_);
-        // Update ply
+
         self.ply -= 1;
-        // Update ply from null
+
         self.ply_from_null = self.ss().ply_from_null;
     }
 
     fn undo_null_move(&mut self) {
-        // Undo null move
         self.board.undo_null_move();
-        // Update ply
+
         self.ply -= 1;
-        // Update ply from null
+
         self.ply_from_null = self.ss().ply_from_null;
     }
 
@@ -749,19 +608,16 @@ impl SearchWorker {
 
             self.ss_mut().eval = eval;
 
-            // If we probe the tt_entry and the tt_value is tighter than the eval, then we can use it
             match tt_entry.bound {
-                // If the current node has already been searched to a higher depth, then the tt_value will be a better score.
                 TTBound::Exact => tt_value,
-                // If the current node has a upper bound, then if the current eval is greater than the tt_value, it means the current eval is optimistic so we should use tt_value instead
+
                 TTBound::Upper if tt_value <= eval => tt_value,
-                // If the current node has a lower bound, then if the current eval is lower than the tt_value, it means we are underestimating our opponent's response, so we should use tt_value instead
+
                 TTBound::Lower if tt_value >= eval => tt_value,
-                // If there is no stored value, or the above conditions are not met, we use eval, since it provides a tighter bound
+
                 _ => eval,
             }
         } else {
-            // self.ss_mut().eval = evaluate_nnue(&self.board, &mut self.nnue);
             self.ss_mut().eval = self.evaluate();
             self.ss().eval
         }

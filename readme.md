@@ -1,4 +1,4 @@
-# Celeris - [Demo](https://wrong-wallis-celeris-bbabebfc.koyeb.app/)
+# Celeris - [Demo](https: 
 
 A fast chess engine. (work in progress).
 

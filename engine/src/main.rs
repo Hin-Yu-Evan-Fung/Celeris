@@ -8,7 +8,7 @@ const DEFAULT_CMD_BENCH_DEPTH: usize = 13;
 
 fn main() {
     let mut cli_args = args();
-    cli_args.next(); // Skip the program name
+    cli_args.next();
 
     match cli_args.next().as_deref() {
         #[cfg(feature = "tune")]
@@ -23,7 +23,6 @@ fn main() {
                     DEFAULT_CMD_BENCH_DEPTH
                 });
             if depth == 0 {
-                // Or some other validation like depth > MAX_PLY
                 println!(
                     "info string Invalid depth 0. Using default depth {DEFAULT_CMD_BENCH_DEPTH}."
                 );

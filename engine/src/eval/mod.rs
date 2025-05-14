@@ -15,11 +15,11 @@ impl_ari_ops!(Eval);
 impl Eval {
     pub const ZERO: Eval = Eval(0);
     pub const DRAW: Eval = Eval(0);
-    /// Represents an infinitely high evaluation score (e.g., for alpha-beta bounds).
+
     pub const INFINITY: Eval = Eval(32001);
-    /// Represents a checkmate score.
+
     pub const MATE: Eval = Eval(32000);
-    /// The evaluation score threshold below which a score is considered a mate.
+
     pub const MATE_BOUND: Eval = Eval(Self::MATE.0 - MAX_DEPTH as i16);
 
     pub fn mated_in(ply: u16) -> Eval {

@@ -1,39 +1,5 @@
-//! # Module: `square`
-//!
-//! This module defines the core types for representing squares, ranks, and files on a chessboard.
-//! It provides the `Square`, `Rank`, and `File` enums, along with methods for manipulating and
-//! converting between these types.
-//!
-//! ## Overview
-//!
-//! This module is a fundamental part of the chess engine, providing the basic building blocks for
-//! representing the board's geometry. It defines the 64 squares, the 8 ranks, and the 8 files,
-//! along with methods for converting between them and performing common operations.
-//!
-//! ## Key Components
-//!
-//! - **`Square`**: An enum representing the 64 squares on a chessboard.
-//!   - Each square is identified by its file (A-H) and rank (1-8).
-//!   - Implements `From<(File, Rank)>` for creating squares from file and rank.
-//!   - Provides methods to extract file and rank components (`file()`, `rank()`).
-//!   - Supports flipping across ranks or files (`flip_rank()`, `flip_file()`).
-//!   - Implements `FromStr` for parsing squares from algebraic notation (e.g., "e4").
-//!   - Supports iteration with `Square::iter()`.
-//!   - Length variable: `Square::NUM = 64`.
-//! - **`Rank`**: An enum representing the 8 ranks (rows) on a chessboard.
-//!   - Ranks are numbered from bottom to top, with Rank1 at the bottom and Rank8 at the top.
-//!   - Implements `PartialOrd` and `Ord` for natural rank ordering.
-//!   - Implements `From<u8>` for numeric conversion.
-//!   - Supports iteration with `Rank::iter()`.
-//!   - Length variable: `Rank::NUM = 8`.
-//! - **`File`**: An enum representing the 8 files (columns) on a chessboard.
-//!   - Files are lettered from left to right, with FileA at the left and FileH at the right.
-//!   - Implements `PartialOrd` and `Ord` for natural file ordering.
-//!   - Implements `From<u8>` for numeric conversion.
-//!   - Supports iteration with `File::iter()`.
-
 use super::types::Colour;
-use std::fmt;
+use thiserror::Error;
 
 /******************************************\
 |==========================================|
@@ -41,92 +7,10 @@ use std::fmt;
 |==========================================|
 \******************************************/
 
-/// # Chess Square Representation
+/// # Square representation
 /// 
-/// Represents all 64 squares on a standard chess board using algebraic notation.
-/// Each square is identified by its file (A-H) and rank (1-8).
-/// 
-/// ```rust,no_run
-/// 
-/// // Square indices
-/// const A1: u8 = 0;
-/// const B1: u8 = 8;
-/// const C1: u8 = 16;
-/// // etc.
-/// const H8: u8 = 63;
-/// ```
-/// 
-/// ## Board Layout
-/// ```
-/// 8 | A8 B8 C8 D8 E8 F8 G8 H8
-/// 7 | A7 B7 C7 D7 E7 F7 G7 H7
-/// 6 | A6 B6 C6 D6 E6 F6 G6 H6
-/// 5 | A5 B5 C5 D5 E5 F5 G5 H5
-/// 4 | A4 B4 C4 D4 E4 F4 G4 H4
-/// 3 | A3 B3 C3 D3 E3 F3 G3 H3
-/// 2 | A2 B2 C2 D2 E2 F2 G2 H2
-/// 1 | A1 B1 C1 D1 E1 F1 G1 H1
-///   -------------------------
-///     A  B  C  D  E  F  G  H
-/// ```
-/// 
-/// ## Features
-/// - Provides all 64 chess squares as enum variants
-/// - Implements `From<u8>` for numeric conversion
-/// - Supports iteration with `Square::iter()`
-/// - Length variable: `Square::NUM = 64`
-/// 
-/// ## Implementation
-/// Squares can be created from file and rank components using the `From` trait:
-/// 
-/// ```rust,no_run
-/// use chess::core::{Square, File, Rank};
-/// 
-/// let e4 = Square::from_unchecked((File::FileE, Rank::Rank4));
-/// // Or using the more concise into() method:
-/// let e4: Square = (File::FileE, Rank::Rank4).into();
-/// ```
-/// 
-/// You can extract file and rank components from a square:
-/// 
-/// ```rust,no_run
-/// use chess::core::{Square, File, Rank};
-/// 
-/// let square = Square::E4;
-/// let file = square.file();  // File::FileE
-/// let rank = square.rank();  // Rank::Rank4
-/// ```
-/// 
-/// Squares support movement operations with the Direction type:
-/// 
-/// ```rust,no_run
-/// 
-/// let e4 = Square::E4;
-/// let e5 = e4 + Direction::N;  // Some(Square::E5)
-/// 
-/// // Moves that would go off the board return None
-/// let h1 = Square::H1;
-/// let off_board = h1 + Direction::E;  // None
-/// 
-/// // In-place movement with bounds checking
-/// let mut square = Square::E4;
-/// square += Direction::N;  // square is now E5
-/// square += Direction::E;  // square is now F5
-/// square += Direction::S;  // square is now F4
-/// 
-/// // Attempting to move off the board doesn't change the square
-/// let mut edge = Square::H1;
-/// edge += Direction::E;  // still H1, doesn't move off the board
-/// ```
-/// 
-/// Squares can also be flipped across ranks or files:
-/// 
-/// ```rust,no_run
-/// 
-/// let a1 = Square::A1;
-/// let a8 = a1.flip_rank();  // Square::A8
-/// let h1 = a1.flip_file();  // Square::H1
-/// ```
+/// - Represents the squares of a chess board (Pattern: A1(0) - H8(63))
+
 #[rustfmt::skip]
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -142,6 +26,7 @@ pub enum Square {
 }
 
 impl Square {
+    /// Number of elements in the Square enum
     pub const NUM: usize = 64;
 }
 
@@ -154,27 +39,10 @@ crate::impl_enum_iter!(Square);
 |==========================================|
 \******************************************/
 
-/// # Rank Representation
+/// # Ranks representation
 /// 
-/// Represents the 8 ranks (rows) on a chess board, from Rank1 to Rank8.
-/// Ranks are numbered from bottom to top, with Rank1 at the bottom and Rank8 at the top.
-/// 
-/// ```rust,no_run
-/// 
-/// // Rank values
-/// const RANK1: u8 = 0;
-/// const RANK2: u8 = 1;
-/// // ... other ranks ...
-/// const RANK8: u8 = 7;
-/// ```
-/// 
-/// ## Features
-/// - Implements `PartialOrd` and `Ord` for natural rank ordering
-/// - Implements `From<u8>` for numeric conversion
-/// - Supports iteration with `Rank::iter()`
-/// - Length variable: `Rank::NUM = 8`
-/// 
-/// In chess notation, ranks are represented by numbers 1-8.
+/// - Represents the ranks of a chess board
+
 #[rustfmt::skip]
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
@@ -183,6 +51,7 @@ pub enum Rank {
 }
 
 impl Rank {
+    /// Number of elements in the Rank enum
     pub const NUM: usize = 8;
 }
 
@@ -195,27 +64,10 @@ crate::impl_enum_iter!(Rank);
 |==========================================|
 \******************************************/
 
-/// # File Representation
+/// # Files representation
 /// 
-/// Represents the 8 files (columns) on a chess board, from FileA to FileH.
-/// Files are lettered from left to right, with FileA at the left and FileH at the right.
-/// 
-/// ```rust,no_run
-/// 
-/// // File values
-/// const FILE_A: u8 = 0;
-/// const FILE_B: u8 = 1;
-/// // ... other files ...
-/// const FILE_H: u8 = 7;
-/// ```
-/// 
-/// ## Features
-/// - Implements `PartialOrd` and `Ord` for natural file ordering
-/// - Implements `From<u8>` for numeric conversion
-/// - Supports iteration with `File::iter()`
-/// - Length variable: `File::NUM = 8`
-/// 
-/// In chess notation, files are represented by letters A-H.
+/// - Represents the files of a chess board
+
 #[rustfmt::skip]
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
@@ -224,6 +76,7 @@ pub enum File {
 }
 
 impl File {
+    /// Number of elements in the File enum
     pub const NUM: usize = 8;
 }
 
@@ -237,29 +90,24 @@ crate::impl_enum_iter!(File);
 \******************************************/
 
 impl Square {
-    /// Returns the rank of this square
+    /// Returns the rank of a square
     pub const fn rank(&self) -> Rank {
         let rank_index = (*self as u8) >> 3;
         Rank::from_unchecked(rank_index)
     }
 
-    /// Returns the file of this square
+    /// Returns the file of a square
     pub const fn file(&self) -> File {
         let file_index = (*self as u8) & 0b111;
         File::from_unchecked(file_index)
     }
 
-    /// Flips the rank of this square
+    /// Flips the rank of a square along the middle of the board, or switch perspectives between white and black
     pub const fn flip_rank(&self) -> Self {
         Self::from_unchecked((*self as u8) ^ Square::A8 as u8)
     }
 
-    /// Flips the file of this square
-    pub const fn flip_file(&self) -> Self {
-        Self::from_unchecked((*self as u8) ^ Square::H1 as u8)
-    }
-
-    /// Returns the square from the colour's perspective
+    /// Returns the square relative to the perspectives of `col: Colour`
     pub const fn relative(&self, col: Colour) -> Self {
         match col {
             Colour::White => *self,
@@ -267,61 +115,21 @@ impl Square {
         }
     }
 
-    /// # Calculate Rank Distance
-    ///
-    /// Calculates the absolute distance between the ranks of two squares.
-    ///
-    /// # Arguments
-    /// - `sq1`: The first square
-    /// - `sq2`: The second square
-    ///
-    /// # Returns
-    /// - The absolute difference between the ranks (0-7)
-    ///
-    /// # Examples
-    /// ```rust,no_run
-    /// use chess::{Square};
-    ///
-    /// let a1 = Square::A1; // Rank 1
-    /// let a8 = Square::A8; // Rank 8
-    /// let rank_distance = Square::rank_dist(a1, a8); // 7
-    /// ```
+    /// Returns the absolute distance in the ranks of two squares
     pub const fn rank_dist(sq1: Square, sq2: Square) -> u8 {
         let v1 = sq1.rank() as u8;
         let v2 = sq2.rank() as u8;
         v1.abs_diff(v2)
     }
 
-    /// # Calculate File Distance
-    ///
-    /// Calculates the absolute distance between the files of two squares.
-    ///
-    /// # Arguments
-    /// - `sq1`: The first square
-    /// - `sq2`: The second square
-    ///
-    /// # Returns
-    /// - The absolute difference between the files (0-7)
-    ///
-    /// # Examples
-    /// ```rust,no_run
-    /// use chess::{Square};
-    ///
-    /// let a1 = Square::A1; // File A
-    /// let h1 = Square::H1; // File H
-    /// let file_distance = Square::file_dist(a1, h1); // 7
-    /// ```
+    /// Returns the absolute distance in the files of two squares
     pub const fn file_dist(sq1: Square, sq2: Square) -> u8 {
         let v1 = sq1.file() as u8;
         let v2 = sq2.file() as u8;
         v1.abs_diff(v2)
     }
 
-    /// ### Converts Square from File and Rank
-    ///
-    /// Allows creating a square by combining a file and a rank
-    ///
-    /// This encodes the rank in bit 4-6 and the piece type in bits 1-3.
+    /// Combines a pair of file and rank to create a square
     pub const fn from_parts(file: File, rank: Rank) -> Self {
         let index = ((rank as u8) << 3) + (file as u8);
         Self::from_unchecked(index)
@@ -329,10 +137,12 @@ impl Square {
 }
 
 impl Rank {
+    /// Flips rank along the middle of the board, or switch perspectives between white and black
     pub const fn flip(&self) -> Self {
         Self::from_unchecked(7 - (*self as u8))
     }
 
+    /// Returns the rank relative to the perspectives of `col: Colour`
     pub const fn relative(&self, col: Colour) -> Self {
         match col {
             Colour::White => *self,
@@ -347,22 +157,22 @@ impl Rank {
 |==========================================|
 \******************************************/
 
-/// Display function for squares
 impl std::fmt::Display for File {
+    /// Displays the file in the form of its chess board representation (FileA => 'a')
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", (b'a' + (*self as u8)) as char)
     }
 }
 
-/// Display function for squares
 impl std::fmt::Display for Rank {
+    /// Displays the rank in the form of its chess board representation (Rank1 => '1')
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", (b'1' + (*self as u8)) as char)
     }
 }
 
-/// Display function for squares
 impl std::fmt::Display for Square {
+    /// Displays the square in the form of its chess board representation (Square::A1 => 'a1')
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", format!("{:?}", self).to_lowercase())
     }
@@ -377,12 +187,13 @@ impl std::fmt::Display for Square {
 impl std::str::FromStr for File {
     type Err = ParseFileError;
 
+    /// Parses the file string into a file, with error checking
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() != 1 {
             return Err(ParseFileError::InvalidLength(s.len()));
         }
 
-        let file_char = s.chars().next().unwrap(); // Safe due to length check
+        let file_char = s.chars().next().unwrap();
         match file_char {
             'a'..='h' => Ok(File::from_unchecked((file_char as u8 - b'a') as u8)),
             _ => Err(ParseFileError::InvalidChar(file_char)),
@@ -390,34 +201,35 @@ impl std::str::FromStr for File {
     }
 }
 
-// Parses a rank from algebraic notation (e.g. '4')
 impl std::str::FromStr for Rank {
     type Err = ParseRankError;
 
+    /// Parses the rank string into a rank, with error checking
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() != 1 {
             return Err(ParseRankError::InvalidLength(s.len()));
         }
 
-        let rank_char = s.chars().next().unwrap(); // Safe due to length check
+        let rank_char = s.chars().next().unwrap();
         match rank_char {
             '1'..='8' => Ok(Rank::from_unchecked((rank_char as u8 - b'1') as u8)),
             _ => Err(ParseRankError::InvalidChar(rank_char)),
         }
     }
 }
-/// Parses a square from algebraic notation (e.g., "e4").
+
 impl std::str::FromStr for Square {
     type Err = ParseSquareError;
 
+    /// Parses the square string into a square, with error checking
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() != 2 {
             return Err(ParseSquareError::InvalidLength(s.len()));
         }
 
         let mut chars = s.chars();
-        let file_char = chars.next().unwrap(); // Safe due to length check
-        let rank_char = chars.next().unwrap(); // Safe due to length check
+        let file_char = chars.next().unwrap();
+        let rank_char = chars.next().unwrap();
 
         let file = file_char
             .to_string()
@@ -438,122 +250,31 @@ impl std::str::FromStr for Square {
 |==========================================|
 \******************************************/
 
-/// Represents errors that can occur when attempting to parse a `File` from a string.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum ParseFileError {
-    /// The input string did not have the expected length (usually 1).
+    #[error("Invalid length for file string: {0}, expected 1")]
     InvalidLength(usize),
-    /// The character is not a valid file character ('a' through 'h').
+    #[error("Invalid character for file string: '{0}', expected 'a'-'h'")]
     InvalidChar(char),
 }
 
-impl fmt::Display for ParseFileError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ParseFileError::InvalidLength(l) => {
-                write!(f, "Invalid length for file string: {}, expected 1", l)
-            }
-            ParseFileError::InvalidChar(c) => {
-                write!(
-                    f,
-                    "Invalid character for file string: '{}', expected 'a'-'h'",
-                    c
-                )
-            }
-        }
-    }
-}
-
-impl std::error::Error for ParseFileError {}
-
-/// Represents errors that can occur when attempting to parse a `Rank` from a string.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum ParseRankError {
-    /// The input string did not have the expected length (usually 1).
+    #[error("Invalid length for rank string: {0}, expected 1")]
     InvalidLength(usize),
-    /// The character is not a valid rank character ('1' through '8').
+    #[error("Invalid character for rank string: '{0}', expected '1'-'9'")]
     InvalidChar(char),
 }
 
-impl fmt::Display for ParseRankError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ParseRankError::InvalidLength(l) => {
-                write!(f, "Invalid length for rank string: {}, expected 1", l)
-            }
-            ParseRankError::InvalidChar(c) => {
-                write!(
-                    f,
-                    "Invalid character for rank string: '{}', expected '1'-'8'",
-                    c
-                )
-            }
-        }
-    }
-}
-
-impl std::error::Error for ParseRankError {}
-
-/// Represents errors that can occur when attempting to parse a `Square`
-/// from algebraic notation (e.g., "e4", "h8").
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum ParseSquareError {
-    /// The input string did not have the expected length of 2 characters.
-    /// Contains the actual length received.
-    ///
-    /// # Example
-    /// ```
-    /// # use chess::core::errors::ParseSquareError; // Corrected path
-    /// # use chess::core::Square; // Assuming Square is in core
-    /// let result = "e4g".parse::<Square>(); // Input is too long
-    /// assert!(matches!(result, Err(ParseSquareError::InvalidLength(3))));
-    /// let result = "e".parse::<Square>(); // Input is too short
-    /// assert!(matches!(result, Err(ParseSquareError::InvalidLength(1))));
-    /// ```
+    #[error("Invalid length for square string: {0}, expected 2")]
     InvalidLength(usize),
-
-    /// The first character of the input string was not a valid file character ('a' through 'h').
-    /// Contains the invalid character received.
-    ///
-    /// # Example
-    /// ```
-    /// # use chess::core::errors::ParseSquareError; // Corrected path
-    /// # use chess::core::Square; // Assuming Square is in core
-    /// let result = "z4".parse::<Square>(); // 'z' is not a valid file
-    /// assert!(matches!(result, Err(ParseSquareError::InvalidFileChar('z'))));
-    /// ```
+    #[error("Invalid character for file string: '{0}', expected 'a'-'h'")]
     InvalidFileChar(char),
-
-    /// The second character of the input string was not a valid rank character ('1' through '8').
-    /// Contains the invalid character received.
-    ///
-    /// # Example
-    /// ```
-    /// # use chess::core::errors::ParseSquareError; // Corrected path
-    /// # use chess::core::Square; // Assuming Square is in core
-    /// let result = "e9".parse::<Square>(); // '9' is not a valid rank
-    /// assert!(matches!(result, Err(ParseSquareError::InvalidRankChar('9'))));
-    /// ```
+    #[error("Invalid character for rank string: '{0}', expected '1'-'8'")]
     InvalidRankChar(char),
 }
-
-impl fmt::Display for ParseSquareError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ParseSquareError::InvalidLength(len) => {
-                write!(f, "Invalid square string length: {}, expected 2", len)
-            }
-            ParseSquareError::InvalidFileChar(c) => {
-                write!(f, "Invalid file character: '{}', expected 'a'-'h'", c)
-            }
-            ParseSquareError::InvalidRankChar(c) => {
-                write!(f, "Invalid rank character: '{}', expected '1'-'8'", c)
-            }
-        }
-    }
-}
-
-impl std::error::Error for ParseSquareError {}
 
 /******************************************\
 |==========================================|
@@ -593,15 +314,7 @@ mod tests {
     }
 
     #[test]
-    fn test_flip_file() {
-        assert_eq!(Square::A1.flip_file(), Square::H1);
-        assert_eq!(Square::E4.flip_file(), Square::D4);
-        assert_eq!(Square::D7.flip_file(), Square::E7);
-    }
-
-    #[test]
     fn test_square_conversions() {
-        // Test all squares by creating them from file and rank and then extracting file and rank back
         for file in 0..8 {
             for rank in 0..8 {
                 let f = File::from_unchecked(file);
@@ -627,7 +340,6 @@ mod tests {
 
     #[test]
     fn test_square_from_str_invalid() {
-        // Invalid Length
         assert!(matches!(
             "e".parse::<Square>(),
             Err(ParseSquareError::InvalidLength(1))
@@ -641,7 +353,6 @@ mod tests {
             Err(ParseSquareError::InvalidLength(0))
         ));
 
-        // Invalid File
         assert!(matches!(
             "z4".parse::<Square>(),
             Err(ParseSquareError::InvalidFileChar('z'))
@@ -654,13 +365,12 @@ mod tests {
             "@5".parse::<Square>(),
             Err(ParseSquareError::InvalidFileChar('@'))
         ));
-        // Check case sensitivity (only lowercase files are valid)
+
         assert!(matches!(
             "A1".parse::<Square>(),
             Err(ParseSquareError::InvalidFileChar('A'))
         ));
 
-        // Invalid Rank
         assert!(matches!(
             "a9".parse::<Square>(),
             Err(ParseSquareError::InvalidRankChar('9'))
@@ -678,7 +388,6 @@ mod tests {
             Err(ParseSquareError::InvalidRankChar(' '))
         ));
 
-        // Both Invalid (File error usually detected first)
         assert!(matches!(
             "z9".parse::<Square>(),
             Err(ParseSquareError::InvalidFileChar('z'))

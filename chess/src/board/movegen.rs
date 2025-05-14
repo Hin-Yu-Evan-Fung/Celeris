@@ -1,51 +1,3 @@
-//! # Module: `movegen`
-//!
-//! This module is responsible for generating legal moves in a chess game. It provides the
-//! necessary data structures and algorithms to calculate the possible moves for each piece
-//! on the board, taking into account the current board state and the rules of chess.
-//!
-//! ## Overview
-//!
-//! The `movegen` module is a critical component of the chess engine, as it forms the basis
-//! for all move-related operations. It includes the following key functionalities:
-//!
-//! - **Attack Generation**: Calculating the squares attacked by each piece type, including
-//!   sliding pieces (bishops, rooks, queens) and non-sliding pieces (pawns, knights, kings).
-//! - **Move Legality**: Determining whether a move is legal based on the current board state,
-//!   including checks, pins, and other constraints.
-//! - **Move Encoding**: Representing moves in a compact and efficient format.
-//! - **Table Initialization**: Precomputing and storing various lookup tables to speed up
-//!   move generation.
-//!
-//! ## Key Components
-//!
-//! - **`lookup`**: Contains functions for generating attacks and other move-related information.
-//! - **`magic`**: Implements the magic bitboard technique for efficient sliding piece attack
-//!   generation.
-//! - **`magic_numbers`**: Stores the precomputed magic numbers used in the magic bitboard
-//!   algorithm.
-//! - **`init`**: Contains functions for initializing the lookup tables.
-//!
-//! ## Usage
-//!
-//! The `movegen` module is used by the main chess engine to generate legal moves for a given
-//! board state. The `init_all_tables` function must be called once at the start of the
-//! program to initialize the lookup tables.
-//!
-//! ## Implementation Details
-//!
-//! The module uses bitboards extensively for efficient representation and manipulation of
-//! piece positions and attacks. Magic bitboards are used to speed up the calculation of
-//! sliding piece attacks.
-//!
-//! ## Submodules
-//!
-//! - `init`: Initialization of lookup tables.
-//! - `lookup`: Functions for generating attacks and other move-related information.
-//! - `magic`: Implementation of magic bitboards.
-//! - `magic_numbers`: Precomputed magic numbers.
-//!
-
 pub mod r#gen;
 pub mod init;
 pub mod lookup;
@@ -159,20 +111,17 @@ impl Board {
         let us = self.stm();
 
         let ksq = self.ksq(us);
-        // Safety: rook_sq lookup is safe if castling rights are present initially.
+
         let rook_sq = self.rook_sq(castle);
-        // Rook destination (depends on castling rights)
+
         let rook_dest = self.castling_rook_dest(castle);
 
-        // Calculate movement paths using pin_bb for convenience (line between squares + target square)
-        // King path: squares the king traverses (e.g., E1->G1 includes F1, G1)
         let king_path = pin_bb(ksq, self.castling_king_dest(castle));
-        // Rook path: squares the rook traverses (e.g., H1->F1 includes G1, F1)
+
         let rook_path = pin_bb(rook_sq, rook_dest);
-        // Combined area that must be empty (excluding king and rook) and king path squares cannot be attacked.
+
         let move_area = king_path | rook_path;
 
-        // Occupancy excluding the king and the specific castling rook
         let occ = self.all_occupied_bb() ^ rook_sq.bb() ^ ksq.bb();
 
         (king_path & self.attacked()).is_empty()
