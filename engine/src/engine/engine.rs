@@ -11,6 +11,7 @@ use crate::{
     evaluate_nnue,
     search::TT,
     thread::ThreadPool,
+    tunables::spsa_output_opts,
 };
 
 use super::command::EngineOption;
@@ -99,13 +100,17 @@ impl EngineController {
     fn introduce(&self) {
         println!("id name {} {}", constants::NAME, constants::VERSION);
         println!("id author {}", constants::AUTHORS);
-        println!("uciok");
 
         // Print command options
         println!("option name UCI_Chess960 type check default false");
         println!("option name ClearHash type button");
         println!("option name Hash type spin default 128 min 1 max ");
         println!("option name Threads type spin default 1 min 12 max ");
+
+        #[cfg(feature = "tune")]
+        println!("{}", spsa_output_opts());
+
+        println!("uciok");
     }
 
     fn set_debug(&mut self, is_debug: bool) {
@@ -121,17 +126,17 @@ impl EngineController {
     /// Resizes the transposition table.
     fn resize_hash(&mut self, size_mb: usize) {
         if self.is_debug {
-            println!("info string Attempting to resize hash to {} MB...", size_mb);
+            println!("info string Attempting to resize hash to {size_mb} MB...");
         }
 
-        if size_mb < 1 || size_mb > 128 {
+        if !(1..=128).contains(&size_mb) {
             println!("info string hash spin value out of bounds (1 to 128).");
         }
 
         self.tt.resize(size_mb);
 
         if self.is_debug {
-            println!("info string Hash resized to {} MB.", size_mb);
+            println!("info string Hash resized to {size_mb} MB.");
             println!("info string Hash entries: {}.", self.tt.size());
         }
     }
@@ -153,20 +158,17 @@ impl EngineController {
     /// Resizes the number of search threads in the thread pool.
     fn resize_threads(&mut self, threads: usize) {
         if self.is_debug {
-            println!(
-                "info string Attempting to resize the number of threads to {} ",
-                threads
-            );
+            println!("info string Attempting to resize the number of threads to {threads} ");
         }
 
-        if threads < 1 || threads > 12 {
+        if !(1..=12).contains(&threads) {
             println!("info string threads spin value out of bounds (1 to 12).");
         }
 
         self.thread_pool.resize(threads);
 
         if self.is_debug {
-            println!("info string Threads resized to {} ", threads);
+            println!("info string Threads resized to {threads} ");
         }
     }
 
@@ -177,6 +179,7 @@ impl EngineController {
             EngineOption::ClearHash => self.clear_hash(),
             EngineOption::ResizeHash(size_mb) => self.resize_hash(size_mb),
             EngineOption::ResizeThreads(threads) => self.resize_threads(threads),
+            EngineOption::TunableSet => (),
         }
     }
 

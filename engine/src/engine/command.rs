@@ -1,5 +1,7 @@
 use std::str::{FromStr, SplitWhitespace};
 
+use crate::tunables::set_tunable;
+
 // Import necessary types from the chess crate and the parent module.
 use super::TimeControl;
 use chess::{
@@ -17,6 +19,9 @@ pub enum EngineOption {
     ResizeHash(usize),
     /// Command to change the number of search threads.
     ResizeThreads(usize),
+
+    /// Temporary option for tunables.
+    TunableSet,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -113,11 +118,22 @@ impl Command {
             "clear hash" => EngineOption::ClearHash,
             "hash" => EngineOption::ResizeHash(Self::parse_value("Hash", tokens)?),
             "threads" => EngineOption::ResizeThreads(Self::parse_value("Threads", tokens)?),
+
+            #[cfg(not(feature = "tune"))]
             _ => {
                 return Err(UCICommandError(format!(
                     "Unknown option name: '{}'",
                     option_name
                 )));
+            }
+
+            #[cfg(feature = "tune")]
+            _ => {
+                let val = tokens.last().unwrap();
+                match set_tunable(&option_name, val) {
+                    Ok(_) => EngineOption::TunableSet,
+                    Err(e) => return Err(UCICommandError(e.to_string())),
+                }
             }
         };
 

@@ -9,3 +9,6 @@ chess = { path = "../chess" }
 
 [lib]
 doctest = false
+
+[features]
+tune = []

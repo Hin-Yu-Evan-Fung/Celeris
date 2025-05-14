@@ -1,3 +1,5 @@
+use crate::tunables::*;
+
 use super::Eval;
 use super::psqt::{calc_game_phase, calc_psqt};
 use chess::{Colour, PieceType, board::Board};
@@ -24,14 +26,14 @@ pub fn evaluate(board: &Board) -> Eval {
      let mut v = nnue.evaluate(board);
  
      let material_scale = (
-         82   * board.piecetype_bb(PieceType::Pawn).count_bits()   as i32 +
-         337  * board.piecetype_bb(PieceType::Knight).count_bits() as i32 +
-         365  * board.piecetype_bb(PieceType::Bishop).count_bits() as i32 +
-         477  * board.piecetype_bb(PieceType::Rook).count_bits()   as i32 +
-         1025 * board.piecetype_bb(PieceType::Queen).count_bits()  as i32
+         pawn_val()   * board.piecetype_bb(PieceType::Pawn).count_bits()   as i32 +
+         knight_val() * board.piecetype_bb(PieceType::Knight).count_bits() as i32 +
+         bishop_val() * board.piecetype_bb(PieceType::Bishop).count_bits() as i32 +
+         rook_val()   * board.piecetype_bb(PieceType::Rook).count_bits()   as i32 +
+         queen_val()  * board.piecetype_bb(PieceType::Queen).count_bits()  as i32
      ) / 32;
  
-     v = (v * (700 + material_scale)) / 1024;
+     v = (v * (nnue_base() + material_scale)) / 1024;
  
      Eval(v as i16)
  }

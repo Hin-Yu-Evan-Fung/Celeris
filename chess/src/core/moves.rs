@@ -358,32 +358,21 @@ impl Move {
     /// It simply shows the 'from' square, 'to' square, and the promotion piece character if applicable.
     pub fn to_str(&self, board: &Board) -> String {
         if self.is_null() {
-            return "null".to_string();
+            "null".to_string()
+        } else if board.chess960() && self.is_castle() {
+            let to = match (board.stm(), self.flag()) {
+                (Colour::White, MoveFlag::KingCastle) => board.rook_sq(Castling::WK),
+                (Colour::White, MoveFlag::QueenCastle) => board.rook_sq(Castling::WQ),
+                (Colour::Black, MoveFlag::KingCastle) => board.rook_sq(Castling::BK),
+                (Colour::Black, MoveFlag::QueenCastle) => board.rook_sq(Castling::BQ),
+                _ => unreachable!(),
+            };
+            format!("{}{}", self.from(), to)
+        } else if self.is_promotion() {
+            format!("{}{}{}", self.from(), self.to(), self.promotion_pt())
         } else {
-            if board.chess960() && self.is_castle() {
-                let to = match (board.stm(), self.flag()) {
-                    (Colour::White, MoveFlag::KingCastle) => board.rook_sq(Castling::WK),
-                    (Colour::White, MoveFlag::QueenCastle) => board.rook_sq(Castling::WQ),
-                    (Colour::Black, MoveFlag::KingCastle) => board.rook_sq(Castling::BK),
-                    (Colour::Black, MoveFlag::QueenCastle) => board.rook_sq(Castling::BQ),
-                    _ => unreachable!(),
-                };
-                format!("{}{}", self.from(), to)
-            } else if self.is_promotion() {
-                // Check if it's a promotion move to append the piece character
-                // Get the lowercase character for the promotion piece
-                // Assumes PieceType Display implementation gives lowercase 'n', 'b', 'r', 'q'
-                // Or implement a specific mapping here:
-                format!(
-                    "{}{}{}",
-                    self.from(),
-                    self.to(),
-                    self.promotion_pt().to_string()
-                )
-            } else {
-                // Standard move format
-                format!("{}{}", self.from(), self.to())
-            }
+            // Standard move format
+            format!("{}{}", self.from(), self.to())
         }
     }
 }
