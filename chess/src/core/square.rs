@@ -9,7 +9,7 @@ use thiserror::Error;
 
 /// # Square representation
 /// 
-/// - Represents the squares of a chess board (Pattern: A1(0) - H8(63))
+/// - Represents the squares of a chess board 
 
 #[rustfmt::skip]
 #[repr(u8)]

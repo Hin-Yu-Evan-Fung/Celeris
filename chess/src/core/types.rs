@@ -9,7 +9,7 @@ use thiserror::Error;
 
 /// # Colour Representation
 /// 
-/// Represents the two colours in chess: White and Black.
+/// Represents the two colours in chess: White and Black
 
 #[rustfmt::skip]
 #[repr(u8)]
@@ -34,7 +34,7 @@ crate::impl_from_to_primitive!(Colour);
 
 /// # Direction Representation
 /// 
-/// Represents the 8 directions in chess, plus special directions for knightmoves and pawn double pushes
+/// Represents the 8 directions in chess, plus special directions for knightmoves and pawn double pushes, in terms of the left shifts
 
 #[rustfmt::skip]
 #[repr(i8)]
