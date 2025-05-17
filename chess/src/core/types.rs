@@ -126,13 +126,25 @@ impl Square {
     /// Try to convert from i16 to a square (Returns error if out of bounds)
     pub const fn try_from(value: i16) -> Result<Self, &'static str> {
         if value >= 0 && value < 64 {
-            Ok(Square::from_unchecked(value as u8))
+            unsafe { Ok(Square::from_unchecked(value as u8)) }
         } else {
             Err("Square value out of bounds (0-63)")
         }
     }
 
     /// Try to add direction to a square
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::{Square, Direction, SquareAddError};
+    ///
+    /// assert_eq!(Square::E4.add(Direction::N), Ok(Square::E5)); // Move North
+    /// assert_eq!(Square::A1.add(Direction::NE), Ok(Square::B2)); // Move North-East
+    ///
+    /// // Attempting to move off the board
+    /// assert_eq!(Square::H8.add(Direction::N), Err(SquareAddError::OutOfBounds));
+    /// ```
     #[inline]
     pub const fn add(self, rhs: Direction) -> Result<Self, SquareAddError> {
         let file = self.file() as u8;
@@ -156,11 +168,22 @@ impl Square {
         }
     }
 
-    /// Add direction to a square without checking
+    /// Add direction to a square without checking for board boundaries or wrap-around.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the operation `self as i16 + rhs as i16` results in a value
+    /// that is a valid square index (i.e., between 0 and 63, inclusive).
+    /// The caller must also ensure that the move is valid for the given direction and does not
+    /// incorrectly "wrap around" the board (e.g., moving `Direction::E` from an H-file square
+    /// to an A-file square on the same rank is not prevented by this function but is an invalid chess move).
+    /// For a safe alternative, use [`Square::add`].
     #[inline]
     pub const unsafe fn add_unchecked(self, rhs: Direction) -> Self {
-        debug_assert!(self as i16 + rhs as i16 >= 0, "Square out of bounds");
-        debug_assert!(self as i16 + rhs as i16 <= 64, "Square out of bounds");
+        debug_assert!(
+            (self as i16 + rhs as i16) >= 0 && (self as i16 + rhs as i16) < Square::NUM as i16,
+            "Resulting square index is out of bounds"
+        );
         Square::from_unchecked((self as i16 + rhs as i16) as u8)
     }
 }
@@ -304,6 +327,12 @@ pub enum SquareAddError {
     #[error("Square operation resulted in an out-of-bounds position")]
     OutOfBounds,
 }
+
+/******************************************\
+|==========================================|
+|                Unit Tests                |
+|==========================================|
+\******************************************/
 
 #[cfg(test)]
 mod tests {

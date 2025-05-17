@@ -224,7 +224,7 @@ impl SearchWorker {
                 return self.evaluate();
             }
 
-            if self.board.is_draw(self.ply) {
+            if self.board.is_draw() {
                 return Eval::DRAW;
             }
 
@@ -319,6 +319,18 @@ impl SearchWorker {
         let mut move_picker = MovePicker::<false>::new(&self.board, tt_move, killers);
 
         while let Some(move_) = move_picker.next(&self.board, &self.stats) {
+            if !self.board.is_legal(move_) {
+                println!("{}", self.board);
+                println!("{}", move_.to_str(&self.board));
+                println!("{}", tt_move.to_str(&self.board));
+                println!("Killer1: {}", killers[0].to_str(&self.board));
+                println!("Killer2: {}", killers[1].to_str(&self.board));
+                for move_ in move_picker.move_list.iter() {
+                    println!("{}", move_.to_str(&self.board));
+                }
+                panic!("Illegal move, Move Stage: {:?}", move_picker.stage);
+            }
+
             move_count += 1;
 
             self.make_move(tt, move_);
@@ -449,7 +461,7 @@ impl SearchWorker {
             };
         }
 
-        if self.board.is_draw(self.ply) {
+        if self.board.is_draw() {
             return Eval::DRAW;
         }
 

@@ -1,4 +1,4 @@
-use std::fmt;
+use thiserror::Error;
 
 use crate::core::Colour;
 
@@ -20,6 +20,7 @@ pub enum Piece {
 }
 
 impl Piece {
+    /// Number of elements in the Piece enum
     pub const NUM: usize = 12;
 }
 
@@ -32,6 +33,10 @@ crate::impl_enum_iter!(Piece);
 |==========================================|
 \******************************************/
 
+/// # Piece Type representation
+/// 
+/// - Represents the different chess piece types
+
 #[rustfmt::skip]
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,6 +45,7 @@ pub enum PieceType {
 }
 
 impl PieceType {
+    /// Number of elements in the PieceType enum
     pub const NUM: usize = 6;
 }
 
@@ -53,17 +59,28 @@ crate::impl_enum_iter!(PieceType);
 \******************************************/
 
 impl Piece {
+    /// Returns the piece type of the piece
     pub const fn pt(self) -> PieceType {
-        // PieceType::from_unchecked((*self as u8) & 0b111)
-        PieceType::from_unchecked(self as u8 >> 1)
+        unsafe { PieceType::from_unchecked(self as u8 >> 1) }
     }
 
+    /// Returns the colour of the piece
     pub const fn colour(self) -> Colour {
-        Colour::from_unchecked(self as u8 & 1)
+        unsafe { Colour::from_unchecked(self as u8 & 1) }
     }
 
+    /// Combines a colour and piece type pair to create a piece
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::{Piece, Colour, PieceType};
+    ///
+    /// assert_eq!(Piece::from_parts(Colour::White, PieceType::Pawn), Piece::WhitePawn);
+    /// assert_eq!(Piece::from_parts(Colour::Black, PieceType::King), Piece::BlackKing);
+    /// ```
     pub const fn from_parts(colour: Colour, piece_type: PieceType) -> Self {
-        Piece::from_unchecked(colour as u8 | (piece_type as u8) << 1)
+        unsafe { Piece::from_unchecked(colour as u8 | (piece_type as u8) << 1) }
     }
 }
 
@@ -73,6 +90,7 @@ impl Piece {
 |==========================================|
 \******************************************/
 
+/// String to convert from piece/piece type to their string representation
 const PIECE_STR: &str = "PpNnBbRrQqKk";
 
 impl std::fmt::Display for Piece {
@@ -102,6 +120,18 @@ impl std::fmt::Display for PieceType {
 impl std::str::FromStr for Piece {
     type Err = ParsePieceError;
 
+    /// Parse the piece character into a piece, with error checkings
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::{Piece, ParsePieceError};
+    /// use std::str::FromStr;
+    ///
+    /// assert_eq!(Piece::from_str("P").unwrap(), Piece::WhitePawn);
+    /// assert_eq!("k".parse::<Piece>().unwrap(), Piece::BlackKing);
+    /// assert!(matches!("X".parse::<Piece>(), Err(ParsePieceError::InvalidChar('X'))));
+    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() != 1 {
             return Err(ParsePieceError::InvalidLength(s.len()));
@@ -113,7 +143,7 @@ impl std::str::FromStr for Piece {
             .position(|c| c == piece_char && c != ' ')
             .ok_or(ParsePieceError::InvalidChar(piece_char))? as u8;
 
-        Ok(Piece::from_unchecked(index))
+        unsafe { Ok(Piece::from_unchecked(index)) }
     }
 }
 
@@ -123,26 +153,13 @@ impl std::str::FromStr for Piece {
 |==========================================|
 \******************************************/
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum ParsePieceError {
+    #[error("Invalid length for piece string: {0}, expected 1")]
     InvalidLength(usize),
+    #[error("Invalid character for piece string: '{0}', expected 'P'-'K'")]
     InvalidChar(char),
 }
-
-impl fmt::Display for ParsePieceError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ParsePieceError::InvalidLength(len) => {
-                write!(f, "Invalid piece string length: {}, expected 1", len)
-            }
-            ParsePieceError::InvalidChar(char) => {
-                write!(f, "Invalid FEN character for piece: '{}'", char)
-            }
-        }
-    }
-}
-
-impl std::error::Error for ParsePieceError {}
 
 /******************************************\
 |==========================================|
@@ -243,22 +260,22 @@ mod tests {
 
     #[test]
     fn test_piece_type_from_numeric_value() {
-        assert_eq!(PieceType::from_unchecked(0), PieceType::Pawn);
-        assert_eq!(PieceType::from_unchecked(1), PieceType::Knight);
-        assert_eq!(PieceType::from_unchecked(2), PieceType::Bishop);
-        assert_eq!(PieceType::from_unchecked(3), PieceType::Rook);
-        assert_eq!(PieceType::from_unchecked(4), PieceType::Queen);
-        assert_eq!(PieceType::from_unchecked(5), PieceType::King);
+        assert_eq!(unsafe { PieceType::from_unchecked(0) }, PieceType::Pawn);
+        assert_eq!(unsafe { PieceType::from_unchecked(1) }, PieceType::Knight);
+        assert_eq!(unsafe { PieceType::from_unchecked(2) }, PieceType::Bishop);
+        assert_eq!(unsafe { PieceType::from_unchecked(3) }, PieceType::Rook);
+        assert_eq!(unsafe { PieceType::from_unchecked(4) }, PieceType::Queen);
+        assert_eq!(unsafe { PieceType::from_unchecked(5) }, PieceType::King);
     }
 
     #[test]
     fn test_piece_conversion_roundtrip() {
-        // for piece in Piece::iter() {
-        //     let colour = piece.colour();
-        //     let piece_type = piece.pt();
-        //     let reconstructed = Piece::from_parts(colour, piece_type);
-        //     assert_eq!(piece, reconstructed);
-        // }
+        for piece in Piece::iter() {
+            let colour = piece.colour();
+            let piece_type = piece.pt();
+            let reconstructed = Piece::from_parts(colour, piece_type);
+            assert_eq!(piece, reconstructed);
+        }
     }
 
     #[test]

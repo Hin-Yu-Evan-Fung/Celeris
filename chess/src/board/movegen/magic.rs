@@ -233,7 +233,7 @@ const fn populate_magic_table(pt: PieceType) -> MagicTable {
 
     let mut i = 0;
     while i < Square::NUM {
-        let sq = Square::from_unchecked(i as u8);
+        let sq = unsafe { Square::from_unchecked(i as u8) };
 
         let mask = Bitboard(
             Bitboard::attack_on_the_fly(pt, sq.bb(), Bitboard::EMPTY).0 & !get_edge_mask(sq).0,
@@ -272,7 +272,7 @@ fn populate_attack_table<const N: usize>(pt: PieceType) -> Vec<Bitboard> {
     let mut i = 0;
     while i < Square::NUM {
         let m = magics[i];
-        let sq = Square::from_unchecked(i as u8);
+        let sq = unsafe { Square::from_unchecked(i as u8) };
 
         let perm = 1 << m.mask.count_bits();
 

@@ -1,8 +1,6 @@
 mod eval;
-mod psqt;
 
-pub use eval::{evaluate, evaluate_nnue};
-pub use psqt::calc_psqt;
+pub use eval::evaluate_nnue;
 
 use crate::constants::*;
 use chess::impl_ari_ops;

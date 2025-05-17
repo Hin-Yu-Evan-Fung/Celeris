@@ -2,7 +2,7 @@ use std::str::{FromStr, SplitWhitespace};
 
 use super::TimeControl;
 use chess::{
-    Move,
+    Move, MoveFlag,
     board::{Board, LegalGen, MoveList},
 };
 
@@ -133,8 +133,8 @@ impl Command {
 
         let move_match = |move_: &&Move| {
             move_.to_str(&board) == move_str
-                || (move_.is_king_castle() && move_str == "O-O")
-                || (move_.is_queen_castle() && move_str == "O-O-O")
+                || (move_.flag() == MoveFlag::KingCastle && move_str == "O-O")
+                || (move_.flag() == MoveFlag::QueenCastle && move_str == "O-O-O")
         };
 
         move_list

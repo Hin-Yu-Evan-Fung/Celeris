@@ -3,7 +3,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use chess::Move;
+use chess::{Move, board::Key};
 
 use crate::{eval::Eval, thread::ThreadPool};
 
@@ -19,7 +19,7 @@ pub enum TTBound {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub struct TTEntry {
-    pub key: u64,
+    pub key: Key,
     pub age: u8,
     pub depth: u8,
     pub bound: TTBound,
@@ -66,7 +66,7 @@ impl TTEntry {
     }
 }
 
-impl From<TTEntry> for (u64, u64) {
+impl From<TTEntry> for (Key, u64) {
     fn from(entry: TTEntry) -> Self {
         let mut data = 0;
         data |= entry.age as u64;
@@ -79,8 +79,8 @@ impl From<TTEntry> for (u64, u64) {
     }
 }
 
-impl From<(u64, u64)> for TTEntry {
-    fn from((key, data): (u64, u64)) -> Self {
+impl From<(Key, u64)> for TTEntry {
+    fn from((key, data): (Key, u64)) -> Self {
         Self {
             key: key ^ data,
             age: Self::unpack_age(data),
@@ -170,22 +170,22 @@ impl TT {
         self.table.len()
     }
 
-    fn index(&self, pos_key: u64) -> usize {
+    fn index(&self, pos_key: Key) -> usize {
         let key = pos_key as u128;
         let len = self.table.len() as u128;
         ((key * len) >> 64) as usize
     }
 
-    pub fn get(&self, pos_key: u64) -> Option<TTEntry> {
+    pub fn get(&self, pos_key: Key) -> Option<TTEntry> {
         self.table[self.index(pos_key)].read(pos_key)
     }
 
-    fn get_unchecked(&self, pos_key: u64) -> &PackedTTEntry {
+    fn get_unchecked(&self, pos_key: Key) -> &PackedTTEntry {
         unsafe { self.table.get_unchecked(self.index(pos_key)) }
     }
 
     #[inline]
-    pub fn prefetch(&self, key: u64) {
+    pub fn prefetch(&self, key: Key) {
         #[cfg(target_arch = "x86_64")]
         unsafe {
             use std::arch::x86_64::{_MM_HINT_T0, _mm_prefetch};
@@ -196,7 +196,7 @@ impl TT {
 
     pub fn write(
         &self,
-        key: u64,
+        key: Key,
         bound: TTBound,
         ply: u16,
         depth: u8,

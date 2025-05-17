@@ -8,6 +8,7 @@ use crate::utils::PRNG;
 |==========================================|
 \******************************************/
 
+/// Type alias for a Zobrist key, typically a 64-bit unsigned integer.
 pub type Key = u64;
 
 /******************************************\
@@ -16,14 +17,27 @@ pub type Key = u64;
 |==========================================|
 \******************************************/
 
+/// A bundle of Zobrist keys representing the state of a chess board.
+///
+/// This includes the main board key, a key specific to pawn structure,
+/// and keys for non-pawn material for each color. This can be useful
+/// for more granular hash table lookups (e.g., pawn hash tables).
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
 pub struct KeyBundle {
+    /// The main Zobrist key for the entire board position.
     pub key: Key,
+    /// A Zobrist key representing only the pawn structure.
     pub pawn_key: Key,
+    /// Zobrist keys representing non-pawn material for each color.
+    /// Indexed by `Colour::index()`.
     pub non_pawn_key: [Key; Colour::NUM],
 }
 
 impl KeyBundle {
+    /// Toggles a piece on a square in the key bundle.
+    ///
+    /// Updates the main key, and conditionally the pawn_key or non_pawn_key
+    /// based on the piece type.
     #[inline]
     pub fn toggle_piece(&mut self, piece: Piece, sq: Square) {
         if piece.pt() as u8 == PieceType::Pawn as u8 {
@@ -31,20 +45,22 @@ impl KeyBundle {
         } else {
             self.non_pawn_key[piece.colour().index()] ^= piece_key(piece, sq);
         }
-
         self.key ^= piece_key(piece, sq);
     }
 
+    /// Toggles a castling right in the main key.
     #[inline]
     pub fn toggle_castle(&mut self, flag: Castling) {
         self.key ^= castle_key(flag);
     }
 
+    /// Toggles the side to move in the main key.
     #[inline]
     pub fn toggle_side(&mut self) {
         self.key ^= side_key();
     }
 
+    /// Toggle the enpassant key in the main key.
     #[inline]
     pub fn toggle_ep(&mut self, file: File) {
         self.key ^= ep_key(file);
@@ -57,17 +73,25 @@ impl KeyBundle {
 |==========================================|
 \******************************************/
 
+/// Contains the precomputed random numbers for Zobrist hashing.
+///
+/// Each unique game state element (piece on a square, castling rights,
+/// side to move, en passant target) has an associated random key.
 #[derive(Debug)]
 pub struct ZobristTable {
+    /// Keys for each piece on each square: `pieces[piece_index][square_index]`.
     pub pieces: [[Key; Square::NUM]; Piece::NUM],
-
+    /// Key for indicating the side to move (typically XORed if it's Black's turn).
     pub side_to_move: Key,
-
+    /// Keys for each possible castling rights mask: `castling[castling_mask]`.
     pub castling: [Key; Castling::NUM],
-
+    /// Keys for each possible en passant file: `enpassant[file_index]`.
     pub enpassant: [Key; File::NUM],
 }
 
+/// Global static instance of the ZobristTable, initialized at compile time.
+///
+/// This table provides the random keys used for Zobrist hashing throughout the application.
 pub const ZOBRIST: ZobristTable = init_zobrist_table();
 
 /******************************************\
@@ -76,6 +100,7 @@ pub const ZOBRIST: ZobristTable = init_zobrist_table();
 |==========================================|
 \******************************************/
 
+/// Initializes the ZobristTable with pseudo-random 64-bit numbers.
 const fn init_zobrist_table() -> ZobristTable {
     let mut rng = PRNG::new(0xDEADBEEFCAFEBABE);
 
@@ -121,6 +146,7 @@ const fn init_zobrist_table() -> ZobristTable {
 |==========================================|
 \******************************************/
 
+/// Retrieves the Zobrist key for a specific piece on a specific square.
 #[inline]
 pub fn piece_key(piece: Piece, sq: Square) -> Key {
     unsafe {
@@ -131,16 +157,20 @@ pub fn piece_key(piece: Piece, sq: Square) -> Key {
     }
 }
 
+/// Retrieves the Zobrist key for the side to move.
+/// This key is typically XORed into the hash if it's Black's turn.
 #[inline]
 pub fn side_key() -> Key {
     ZOBRIST.side_to_move
 }
 
+/// Retrieves the Zobrist key for a given set of castling rights.
 #[inline]
 pub fn castle_key(flag: Castling) -> Key {
     ZOBRIST.castling[flag.0 as usize]
 }
 
+/// Retrieves the Zobrist key for an en passant capture being possible on a given file.
 #[inline]
 pub fn ep_key(file: File) -> Key {
     unsafe { *ZOBRIST.enpassant.get_unchecked(file.index()) }
@@ -153,24 +183,26 @@ pub fn ep_key(file: File) -> Key {
 \******************************************/
 
 impl Board {
+    /// Calculate the main zobrist key of the board
     pub(crate) fn calc_key(&self) -> Key {
         let mut key = 0;
 
-        let mut i = 0;
-        while i < Square::NUM {
-            let sq = Square::from_unchecked(i as u8);
+        // Loop through all squares and toggling keys for each piece and square pair
+        for sq in Square::iter() {
             if let Some(piece) = self.on(sq) {
                 key ^= piece_key(piece, sq);
             }
-            i += 1;
         }
 
+        // Toggle the side key if the side to move is black
         if self.stm as u8 == Colour::Black as u8 {
             key ^= side_key();
         }
 
+        // Toggle castling key according to the current castling rights
         key ^= castle_key(self.state.castle);
 
+        // Toggle enpassant key based on the file of the enpassant pawn
         if let Some(ep_square) = self.state.enpassant {
             key ^= ep_key(ep_square.file());
         }
@@ -178,19 +210,17 @@ impl Board {
         key
     }
 
+    /// Calculate the pawn key of the board
     pub(crate) fn calc_pawn_key(&self) -> Key {
         let mut key = 0;
 
-        let mut i = 0;
-        while i < Square::NUM {
-            let sq = Square::from_unchecked(i as u8);
-
+        // Loop through all squares and toggling keys for each pawn and square pair
+        for sq in Square::iter() {
             if let Some(piece) = self.on(sq) {
                 if piece.pt() as u8 == PieceType::Pawn as u8 {
                     key ^= piece_key(piece, sq);
                 }
             }
-            i += 1;
         }
 
         key
@@ -199,21 +229,24 @@ impl Board {
     pub(crate) fn calc_non_pawn_key(&self) -> [Key; Colour::NUM] {
         let mut keys = [0; Colour::NUM];
 
-        let mut i = 0;
-        while i < Square::NUM {
-            let sq = Square::from_unchecked(i as u8);
-
+        // Loop through all squares and toggling keys for each non-pawn and square pair
+        for sq in Square::iter() {
             if let Some(piece) = self.on(sq) {
                 if piece.pt() as u8 != PieceType::Pawn as u8 {
                     keys[piece.colour().index()] ^= piece_key(piece, sq);
                 }
             }
-            i += 1;
         }
 
         keys
     }
 }
+
+/******************************************\
+|==========================================|
+|                Unit Tests                |
+|==========================================|
+\******************************************/
 
 #[cfg(test)]
 mod tests {

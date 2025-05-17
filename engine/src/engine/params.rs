@@ -17,9 +17,6 @@ pub mod constants {
 
 init_tunables! {
 
-
-
-
     pawn_val:   i32 = 82, 60, 140, 5;
     knight_val: i32 = 337, 250, 370, 5;
     bishop_val: i32 = 365, 300, 400, 5;

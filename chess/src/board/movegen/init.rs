@@ -25,7 +25,7 @@ pub(super) const fn init_line_bb_table() -> SquarePairTable {
 
     let mut i = 0;
     while i < Square::NUM {
-        let from = Square::from_unchecked(i as u8);
+        let from = unsafe { Square::from_unchecked(i as u8) };
 
         populate_line_bb(&mut table, PieceType::Bishop, from);
         populate_line_bb(&mut table, PieceType::Rook, from);
@@ -57,7 +57,7 @@ pub(super) const fn init_between_bb_table() -> SquarePairTable {
 
     let mut i = 0;
     while i < Square::NUM {
-        let from = Square::from_unchecked(i as u8);
+        let from = unsafe { Square::from_unchecked(i as u8) };
 
         populate_between_bb(&mut table, PieceType::Bishop, from);
         populate_between_bb(&mut table, PieceType::Rook, from);
@@ -89,7 +89,7 @@ pub(super) const fn init_pin_bb_table() -> SquarePairTable {
 
     let mut i = 0;
     while i < Square::NUM {
-        let from = Square::from_unchecked(i as u8);
+        let from = unsafe { Square::from_unchecked(i as u8) };
 
         populate_pin_bb(&mut table, PieceType::Bishop, from);
         populate_pin_bb(&mut table, PieceType::Rook, from);
@@ -131,7 +131,7 @@ pub(super) const fn init_check_bb_table() -> SquarePairTable {
 
     let mut i = 0;
     while i < Square::NUM {
-        let from = Square::from_unchecked(i as u8);
+        let from = unsafe { Square::from_unchecked(i as u8) };
 
         populate_check_bb(&mut table, PieceType::Bishop, from);
         populate_check_bb(&mut table, PieceType::Rook, from);
@@ -149,8 +149,8 @@ pub(super) const fn init_dist_table() -> [[u8; Square::NUM]; Square::NUM] {
     while i < Square::NUM {
         let mut j = 0;
         while j < Square::NUM {
-            let sq1 = Square::from_unchecked(i as u8);
-            let sq2 = Square::from_unchecked(j as u8);
+            let sq1 = unsafe { Square::from_unchecked(i as u8) };
+            let sq2 = unsafe { Square::from_unchecked(j as u8) };
 
             let rank_dist = Square::rank_dist(sq1, sq2);
             let file_dist = Square::file_dist(sq1, sq2);
@@ -176,7 +176,7 @@ pub(super) const fn init_pseudo_attacks(dirs: &[Direction]) -> AttackTable {
     let mut i = 0;
 
     while i < Square::NUM {
-        let sq_bb = Square::from_unchecked(i as u8).bb();
+        let sq_bb = unsafe { Square::from_unchecked(i as u8) }.bb();
 
         let mut j = 0;
         while j < dirs.len() {

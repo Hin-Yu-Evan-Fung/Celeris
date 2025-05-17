@@ -91,23 +91,68 @@ crate::impl_enum_iter!(File);
 
 impl Square {
     /// Returns the rank of a square
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::{Square, Rank};
+    ///
+    /// assert_eq!(Square::A1.rank(), Rank::Rank1);
+    /// assert_eq!(Square::E4.rank(), Rank::Rank4);
+    /// assert_eq!(Square::H8.rank(), Rank::Rank8);
+    /// ```
     pub const fn rank(&self) -> Rank {
         let rank_index = (*self as u8) >> 3;
-        Rank::from_unchecked(rank_index)
+        unsafe { Rank::from_unchecked(rank_index) }
     }
 
     /// Returns the file of a square
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::{Square, File};
+    ///
+    /// assert_eq!(Square::A1.file(), File::FileA);
+    /// assert_eq!(Square::E4.file(), File::FileE);
+    /// assert_eq!(Square::H8.file(), File::FileH);
+    /// ```
     pub const fn file(&self) -> File {
         let file_index = (*self as u8) & 0b111;
-        File::from_unchecked(file_index)
+        unsafe { File::from_unchecked(file_index) }
     }
 
     /// Flips the rank of a square along the middle of the board, or switch perspectives between white and black
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::Square;
+    ///
+    /// assert_eq!(Square::A1.flip_rank(), Square::A8);
+    /// assert_eq!(Square::E4.flip_rank(), Square::E5);
+    /// assert_eq!(Square::H8.flip_rank(), Square::H1);
+    /// ```
     pub const fn flip_rank(&self) -> Self {
-        Self::from_unchecked((*self as u8) ^ Square::A8 as u8)
+        unsafe { Self::from_unchecked((*self as u8) ^ Square::A8 as u8) }
     }
 
     /// Returns the square relative to the perspectives of `col: Colour`
+    ///
+    /// For White, the square remains the same.
+    /// For Black, the square's rank is flipped.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::{Square, Colour};
+    ///
+    /// assert_eq!(Square::E2.relative(Colour::White), Square::E2);
+    /// assert_eq!(Square::E2.relative(Colour::Black), Square::E7); // E2 from Black's perspective is E7
+    ///
+    /// assert_eq!(Square::D7.relative(Colour::White), Square::D7);
+    /// assert_eq!(Square::D7.relative(Colour::Black), Square::D2); // D7 from Black's perspective is D2
+    /// ```
     pub const fn relative(&self, col: Colour) -> Self {
         match col {
             Colour::White => *self,
@@ -116,6 +161,17 @@ impl Square {
     }
 
     /// Returns the absolute distance in the ranks of two squares
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::Square;
+    ///
+    /// assert_eq!(Square::rank_dist(Square::E2, Square::E4), 2);
+    /// assert_eq!(Square::rank_dist(Square::A1, Square::A8), 7);
+    /// assert_eq!(Square::rank_dist(Square::H5, Square::H5), 0);
+    /// assert_eq!(Square::rank_dist(Square::B7, Square::C2), 5); // (Rank7 - Rank2)
+    /// ```
     pub const fn rank_dist(sq1: Square, sq2: Square) -> u8 {
         let v1 = sq1.rank() as u8;
         let v2 = sq2.rank() as u8;
@@ -123,6 +179,17 @@ impl Square {
     }
 
     /// Returns the absolute distance in the files of two squares
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::Square;
+    ///
+    /// assert_eq!(Square::file_dist(Square::A1, Square::D1), 3); // FileA to FileD
+    /// assert_eq!(Square::file_dist(Square::H8, Square::A8), 7); // FileH to FileA
+    /// assert_eq!(Square::file_dist(Square::E4, Square::E5), 0);
+    /// assert_eq!(Square::file_dist(Square::B7, Square::G2), 5); // (FileB - FileG)
+    /// ```
     pub const fn file_dist(sq1: Square, sq2: Square) -> u8 {
         let v1 = sq1.file() as u8;
         let v2 = sq2.file() as u8;
@@ -130,19 +197,50 @@ impl Square {
     }
 
     /// Combines a pair of file and rank to create a square
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::{Square, File, Rank};
+    ///
+    /// assert_eq!(Square::from_parts(File::FileA, Rank::Rank1), Square::A1);
+    /// assert_eq!(Square::from_parts(File::FileE, Rank::Rank4), Square::E4);
+    /// assert_eq!(Square::from_parts(File::FileH, Rank::Rank8), Square::H8);
+    /// ```
     pub const fn from_parts(file: File, rank: Rank) -> Self {
         let index = ((rank as u8) << 3) + (file as u8);
-        Self::from_unchecked(index)
+        unsafe { Self::from_unchecked(index) }
     }
 }
 
 impl Rank {
     /// Flips rank along the middle of the board, or switch perspectives between white and black
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::Rank;
+    ///
+    /// assert_eq!(Rank::Rank1.flip(), Rank::Rank8);
+    /// assert_eq!(Rank::Rank4.flip(), Rank::Rank5);
+    /// ```
     pub const fn flip(&self) -> Self {
-        Self::from_unchecked(7 - (*self as u8))
+        unsafe { Self::from_unchecked(7 - (*self as u8)) }
     }
 
     /// Returns the rank relative to the perspectives of `col: Colour`
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::{Rank, Colour};
+    ///
+    /// assert_eq!(Rank::Rank2.relative(Colour::White), Rank::Rank2);
+    /// assert_eq!(Rank::Rank2.relative(Colour::Black), Rank::Rank7);
+    ///
+    /// assert_eq!(Rank::Rank7.relative(Colour::White), Rank::Rank7);
+    /// assert_eq!(Rank::Rank7.relative(Colour::Black), Rank::Rank2);
+    /// ```
     pub const fn relative(&self, col: Colour) -> Self {
         match col {
             Colour::White => *self,
@@ -188,6 +286,17 @@ impl std::str::FromStr for File {
     type Err = ParseFileError;
 
     /// Parses the file string into a file, with error checking
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::{File, ParseFileError};
+    /// use std::str::FromStr;
+    ///
+    /// assert_eq!(File::from_str("a").unwrap(), File::FileA);
+    /// assert_eq!("h".parse::<File>().unwrap(), File::FileH);
+    /// assert!(matches!("x".parse::<File>(), Err(ParseFileError::InvalidChar('x'))));
+    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() != 1 {
             return Err(ParseFileError::InvalidLength(s.len()));
@@ -195,7 +304,7 @@ impl std::str::FromStr for File {
 
         let file_char = s.chars().next().unwrap();
         match file_char {
-            'a'..='h' => Ok(File::from_unchecked((file_char as u8 - b'a') as u8)),
+            'a'..='h' => unsafe { Ok(File::from_unchecked((file_char as u8 - b'a') as u8)) },
             _ => Err(ParseFileError::InvalidChar(file_char)),
         }
     }
@@ -205,6 +314,17 @@ impl std::str::FromStr for Rank {
     type Err = ParseRankError;
 
     /// Parses the rank string into a rank, with error checking
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::{Rank, ParseRankError};
+    /// use std::str::FromStr;
+    ///
+    /// assert_eq!(Rank::from_str("1").unwrap(), Rank::Rank1);
+    /// assert_eq!("8".parse::<Rank>().unwrap(), Rank::Rank8);
+    /// assert!(matches!("9".parse::<Rank>(), Err(ParseRankError::InvalidChar('9'))));
+    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() != 1 {
             return Err(ParseRankError::InvalidLength(s.len()));
@@ -212,7 +332,7 @@ impl std::str::FromStr for Rank {
 
         let rank_char = s.chars().next().unwrap();
         match rank_char {
-            '1'..='8' => Ok(Rank::from_unchecked((rank_char as u8 - b'1') as u8)),
+            '1'..='8' => unsafe { Ok(Rank::from_unchecked((rank_char as u8 - b'1') as u8)) },
             _ => Err(ParseRankError::InvalidChar(rank_char)),
         }
     }
@@ -222,6 +342,17 @@ impl std::str::FromStr for Square {
     type Err = ParseSquareError;
 
     /// Parses the square string into a square, with error checking
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use chess::core::{Square, ParseSquareError};
+    /// use std::str::FromStr;
+    ///
+    /// assert_eq!(Square::from_str("a1").unwrap(), Square::A1);
+    /// assert_eq!("h8".parse::<Square>().unwrap(), Square::H8);
+    /// assert!(matches!("e9".parse::<Square>(), Err(ParseSquareError::InvalidRankChar('9'))));
+    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() != 2 {
             return Err(ParseSquareError::InvalidLength(s.len()));
@@ -317,8 +448,8 @@ mod tests {
     fn test_square_conversions() {
         for file in 0..8 {
             for rank in 0..8 {
-                let f = File::from_unchecked(file);
-                let r = Rank::from_unchecked(rank);
+                let f = unsafe { File::from_unchecked(file) };
+                let r = unsafe { Rank::from_unchecked(rank) };
                 let square = Square::from_parts(f, r);
                 assert_eq!(square.file(), f);
                 assert_eq!(square.rank(), r);

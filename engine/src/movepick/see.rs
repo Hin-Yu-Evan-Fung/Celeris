@@ -1,7 +1,6 @@
 use chess::{
-    Bitboard, Colour, Move, Piece, PieceType, Square,
-    board::Board,
-    board::{bishop_attacks, rook_attacks},
+    Bitboard, Colour, Move, MoveFlag, Piece, PieceType, Square,
+    board::{Board, bishop_attacks, rook_attacks},
 };
 
 use crate::Eval;
@@ -23,7 +22,7 @@ fn move_value(board: &Board, move_: Move) -> Eval {
     let mut value = Eval::ZERO;
 
     if move_.is_capture() {
-        if move_.is_ep_capture() {
+        if move_.flag() == MoveFlag::EPCapture {
             return VALUES[PieceType::Pawn.index()];
         } else {
             value += unsafe { VALUES[board.on_unchecked(to).pt().index()] };
@@ -31,7 +30,8 @@ fn move_value(board: &Board, move_: Move) -> Eval {
     }
 
     if move_.is_promotion() {
-        value += -VALUES[moved_pt] + VALUES[move_.promotion_pt().index()];
+        // Safety: Justified as the move is a promotion.
+        value += -VALUES[moved_pt] + VALUES[unsafe { move_.promotion_pt().index() }];
     }
 
     value
@@ -66,7 +66,8 @@ pub fn see(board: &Board, move_: Move, threshold: Eval) -> bool {
     }
 
     let victim = if move_.is_promotion() {
-        move_.promotion_pt().index()
+        // Safety: Justified as the move is a promotion.
+        unsafe { move_.promotion_pt().index() }
     } else {
         unsafe { board.on_unchecked(from).pt().index() }
     };
@@ -83,7 +84,7 @@ pub fn see(board: &Board, move_: Move, threshold: Eval) -> bool {
     let mut occ = board.all_occupied_bb();
 
     occ = (occ ^ from.bb()) | to.bb();
-    if move_.is_ep_capture() {
+    if move_.flag() == MoveFlag::EPCapture {
         occ ^= board.ep_target().unwrap().bb();
     }
 

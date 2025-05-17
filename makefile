@@ -18,6 +18,9 @@ build:
 	cargo clean
 	cargo rustc --release --package engine --bin engine $(FEATURES_ARG) -- -C target-cpu=native --emit link=$(NAME)
 	
+doc:
+	cargo doc --no-deps --open
+
 dir:
 	mkdir -p $(DIR)
 

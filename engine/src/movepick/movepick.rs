@@ -14,7 +14,7 @@ pub struct MovePicker<const TACTICAL: bool> {
     tt_move: Move,
     killers: [Move; 2],
 
-    move_list: MoveList,
+    pub move_list: MoveList,
     scores: [Eval; 256],
     index: usize,
 
@@ -71,7 +71,8 @@ impl<const TACTICAL: bool> MovePicker<TACTICAL> {
             };
 
             if move_.is_promotion() {
-                score += Eval(10000 + (move_.promotion_pt() as i16) * 1000);
+                // Safety: Justified as the move is a promotion.
+                score += unsafe { Eval(10000 + (move_.promotion_pt() as i16) * 1000) };
             }
 
             self.scores[i] = score;

@@ -5,12 +5,7 @@ use chess::{
     utils::{perft_bench, perft_test},
 };
 
-use crate::{
-    eval::{calc_psqt, evaluate},
-    evaluate_nnue,
-    search::TT,
-    thread::ThreadPool,
-};
+use crate::{evaluate_nnue, search::TT, thread::ThreadPool};
 
 use super::EngineOption;
 use super::constants::*;
@@ -182,12 +177,6 @@ impl EngineController {
     }
 
     fn evaluate(&mut self) {
-        println!(
-            "PSQ: {} {}",
-            calc_psqt(&self.board).0,
-            calc_psqt(&self.board).1
-        );
-        println!("Eval:{}", evaluate(&self.board));
         println!(
             "NNUE Eval:{}",
             evaluate_nnue(&self.board, &mut self.thread_pool.main_worker.nnue)
