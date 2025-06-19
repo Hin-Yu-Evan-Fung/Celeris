@@ -17,7 +17,6 @@ use crate::core::Colour;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Piece {
     WhitePawn, BlackPawn, WhiteKnight, BlackKnight, WhiteBishop, BlackBishop, WhiteRook, BlackRook, WhiteQueen, BlackQueen, WhiteKing, BlackKing,
-    WhitePawn, BlackPawn, WhiteKnight, BlackKnight, WhiteBishop, BlackBishop, WhiteRook, BlackRook, WhiteQueen, BlackQueen, WhiteKing, BlackKing,
 }
 
 impl Piece {
@@ -25,7 +24,6 @@ impl Piece {
 }
 
 crate::impl_from_to_primitive!(Piece);
-crate::impl_enum_iter!(Piece);
 crate::impl_enum_iter!(Piece);
 
 /******************************************\
@@ -66,7 +64,7 @@ impl Piece {
     ///
     /// Returns the corresponding `PieceType` enum value.
     pub const fn pt(self) -> PieceType {
-        PieceType::from_unchecked(self as u8 >> 1)
+        unsafe { PieceType::from_unchecked(self as u8 >> 1) }
     }
     /// # Get Piece Colour
     ///
@@ -74,7 +72,7 @@ impl Piece {
     ///
     /// Returns the corresponding `Colour` enum value.
     pub const fn colour(self) -> Colour {
-        Colour::from_unchecked(self as u8 & 1)
+        unsafe { Colour::from_unchecked(self as u8 & 1) }
     }
 
     /// # Create Piece from Colour and Type
@@ -85,7 +83,7 @@ impl Piece {
     /// assert_eq!(Piece::from_parts(Colour::Black, PieceType::King), Piece::BlackKing);
     /// ```
     pub const fn from_parts(colour: Colour, piece_type: PieceType) -> Self {
-        Piece::from_unchecked(colour as u8 | (piece_type as u8) << 1)
+        unsafe { Piece::from_unchecked(colour as u8 | (piece_type as u8) << 1) }
     }
 }
 
@@ -106,11 +104,6 @@ impl std::fmt::Display for Piece {
 
 impl std::fmt::Display for PieceType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let piece_char = PIECE_STR
-            .chars()
-            .nth(self.index() << 1)
-            .unwrap()
-            .to_ascii_lowercase();
         let piece_char = PIECE_STR
             .chars()
             .nth(self.index() << 1)
