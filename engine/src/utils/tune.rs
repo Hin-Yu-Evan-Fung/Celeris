@@ -1,4 +1,3 @@
-// https://github.com/AndyGrant/OpenBench/wiki/SPSA-Tuning-Workloads
 #[macro_export]
 macro_rules! init_tunables {
     ($($name:ident: $t:ty = $val:expr, $min:expr, $max:expr, $step:expr;)*) => {

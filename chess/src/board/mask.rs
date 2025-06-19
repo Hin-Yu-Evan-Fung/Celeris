@@ -11,6 +11,35 @@ use super::Board;
 use super::movegen::*;
 use crate::core::*; // Assuming movegen functions like pawn_attack_span, leaper_attack, attacks,us,  pin_bb are here
 
+
+/******************************************\
+|==========================================|
+|              Castling Mask               |
+|==========================================|
+\******************************************/
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct CastlingMask {
+    pub castling: [Castling; Square::NUM],
+
+    pub rook_sq: [Option<Square>; 4],
+}
+
+impl Default for CastlingMask {
+    fn default() -> Self {
+        Self {
+            castling: [Castling::ALL; Square::NUM],
+            rook_sq: [None, None, None, None],
+        }
+    }
+}
+
+/******************************************\
+|==========================================|
+|               Update Masks               |
+|==========================================|
+\******************************************/
+
 impl Board {
     /// Helper function to get a bitboard of bishops and queens for a given colour.
     ///
