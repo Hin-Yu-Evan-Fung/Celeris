@@ -88,33 +88,15 @@ use crate::core::Colour;
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Piece {
-    WhitePawn, WhiteKnight, WhiteBishop, WhiteRook, WhiteQueen, WhiteKing, BlackPawn = 8, BlackKnight, BlackBishop, BlackRook, BlackQueen, BlackKing,
+    WhitePawn, BlackPawn, WhiteKnight, BlackKnight, WhiteBishop, BlackBishop, WhiteRook, BlackRook, WhiteQueen, BlackQueen, WhiteKing, BlackKing,
 }
 
 impl Piece {
-    pub const NUM: usize = 14;
-
-    pub fn iter() -> impl DoubleEndedIterator<Item = Piece> {
-        use Piece::*;
-        [
-            WhitePawn,
-            WhiteKnight,
-            WhiteBishop,
-            WhiteRook,
-            WhiteQueen,
-            WhiteKing,
-            BlackPawn,
-            BlackKnight,
-            BlackBishop,
-            BlackRook,
-            BlackQueen,
-            BlackKing,
-        ]
-        .into_iter()
-    }
+    pub const NUM: usize = 12;
 }
 
 crate::impl_from_to_primitive!(Piece);
+crate::impl_enum_iter!(Piece);
 
 /******************************************\
 |==========================================|
@@ -181,17 +163,16 @@ impl Piece {
     /// Extracts the piece type from a piece by masking out the colour bit.
     ///
     /// Returns the corresponding `PieceType` enum value.
-    pub const fn pt(&self) -> PieceType {
-        PieceType::from_unchecked((*self as u8) & 0b111)
+    pub const fn pt(self) -> PieceType {
+        PieceType::from_unchecked(self as u8 >> 1)
     }
-
     /// # Get Piece Colour
     ///
     /// Extracts the colour from a piece by checking the colour bit.
     ///
     /// Returns the corresponding `Colour` enum value.
-    pub const fn colour(&self) -> Colour {
-        Colour::from_unchecked((*self as u8) >> 3)
+    pub const fn colour(self) -> Colour {
+        Colour::from_unchecked(self as u8 & 1)
     }
 
     /// # Create Piece from Colour and Type
@@ -200,7 +181,7 @@ impl Piece {
     ///
     /// This encodes the colour in bit 4 and the piece type in bits 1-3.
     pub const fn from_parts(colour: Colour, piece_type: PieceType) -> Self {
-        Piece::from_unchecked((colour as u8) << 3 | piece_type as u8)
+        Piece::from_unchecked(colour as u8 | (piece_type as u8) << 1)
     }
 }
 
@@ -210,7 +191,7 @@ impl Piece {
 |==========================================|
 \******************************************/
 
-const PIECE_STR: &str = "PNBRQK  pnbrqk";
+const PIECE_STR: &str = "PpNnBbRrQqKk";
 
 /// Display function for piece types
 impl std::fmt::Display for Piece {
@@ -223,7 +204,11 @@ impl std::fmt::Display for Piece {
 /// Display function for piece types
 impl std::fmt::Display for PieceType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let piece_char = PIECE_STR.chars().nth(8 + self.index()).unwrap();
+        let piece_char = PIECE_STR
+            .chars()
+            .nth(self.index() << 1)
+            .unwrap()
+            .to_ascii_lowercase();
         write!(f, "{}", piece_char)
     }
 }
@@ -408,24 +393,6 @@ mod tests {
             Piece::from_parts(Colour::Black, PieceType::King),
             Piece::BlackKing
         );
-    }
-
-    #[test]
-    fn test_piece_from_numeric_value() {
-        // Test piece from numeric value
-        assert_eq!(Piece::from_unchecked(0), Piece::WhitePawn);
-        assert_eq!(Piece::from_unchecked(1), Piece::WhiteKnight);
-        assert_eq!(Piece::from_unchecked(2), Piece::WhiteBishop);
-        assert_eq!(Piece::from_unchecked(3), Piece::WhiteRook);
-        assert_eq!(Piece::from_unchecked(4), Piece::WhiteQueen);
-        assert_eq!(Piece::from_unchecked(5), Piece::WhiteKing);
-
-        assert_eq!(Piece::from_unchecked(8), Piece::BlackPawn);
-        assert_eq!(Piece::from_unchecked(9), Piece::BlackKnight);
-        assert_eq!(Piece::from_unchecked(10), Piece::BlackBishop);
-        assert_eq!(Piece::from_unchecked(11), Piece::BlackRook);
-        assert_eq!(Piece::from_unchecked(12), Piece::BlackQueen);
-        assert_eq!(Piece::from_unchecked(13), Piece::BlackKing);
     }
 
     #[test]
