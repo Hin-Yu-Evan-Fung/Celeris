@@ -1,10 +1,11 @@
+use chess::utils::perft_bench;
 #[cfg(feature = "tune")]
 use engine::tunables::spsa_output_txt;
 
 use engine::{UCI, run_bench};
 use std::env::args;
 
-const DEFAULT_CMD_BENCH_DEPTH: usize = 13;
+const DEFAULT_CMD_BENCH_DEPTH: usize = 6;
 
 fn main() {
     let mut cli_args = args();
@@ -30,6 +31,10 @@ fn main() {
             } else {
                 run_bench(depth);
             }
+        }
+
+        Some("test") => {
+            perft_bench();
         }
         _ => UCI::init(),
     }
