@@ -1,6 +1,12 @@
 use chess::{Colour, Move, Piece, Square, board::Board};
 
-use crate::eval::Eval;
+use crate::{constants::MAX_MAIN_HISTORY, eval::Eval};
+
+/******************************************\
+|==========================================|
+|              Killer Moves                |
+|==========================================|
+\******************************************/
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct KillerEntry {
@@ -24,6 +30,12 @@ impl KillerEntry {
     }
 }
 
+/******************************************\
+|==========================================|
+|              History Entry               |
+|==========================================|
+\******************************************/
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct HistoryEntry<const MAX: i16> {
     entry: Eval,
@@ -44,12 +56,16 @@ impl<const MAX: i16> HistoryEntry<MAX> {
     /// - Keeps the history values clamped between MAX and -MAX
     pub fn update(&mut self, bonus: i16) {
         let bonus = bonus.clamp(-MAX, MAX);
-        let product = self.entry.0 as i64 * bonus.abs() as i64 / MAX as i64;
+        let product = self.entry.0 as i32 * bonus.abs() as i32 / MAX as i32;
         self.entry += Eval(bonus - product as i16);
     }
 }
 
-pub const MAX_MAIN_HISTORY: i16 = 16384;
+/******************************************\
+|==========================================|
+|              History Trait               |
+|==========================================|
+\******************************************/
 
 pub trait History<const MAX: i16> {
     /// Returns an immutable reference to the history entry.
@@ -79,18 +95,74 @@ pub trait History<const MAX: i16> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct MainHistory {
-    history: [[[HistoryEntry<MAX_MAIN_HISTORY>; Square::NUM]; Piece::NUM]; Colour::NUM],
+/******************************************\
+|==========================================|
+|               History Macro              |
+|==========================================|
+\******************************************/
+
+macro_rules! define_history {
+    ($name:ident, $max:ident, [$($dims:expr),+], [$($idx:ident),+]) => {
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            history: define_nd_array_struct!(@array $max, [$($dims),+]),
+        }
+
+        impl Default for $name {
+            fn default() -> Self {
+                Self {
+                    history: define_nd_array_struct!(@default $max, [$($dims),+]),
+                }
+            }
+        }
+
+        impl History<$max> for $name {
+            fn get_entry_ref(&self, board: &Board, move_: Move) -> &HistoryEntry<$max> {
+                let ($($idx),+)= Self::get_indices(board, move_);
+                &self.history$([$idx])+
+            }
+            fn probe_mut(
+                &mut self,
+                board: &Board,
+                move_: Move,
+            ) -> &mut HistoryEntry<$max> {
+                let ($($idx),+) = Self::get_indices(board, move_);
+                &mut self.history$([$idx])+
+            }
+        }
+    };
 }
 
-impl Default for MainHistory {
-    fn default() -> Self {
-        Self {
-            history: [[[HistoryEntry::default(); Square::NUM]; Piece::NUM]; Colour::NUM],
-        }
-    }
+macro_rules! define_nd_array_struct {
+    // Recursive array type constructor
+    (@array $max:ident, [$dim:expr]) => {
+        [HistoryEntry<$max>; $dim]
+    };
+    (@array $max:ident, [$dim:expr, $($rest:expr),+]) => {
+        [define_nd_array_struct!(@array $max, [$($rest),+]); $dim]
+    };
+
+    // Recursive default initialiser
+    (@default $max:ident, [$dim:expr]) => {
+        [HistoryEntry::<$max>::default(); $dim]
+    };
+    (@default $max:ident, [$dim:expr, $($rest:expr),+]) => {
+        [define_nd_array_struct!(@default $max, [$($rest),+]); $dim]
+    };
 }
+
+/******************************************\
+|==========================================|
+|               Main History               |
+|==========================================|
+\******************************************/
+
+define_history!(
+    MainHistory,
+    MAX_MAIN_HISTORY,
+    [Colour::NUM, Piece::NUM, Square::NUM],
+    [colour, piece, square]
+);
 
 impl MainHistory {
     /// Helper function to get the indices for the history table.
@@ -106,13 +178,31 @@ impl MainHistory {
     }
 }
 
-impl History<MAX_MAIN_HISTORY> for MainHistory {
-    fn get_entry_ref(&self, board: &Board, move_: Move) -> &HistoryEntry<MAX_MAIN_HISTORY> {
-        let (c, p, sq) = Self::get_indices(board, move_);
-        &self.history[c][p][sq]
-    }
-    fn probe_mut(&mut self, board: &Board, move_: Move) -> &mut HistoryEntry<MAX_MAIN_HISTORY> {
-        let (c, p, sq) = Self::get_indices(board, move_);
-        &mut self.history[c][p][sq]
+/******************************************\
+|==========================================|
+|              Capture History             |
+|==========================================|
+\******************************************/
+
+define_history!(
+    CaptureHistory,
+    MAX_MAIN_HISTORY,
+    [Colour::NUM, Piece::NUM, Square::NUM, Piece::NUM],
+    [colour, moved_piece, square, captured_piece]
+);
+
+impl CaptureHistory {
+    /// Helper function to get the indices for the history table.
+    #[inline(always)]
+    fn get_indices(board: &Board, move_: Move) -> (usize, usize, usize, usize) {
+        // Safety: Assumes the 'from' square is occupied, which should be true for valid moves.
+        let moved_piece = unsafe { board.on_unchecked(move_.from()) };
+        let captured_piece = unsafe { board.on_unchecked(move_.to()) };
+        (
+            board.stm().index(),
+            moved_piece.index(),
+            move_.to().index(),
+            captured_piece.index(),
+        )
     }
 }
