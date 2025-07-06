@@ -1,7 +1,10 @@
 use chess::Move;
 
 use crate::{
-    MoveBuffer, SearchWorker, constants::MAX_DEPTH, eval::Eval, movepick::MovePicker,
+    MoveBuffer, SearchStackEntry, SearchWorker,
+    constants::{CONT_HIST_SIZE, MAX_DEPTH},
+    eval::Eval,
+    movepick::MovePicker,
     search::PVLine,
 };
 
@@ -27,20 +30,46 @@ impl SearchWorker {
     }
 
     fn search_position(&mut self, tt: &TT) {
-        let alpha = -Eval::INFINITY;
-        let beta = Eval::INFINITY;
+        let mut alpha = -Eval::INFINITY;
+        let mut beta = Eval::INFINITY;
+        let mut delta = Eval(20);
 
-        let mut pv = PVLine::default();
+        let mut search_depth = self.depth + 1;
+        let full_depth = self.depth + 1;
 
-        let eval = self.negamax::<Root>(tt, &mut pv, alpha, beta, self.depth + 1);
-
-        if self.stop {
-            return;
+        if search_depth >= 4 {
+            alpha = (self.eval - delta).max(-Eval::INFINITY);
+            beta = (self.eval + delta).min(Eval::INFINITY);
         }
 
-        self.eval = eval;
+        loop {
+            let mut pv = PVLine::default();
 
-        self.pv = pv;
+            let eval = self.negamax::<Root>(tt, &mut pv, alpha, beta, search_depth);
+
+            if self.stop {
+                return;
+            }
+
+            if eval <= alpha {
+                beta = (alpha + beta) / Eval(2);
+                alpha = (eval - delta).max(-Eval::INFINITY);
+                search_depth = full_depth;
+            } else if eval >= beta {
+                beta = (eval + delta).min(Eval::INFINITY);
+                self.pv = pv.clone();
+
+                if search_depth > 1 && eval.abs() <= Eval::MATE_BOUND {
+                    search_depth -= 1;
+                }
+            } else {
+                self.eval = eval;
+                self.pv = pv;
+                break;
+            }
+
+            delta += delta / Eval(2);
+        }
     }
 
     fn negamax<NT: NodeType>(
@@ -51,8 +80,6 @@ impl SearchWorker {
         mut beta: Eval,
         mut depth: usize,
     ) -> Eval {
-        let us = self.board.stm();
-
         pv.clear();
 
         if self.should_stop_search() {
@@ -152,14 +179,17 @@ impl SearchWorker {
         let mut move_count = 0;
 
         // Clear child killer moves
-        self.stack[(self.ply + 2) as usize].killers.clear();
+        self.ss_look_ahead(2).killers.clear();
         // Get killer moves
         let killers = self.ss().killers.get();
+
+        // Create search stack buffer for continuation history lookup
+        let ss_buffer = [self.ss_at(1), self.ss_at(2)];
         // Initialise move picker
-        let mut move_picker = MovePicker::<false>::new(&self.board, tt_move, killers);
+        let mut mp = MovePicker::<false>::new(&self.board, tt_move, killers);
 
         // --- Main Loop ---
-        while let Some(move_) = move_picker.next(&self.board, &self.stats) {
+        while let Some(move_) = mp.next(&self.board, &self.stats, &ss_buffer) {
             // Update number of moves searched in this node
             move_count += 1;
             // Make move and update ply, node counters, prefetch hash entry, etc...
@@ -240,6 +270,10 @@ impl SearchWorker {
                     // We found a new best move sequence overall.
                     best_move = move_; // Update the best move.
 
+                    if NT::PV {
+                        pv.update_line(move_, &child_pv); // Update the Principal Variation (best move sequence).
+                    }
+
                     // Beta Cutoff (Fail-High): Check if our guaranteed score (`alpha`)
                     // meets or exceeds the opponent's limit (`beta`).
                     // This move is "too good". The opponent (at a higher node)
@@ -250,9 +284,6 @@ impl SearchWorker {
                     }
 
                     alpha = value; // Update alpha: Raise the lower bound of our guaranteed score.
-                    if NT::PV {
-                        pv.update_line(move_, &child_pv); // Update the Principal Variation (best move sequence).
-                    }
                 }
             }
 

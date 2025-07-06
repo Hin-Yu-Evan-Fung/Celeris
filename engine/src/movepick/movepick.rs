@@ -3,9 +3,15 @@ use chess::{
     board::{Board, CaptureGen, MoveList, QuietGen},
 };
 
-use crate::{constants::MVV, eval::Eval, search::SearchStats};
+use crate::{
+    SearchStackEntry,
+    constants::{CONT_HIST_SIZE, MVV},
+    eval::Eval,
+    movepick::history::Interface,
+    search::SearchStats,
+};
 
-use super::{History, MoveStage, see::see};
+use super::{Entry, MoveStage, see::see};
 
 pub struct MovePicker<const TACTICAL: bool> {
     pub stage: MoveStage,
@@ -17,15 +23,15 @@ pub struct MovePicker<const TACTICAL: bool> {
 
     // Scored move list items
     move_list: MoveList,
-    scores: [Eval; 256],
+    scores: [i32; 256],
     index: usize,
 
     quiet_start: usize,
     bad_cap_start: usize,
 }
 
-fn captured_value(captured: PieceType) -> Eval {
-    Eval(MVV[captured.index()])
+fn captured_value(captured: PieceType) -> i32 {
+    MVV[captured.index()]
 }
 
 impl<const TACTICAL: bool> MovePicker<TACTICAL> {
@@ -52,7 +58,7 @@ impl<const TACTICAL: bool> MovePicker<TACTICAL> {
             tt_move,
             killers,
             move_list: MoveList::new(),
-            scores: [Eval::ZERO; 256],
+            scores: [0; 256],
             index: 0,
             quiet_start: 0,
             bad_cap_start: 0,
@@ -74,7 +80,7 @@ impl<const TACTICAL: bool> MovePicker<TACTICAL> {
                 _ => unsafe { board.on_unchecked(move_.to()).pt() },
             };
 
-            let mut score = captured_value(captured) + stats.cht.get(board, move_);
+            let mut score = captured_value(captured) + stats.cht.get(board, move_).0 as i32;
 
             if move_.is_promotion() {
                 score += captured_value(unsafe { move_.promotion_pt() });
@@ -92,18 +98,33 @@ impl<const TACTICAL: bool> MovePicker<TACTICAL> {
         self.bad_cap_start = next_good_cap;
     }
 
-    fn score_quiets(&mut self, board: &Board, stats: &SearchStats) {
+    fn score_quiets(
+        &mut self,
+        board: &Board,
+        stats: &SearchStats,
+        ss_buffer: &[SearchStackEntry; CONT_HIST_SIZE],
+    ) {
         for i in self.quiet_start..self.move_list.len() {
             let move_ = self.move_list[i];
 
-            self.scores[i] = stats.ht.get(board, move_);
+            self.scores[i] = stats.ht.get(board, move_).0 as i32;
+
+            for i in 0..CONT_HIST_SIZE {
+                let (piece, to) = ss_buffer[i].piece_to();
+                self.scores[i] += stats.ct.get_entry_ref(piece, to).get(board, move_).0 as i32;
+            }
         }
     }
 
-    fn gen_quiets(&mut self, board: &Board, stats: &SearchStats) {
+    fn gen_quiets(
+        &mut self,
+        board: &Board,
+        stats: &SearchStats,
+        ss_buffer: &[SearchStackEntry; CONT_HIST_SIZE],
+    ) {
         board.generate_moves::<QuietGen>(&mut self.move_list);
 
-        self.score_quiets(board, stats);
+        self.score_quiets(board, stats, ss_buffer);
         self.partial_sort(self.quiet_start, self.move_list.len());
     }
 
@@ -154,7 +175,12 @@ impl<const TACTICAL: bool> MovePicker<TACTICAL> {
         found.map(|(_, m)| *m) // Return the move itself if found
     }
 
-    pub fn next(&mut self, board: &Board, stats: &SearchStats) -> Option<Move> {
+    pub(crate) fn next(
+        &mut self,
+        board: &Board,
+        stats: &SearchStats,
+        ss_buffer: &[SearchStackEntry; CONT_HIST_SIZE],
+    ) -> Option<Move> {
         let killers = self.killers;
         let cap_pred = |_| true;
         let quiet_pred = |move_: Move| move_ != killers[0] && move_ != killers[1];
@@ -165,13 +191,13 @@ impl<const TACTICAL: bool> MovePicker<TACTICAL> {
                 if self.tt_move.is_valid() {
                     Some(self.tt_move)
                 } else {
-                    self.next(board, stats)
+                    self.next(board, stats, ss_buffer)
                 }
             }
             MoveStage::GenCaptures => {
                 self.stage = MoveStage::GoodCaptures;
                 self.gen_captures(board, stats);
-                self.next(board, stats)
+                self.next(board, stats, ss_buffer)
             }
             MoveStage::GoodCaptures => {
                 if let Some(move_) = self.next_best(self.bad_cap_start, cap_pred) {
@@ -183,7 +209,7 @@ impl<const TACTICAL: bool> MovePicker<TACTICAL> {
                     } else {
                         MoveStage::Killer1
                     };
-                    self.next(board, stats)
+                    self.next(board, stats, ss_buffer)
                 }
             }
             MoveStage::Killer1 => {
@@ -194,7 +220,7 @@ impl<const TACTICAL: bool> MovePicker<TACTICAL> {
                 {
                     Some(self.killers[0])
                 } else {
-                    self.next(board, stats)
+                    self.next(board, stats, ss_buffer)
                 }
             }
             MoveStage::Killer2 => {
@@ -205,15 +231,20 @@ impl<const TACTICAL: bool> MovePicker<TACTICAL> {
                 {
                     Some(self.killers[1])
                 } else {
-                    self.next(board, stats)
+                    self.next(board, stats, ss_buffer)
                 }
             }
             MoveStage::GenQuiets => {
-                self.gen_quiets(board, stats);
+                if !self.skip_quiets {
+                    self.gen_quiets(board, stats, ss_buffer);
 
-                self.stage = MoveStage::Quiets;
-                self.index = self.quiet_start;
-                self.next(board, stats)
+                    self.stage = MoveStage::Quiets;
+                    self.index = self.quiet_start;
+                } else {
+                    self.stage = MoveStage::BadCaptures;
+                    self.index = self.bad_cap_start;
+                }
+                self.next(board, stats, ss_buffer)
             }
             MoveStage::Quiets => {
                 let next_best = self.next_best(self.move_list.len(), quiet_pred);
@@ -222,7 +253,7 @@ impl<const TACTICAL: bool> MovePicker<TACTICAL> {
                 } else {
                     self.stage = MoveStage::BadCaptures;
                     self.index = self.bad_cap_start;
-                    self.next(board, stats)
+                    self.next(board, stats, ss_buffer)
                 }
             }
             MoveStage::BadCaptures => {
@@ -297,9 +328,11 @@ mod tests {
             MovePicker::<false>::new(&board, Move::NONE, [Move::NONE, Move::NONE]);
         let search_stats = SearchStats::default();
 
+        let ss_buffer = [SearchStackEntry::default(); CONT_HIST_SIZE];
+
         let mut nodes = 0;
 
-        while let Some(move_) = move_picker.next(board, &search_stats) {
+        while let Some(move_) = move_picker.next(board, &search_stats, &ss_buffer) {
             board.make_move(move_);
             nodes += perft(board, depth - 1);
             board.undo_move(move_);

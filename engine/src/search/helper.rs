@@ -17,6 +17,7 @@ pub(crate) fn nmp_reduction(depth: usize) -> usize {
 }
 
 pub(crate) fn can_use_tt_value(tt_bound: TTBound, tt_value: Eval, alpha: Eval, beta: Eval) -> bool {
+    tt_value.is_valid() &&
     match tt_bound {
         // If the current node has already been searched to a higher depth, then the tt_value will be a better score.
         TTBound::Exact => true,
@@ -30,9 +31,5 @@ pub(crate) fn can_use_tt_value(tt_bound: TTBound, tt_value: Eval, alpha: Eval, b
 }
 
 pub(crate) fn calculate_bonus(depth: usize) -> i16 {
-    if depth > 13 {
-        (16 * depth * depth + 128 * (depth - 1).max(0)) as i16
-    } else {
-        32
-    }
+    (350 * (depth.saturating_sub(1))).min(1600) as i16
 }
