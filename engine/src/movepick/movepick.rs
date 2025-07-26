@@ -11,7 +11,7 @@ use crate::{
     search::SearchStats,
 };
 
-use super::{Entry, MoveStage, see::see};
+use super::{MoveStage, see::see};
 
 pub struct MovePicker<const TACTICAL: bool> {
     pub stage: MoveStage,
@@ -19,7 +19,6 @@ pub struct MovePicker<const TACTICAL: bool> {
 
     tt_move: Move,
     killers: [Move; 2],
-    // list: ScoredMoveList,
 
     // Scored move list items
     move_list: MoveList,

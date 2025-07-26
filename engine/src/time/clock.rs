@@ -8,9 +8,7 @@ use std::{
 
 use chess::{Colour, Move, Square};
 
-use crate::{Depth, engine::TimeControl};
-
-use super::MIN_DEPTH;
+use crate::{Depth, constants::MIN_DEPTH, time::TimeControl};
 
 #[derive(Clone, Debug)]
 pub struct Clock {

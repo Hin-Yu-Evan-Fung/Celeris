@@ -6,18 +6,18 @@ use chess::{
 };
 
 // Import local modules (evaluation, threading, transposition table).
-use crate::{evaluate_nnue, search::TT, thread::ThreadPool};
+use crate::{evaluate_nnue, search::TT, thread::ThreadPool, time::TimeControl};
 
 use super::EngineOption;
 use super::constants::*;
 #[cfg(feature = "tune")]
 use super::tunables::{set_tunable, spsa_output_opts};
-use super::{Command, TimeControl};
+use crate::cli::Command;
 
 /// The core engine controller that manages the board state, search threads, and handles commands.
 ///
 /// This struct runs in a dedicated thread and receives commands via a channel.
-pub(super) struct EngineController {
+pub(crate) struct EngineController {
     /// Flag indicating whether debug information should be printed.
     is_debug: bool,
     /// The current state of the chess board.
