@@ -4,7 +4,7 @@ A fast chess engine with nnue trained by TheGogy
 
 ## Huge thanks to TheGogy for contributing to this project!
 
-### About 3400 - 3500 Elo
+### About 3000 Elo
 
 ### Move generation
 * Magic Bitboards ([wiki](https://www.chessprogramming.org/Magic_Bitboards))
