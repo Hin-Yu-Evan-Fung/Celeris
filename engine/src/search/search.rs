@@ -6,6 +6,7 @@ use crate::{
     eval::Eval,
     movepick::MovePicker,
     search::PVLine,
+    tunables::{lmr_base_cap, lmr_hist_cap, lmr_hist_quiet},
     utils::MoveBuffer,
 };
 
@@ -340,10 +341,10 @@ impl SearchWorker {
                     // Reduce for killers and counters
                     r -= (mp.stage <= MoveStage::GenQuiets) as Depth;
                     // Adjust based on hist score (If the hist is good, increase search depth)
-                    r -= (hist / threshold).0 as Depth;
+                    r -= (hist / Eval(lmr_hist_quiet())).0 as Depth;
                 // Different logic for capture moves
                 } else {
-                    r = 2 - (hist / threshold).0 as Depth;
+                    r = lmr_base_cap() - (hist / Eval(lmr_hist_cap())).0 as Depth;
                     // Reduce for moves that give check (Tactical)
                     r -= gives_check as Depth;
                 }

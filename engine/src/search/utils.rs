@@ -11,10 +11,10 @@ pub(crate) fn lmr_base_reduction(depth: Depth, move_count: usize) -> Depth {
         return 0;
     }
 
-    let lmr_base = lmr_base() as f32 / 1024.0;
+    let lmr_base = lmr_base_quiet() as f32 / 1024.0;
     let lmr_mult = lmr_mult() as f32 / 1024.0;
 
-    (lmr_base + (depth as f32).ln() * (move_count as f32).ln() / lmr_mult) as i16
+    (lmr_base + (depth as f32).ln() * (move_count as f32).ln() / lmr_mult) as Depth
 }
 
 pub(crate) fn nmp_reduction(depth: Depth) -> Depth {
@@ -164,7 +164,7 @@ impl SearchWorker {
     }
 
     pub(super) fn can_do_lmr(&self, depth: Depth, move_count: usize, is_pv: bool) -> bool {
-        depth >= 2 && move_count > 3 + is_pv as usize
+        depth >= lmr_depth() && move_count as i32 > lmr_move_count() + is_pv as i32
     }
 
     pub(super) fn can_do_see_prune(
