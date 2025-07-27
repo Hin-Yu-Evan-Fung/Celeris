@@ -11,10 +11,10 @@ pub(crate) fn lmr_base_reduction(depth: Depth, move_count: usize) -> Depth {
         return 0;
     }
 
-    let lmr_base = lmr_base() as f32 / 1024.0;
+    let lmr_base = lmr_base_quiet() as f32 / 1024.0;
     let lmr_mult = lmr_mult() as f32 / 1024.0;
 
-    (lmr_base + (depth as f32).ln() * (move_count as f32).ln() / lmr_mult) as i16
+    (lmr_base + (depth as f32).ln() * (move_count as f32).ln() / lmr_mult) as Depth
 }
 
 pub(crate) fn nmp_reduction(depth: Depth) -> Depth {
@@ -36,7 +36,7 @@ pub(crate) fn can_use_tt_value(tt_bound: TTBound, tt_value: Eval, alpha: Eval, b
 }
 
 pub(crate) fn calculate_bonus(depth: Depth) -> i16 {
-    (350 * (depth.saturating_sub(1))).min(1600) as i16
+    (hist_mult() * (depth.saturating_sub(1))).min(hist_base()) as i16
 }
 
 impl SearchWorker {
@@ -164,7 +164,7 @@ impl SearchWorker {
     }
 
     pub(super) fn can_do_lmr(&self, depth: Depth, move_count: usize, is_pv: bool) -> bool {
-        depth >= 2 && move_count > 3 + is_pv as usize
+        depth >= lmr_depth() && move_count as i32 > lmr_move_count() + is_pv as i32
     }
 
     pub(super) fn can_do_see_prune(
@@ -200,5 +200,22 @@ impl SearchWorker {
             && !tt_value.is_terminal()
             && tt_depth >= depth - 3
             && matches!(tt_bound, TTBound::Lower | TTBound::Exact)
+    }
+
+    pub(super) fn hist_score(&self, move_: Move) -> Eval {
+        if !move_.is_capture() {
+            let mut score = self.stats.ht.get(&self.board, move_);
+
+            for offset in 0..CONT_HIST_SIZE as i8 {
+                if self.ss_at(offset).curr_move.is_valid() {
+                    let (piece, to) = self.piece_to_at(offset);
+                    score += self.stats.ct.get(piece, to).get(&self.board, move_);
+                }
+            }
+
+            score
+        } else {
+            self.stats.cht.get(&self.board, move_)
+        }
     }
 }

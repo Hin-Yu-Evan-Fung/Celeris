@@ -1,8 +1,13 @@
 use chess::{Move, PieceType};
 
 use crate::{
-    Depth, MoveStage, PV, SearchWorker, constants::MAX_DEPTH, eval::Eval, movepick::MovePicker,
-    search::PVLine, utils::MoveBuffer,
+    Depth, MoveStage, PV, SearchWorker,
+    constants::{MAX_DEPTH, MAX_MAIN_HISTORY},
+    eval::Eval,
+    movepick::MovePicker,
+    search::PVLine,
+    tunables::{lmr_base_cap, lmr_hist_cap, lmr_hist_quiet},
+    utils::MoveBuffer,
 };
 
 use super::{NodeType, NonPV, Root, TT, tt::TTBound, utils::*};
@@ -237,6 +242,8 @@ impl SearchWorker {
             let is_promotion = move_.is_promotion();
             let moved_piece = unsafe { self.ss_at(0).moved.unwrap_unchecked() };
             let gives_check = self.board.in_check();
+            let hist = self.hist_score(move_);
+            let threshold = Eval(MAX_MAIN_HISTORY as i32 / 2);
             // New depth
             let mut new_depth = depth.max(1) - 1;
 
@@ -333,13 +340,15 @@ impl SearchWorker {
                     r += (in_check && moved_piece.pt() == PieceType::King) as Depth;
                     // Reduce for killers and counters
                     r -= (mp.stage <= MoveStage::GenQuiets) as Depth;
+                    // Adjust based on hist score (If the hist is good, increase search depth)
+                    r -= (hist / Eval(lmr_hist_quiet())).0 as Depth;
                 // Different logic for capture moves
                 } else {
-                    r = 1;
+                    r = lmr_base_cap() - (hist / Eval(lmr_hist_cap())).0 as Depth;
                     // Reduce for moves that give check (Tactical)
                     r -= gives_check as Depth;
                 }
-
+                // Make sure we don't go straight into quiescence search or have no reductions
                 r = r.clamp(1, depth - 1);
 
                 value = -self.nw_search(tt, &mut child_pv, -alpha - Eval(1), new_depth - r, true);
