@@ -36,8 +36,13 @@ init_tunables! {
     // value: type = val, min, max, step;
 
     // Late Move Reduction
-    lmr_base: i16 = 768, 500, 2000, 100;
-    lmr_mult: i16 = 2048, 1500, 4000, 100;
+    lmr_base_quiet: i32 = 768, 500, 2000, 100;
+    lmr_base_cap: i16 = 3, 1, 5, 1;
+    lmr_mult: i32 = 2048, 1500, 4000, 100;
+    lmr_depth: i16 = 2, 2, 5, 1;
+    lmr_move_count: i32 = 3, 1, 5, 1;
+    lmr_hist_quiet: i32 = 8000, 5000, 10000, 100;
+    lmr_hist_cap: i32 = 5000, 3000, 8000, 100;
 
     // Null Move Pruning
     nmp_min: i16 = 4, 2, 6, 1;
