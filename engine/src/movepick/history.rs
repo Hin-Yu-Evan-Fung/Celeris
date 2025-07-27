@@ -259,7 +259,7 @@ impl Interface<ContinuationEntry> for Continuation {}
 define_history!(ContinuationTable, Continuation, [Square::NUM, Piece::NUM]);
 
 impl ContinuationTable {
-    pub fn get_entry_ref(&self, piece: Piece, to: Square) -> &Continuation {
+    pub fn get(&self, piece: Piece, to: Square) -> &Continuation {
         &self.history[to.index()][piece.index()]
     }
 

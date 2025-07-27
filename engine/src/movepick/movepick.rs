@@ -110,7 +110,7 @@ impl<const TACTICAL: bool> MovePicker<TACTICAL> {
 
             for i in 0..CONT_HIST_SIZE {
                 let (piece, to) = ss_buffer[i].piece_to();
-                self.scores[i] += stats.ct.get_entry_ref(piece, to).get(board, move_).0 as i32;
+                self.scores[i] += stats.ct.get(piece, to).get(board, move_).0 as i32;
             }
         }
     }
