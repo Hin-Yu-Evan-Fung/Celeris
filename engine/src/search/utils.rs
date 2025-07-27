@@ -201,4 +201,21 @@ impl SearchWorker {
             && tt_depth >= depth - 3
             && matches!(tt_bound, TTBound::Lower | TTBound::Exact)
     }
+
+    pub(super) fn hist_score(&self, move_: Move) -> Eval {
+        if !move_.is_capture() {
+            let mut score = self.stats.ht.get(&self.board, move_);
+
+            for offset in 0..CONT_HIST_SIZE as i8 {
+                if self.ss_at(offset).curr_move.is_valid() {
+                    let (piece, to) = self.piece_to_at(offset);
+                    score += self.stats.ct.get(piece, to).get(&self.board, move_);
+                }
+            }
+
+            score
+        } else {
+            self.stats.cht.get(&self.board, move_)
+        }
+    }
 }
