@@ -78,11 +78,12 @@ impl std::fmt::Display for Eval {
         if self.0.abs() >= Self::MATE_BOUND.0 {
             let moves_to_mate = (Self::MATE.0 - self.0.abs() + 1) / 2;
             if self.0 > 0 {
-                write!(f, "mate +{}", moves_to_mate)
+                write!(f, "mate {}", moves_to_mate)
             } else {
                 write!(f, "mate -{}", moves_to_mate)
             }
         } else {
+            // let normalised = self.0 / 2;
             write!(f, "cp {}", self.0)
         }
     }
