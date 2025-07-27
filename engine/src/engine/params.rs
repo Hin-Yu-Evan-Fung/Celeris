@@ -10,7 +10,7 @@ pub mod constants {
     use crate::Depth;
 
     pub const NAME: &str = "Celeris";
-    pub const VERSION: &str = "0.0.1";
+    pub const VERSION: &str = "2.0";
     pub const AUTHORS: &str = "0mn1verze, TheGogy";
 
     // Default configuration values.
