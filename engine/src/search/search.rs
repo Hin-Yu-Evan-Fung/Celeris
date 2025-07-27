@@ -141,7 +141,7 @@ impl SearchWorker {
         let mut tt_move = Move::NONE;
         let mut tt_capture = false;
         let mut tt_bound: TTBound = TTBound::None;
-        let mut tt_depth: Depth = 0;
+        let mut tt_depth: Depth = -1;
         let mut tt_value: Eval = Eval::ZERO;
         // --- Hash Table Cut ---
         // If a previously stored value can be trusted (higher depth),
