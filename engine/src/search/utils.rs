@@ -36,7 +36,7 @@ pub(crate) fn can_use_tt_value(tt_bound: TTBound, tt_value: Eval, alpha: Eval, b
 }
 
 pub(crate) fn calculate_bonus(depth: Depth) -> i16 {
-    (350 * (depth.saturating_sub(1))).min(1600) as i16
+    (hist_mult() * (depth.saturating_sub(1))).min(hist_base()) as i16
 }
 
 impl SearchWorker {
