@@ -222,12 +222,13 @@ impl SearchWorker {
         let mut move_count = 0;
         // Clear child killer moves
         self.ss_at_mut(-2).killers.clear();
-        // Get killer moves
+        // Get killer and counter moves
         let killers = self.ss_at(0).killers.get();
+        let counter = self.stats.cmt.get(&self.board, self.ss_at(1).curr_move);
         // Create search stack buffer for continuation history lookup
         let ss_buffer = [self.ss_at(1), self.ss_at(2)];
         // Initialise move picker
-        let mut mp = MovePicker::<false>::new(&self.board, tt_move, killers);
+        let mut mp = MovePicker::<false>::new(&self.board, tt_move, killers, counter);
         // --- Main Loop ---
         while let Some(move_) = mp.next(&self.board, &self.stats, &ss_buffer) {
             // Skip excluded move

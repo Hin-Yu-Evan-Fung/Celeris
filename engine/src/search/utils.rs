@@ -68,6 +68,11 @@ impl SearchWorker {
 
             self.update_continuations(best_move, bonus);
 
+            let prev_move = self.ss_at(1).curr_move;
+            if prev_move.is_valid() {
+                self.stats.cmt.update(&self.board, prev_move, best_move);
+            }
+
             for &move_ in quiets_tried {
                 self.stats.ht.update(&self.board, move_, -bonus);
 

@@ -87,7 +87,8 @@ impl SearchWorker {
         let ss_buffer = [SearchStackEntry::default(); CONT_HIST_SIZE];
 
         // The generic parameter 'true' tells MovePicker to skip quiet moves.
-        let mut move_picker = MovePicker::<true>::new(&self.board, tt_move, [Move::NONE; 2]);
+        let mut move_picker =
+            MovePicker::<true>::new(&self.board, tt_move, [Move::NONE; 2], Move::NONE);
 
         while let Some(move_) = move_picker.next(&self.board, &self.stats, &ss_buffer) {
             // --- QS Pruning ---

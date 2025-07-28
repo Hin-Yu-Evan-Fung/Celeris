@@ -10,7 +10,9 @@ pub use pv::PVLine;
 pub(crate) use stack::{SearchStack, SearchStackEntry};
 pub use tt::TT;
 
-use crate::{CaptureHistory, ContinuationTable, Depth, Eval, MainHistory, time::Clock};
+use crate::{
+    CaptureHistory, ContinuationTable, CounterMoveHistory, Depth, Eval, MainHistory, time::Clock,
+};
 use chess::board::Board;
 use nnue::accumulator::Accumulator;
 
@@ -19,6 +21,7 @@ pub struct SearchStats {
     pub ht: MainHistory,
     pub cht: CaptureHistory,
     pub ct: Box<ContinuationTable>,
+    pub cmt: CounterMoveHistory,
 }
 
 #[derive(Debug, Clone)]
