@@ -24,8 +24,8 @@ pub struct TTEntry {
     pub depth: u8,       //  7 bits
     pub bound: TTBound,  //  2 bits
     pub best_move: Move, // 16 bits
-    pub eval: Eval,      // 16 bits
-    pub value: Eval,     // 16 bits
+    pub eval: i16,       // 16 bits
+    pub value: i16,      // 16 bits
 }
 
 impl TTEntry {
@@ -57,12 +57,20 @@ impl TTEntry {
         unsafe { Move::new_raw(((data & Self::MOVE_MASK) >> 16) as u16) }
     }
 
-    pub fn unpack_eval(data: u64) -> Eval {
-        Eval(((data & Self::EVAL_MASK) >> 32) as i32)
+    pub fn unpack_eval(data: u64) -> i16 {
+        ((data & Self::EVAL_MASK) >> 32) as i16
     }
 
-    pub fn unpack_value(data: u64) -> Eval {
-        Eval(((data & Self::VALUE_MASK) >> 48) as i32)
+    pub fn unpack_value(data: u64) -> i16 {
+        ((data & Self::VALUE_MASK) >> 48) as i16
+    }
+
+    pub fn eval(&self) -> Eval {
+        Eval(self.eval as i32)
+    }
+
+    pub fn value(&self) -> Eval {
+        Eval(self.value as i32)
     }
 }
 
@@ -73,8 +81,9 @@ impl From<TTEntry> for (u64, u64) {
         data |= (entry.depth as u64) << 7;
         data |= (entry.bound as u64) << 14;
         data |= (entry.best_move.raw() as u64) << 16;
-        data |= (entry.eval.0 as u16 as u64) << 32;
-        data |= (entry.value.0 as u16 as u64) << 48;
+        data |= (entry.eval as u16 as u64) << 32;
+        data |= (entry.value as u16 as u64) << 48;
+
         (entry.key ^ data, data)
     }
 }
@@ -278,14 +287,18 @@ impl TT {
                 best_move
             };
 
+            if eval.abs() > Eval::INFINITY {
+                println!("Wrong Eval Input: {eval}");
+            }
+
             old_entry.write(TTEntry {
                 key,
                 age: self.age,
                 depth,
                 bound,
                 best_move: new_best_move,
-                eval,
-                value: value.to_tt(ply),
+                eval: eval.0 as i16,
+                value: value.to_tt(ply).0 as i16,
             });
         }
     }
@@ -361,8 +374,8 @@ mod tests {
             depth: depth & (TTEntry::DEPTH_MASK >> 7) as u8, // Ensure depth fits in 7 bits
             bound,
             best_move,
-            eval,
-            value,
+            eval: eval.0 as i16,
+            value: value.0 as i16,
         }
     }
 
@@ -484,8 +497,8 @@ mod tests {
             0,
             entry.depth,
             entry.best_move,
-            entry.eval,
-            entry.value,
+            Eval(entry.eval as i32),
+            Eval(entry.value as i32),
         );
         let retrieved = tt.get(key).expect("Failed to retrieve written entry");
 
@@ -495,7 +508,10 @@ mod tests {
         assert_eq!(entry.bound, retrieved.bound);
         assert_eq!(entry.best_move, retrieved.best_move);
         // Note: Eval is stored adjusted by ply, value is stored directly
-        assert_eq!(entry.eval.to_tt(0), retrieved.eval);
+        assert_eq!(
+            Eval(entry.eval as i32).to_tt(0),
+            Eval(retrieved.eval as i32)
+        );
         assert_eq!(entry.value, retrieved.value);
 
         // Get non-existent key
@@ -526,8 +542,8 @@ mod tests {
             0,
             entry_old.depth,
             entry_old.best_move,
-            entry_old.eval,
-            entry_old.value,
+            Eval(entry_old.eval as i32),
+            Eval(entry_old.value as i32),
         );
 
         // 1. Replace due to different age
@@ -547,8 +563,8 @@ mod tests {
             0,
             entry_new_age.depth,
             entry_new_age.best_move,
-            entry_new_age.eval,
-            entry_new_age.value,
+            Eval(entry_new_age.eval as i32),
+            Eval(entry_new_age.value as i32),
         );
         assert_eq!(
             tt.get(key1).unwrap().depth,
@@ -565,8 +581,8 @@ mod tests {
             0,
             entry_old.depth,
             entry_old.best_move,
-            entry_old.eval,
-            entry_old.value,
+            Eval(entry_old.eval as i32),
+            Eval(entry_old.value as i32),
         ); // Put old entry back
 
         // 2. Replace due to different key (collision)
@@ -585,8 +601,8 @@ mod tests {
             0,
             entry_collision.depth,
             entry_collision.best_move,
-            entry_collision.eval,
-            entry_collision.value,
+            Eval(entry_collision.eval as i32),
+            Eval(entry_collision.value as i32),
         );
         assert_eq!(
             tt.get(key2).unwrap().key,
@@ -605,8 +621,8 @@ mod tests {
             0,
             entry_old.depth,
             entry_old.best_move,
-            entry_old.eval,
-            entry_old.value,
+            Eval(entry_old.eval as i32),
+            Eval(entry_old.value as i32),
         );
 
         // 3. Replace due to new entry being deeper
@@ -625,8 +641,8 @@ mod tests {
             0,
             entry_deeper.depth,
             entry_deeper.best_move,
-            entry_deeper.eval,
-            entry_deeper.value,
+            Eval(entry_deeper.eval as i32),
+            Eval(entry_deeper.value as i32),
         );
         assert_eq!(
             tt.get(key1).unwrap().depth,
@@ -650,8 +666,8 @@ mod tests {
             0,
             entry_exact.depth,
             entry_exact.best_move,
-            entry_exact.eval,
-            entry_exact.value,
+            Eval(entry_exact.eval as i32),
+            Eval(entry_exact.value as i32),
         );
         assert_eq!(
             tt.get(key1).unwrap().bound,
@@ -674,8 +690,8 @@ mod tests {
             0,
             entry_replace_exact.depth,
             entry_replace_exact.best_move,
-            entry_replace_exact.eval,
-            entry_replace_exact.value,
+            Eval(entry_replace_exact.eval as i32),
+            Eval(entry_replace_exact.value as i32),
         );
         assert_eq!(
             tt.get(key1).unwrap().bound,
@@ -704,8 +720,8 @@ mod tests {
             0,
             entry_shallow.depth,
             entry_shallow.best_move,
-            entry_shallow.eval,
-            entry_shallow.value,
+            Eval(entry_shallow.eval as i32),
+            Eval(entry_shallow.value as i32),
         );
         assert_eq!(
             tt.get(key1).unwrap().depth,
@@ -730,8 +746,8 @@ mod tests {
             0,
             entry_with_move.depth,
             entry_with_move.best_move,
-            entry_with_move.eval,
-            entry_with_move.value,
+            Eval(entry_with_move.eval as i32),
+            Eval(entry_with_move.value as i32),
         );
         assert_eq!(
             tt.get(key1).unwrap().best_move,
@@ -754,8 +770,8 @@ mod tests {
             0,
             entry_overwrite_no_move.depth,
             entry_overwrite_no_move.best_move,
-            entry_overwrite_no_move.eval,
-            entry_overwrite_no_move.value,
+            Eval(entry_overwrite_no_move.eval as i32),
+            Eval(entry_overwrite_no_move.value as i32),
         );
         assert_eq!(
             tt.get(key1).unwrap().best_move,
@@ -778,8 +794,8 @@ mod tests {
             0,
             entry_overwrite_with_move.depth,
             entry_overwrite_with_move.best_move,
-            entry_overwrite_with_move.eval,
-            entry_overwrite_with_move.value,
+            Eval(entry_overwrite_with_move.eval as i32),
+            Eval(entry_overwrite_with_move.value as i32),
         );
         assert_eq!(
             tt.get(key1).unwrap().best_move,

@@ -105,8 +105,8 @@ impl SearchWorker {
         } else if self.ss_at(0).excl_move.is_valid() {
             self.ss_at(0).eval
         } else if let Some(tt_entry) = tt_entry {
-            let tt_eval = tt_entry.eval;
-            let tt_value = tt_entry.value.from_tt(self.ply);
+            let tt_eval = tt_entry.eval();
+            let tt_value = tt_entry.value().from_tt(self.ply);
 
             let eval = if tt_eval.abs() >= Eval::INFINITY {
                 self.evaluate()

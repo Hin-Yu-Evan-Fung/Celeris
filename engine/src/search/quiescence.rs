@@ -54,7 +54,7 @@ impl SearchWorker {
         let mut tt_eval = -Eval::INFINITY;
 
         if let Some(tt_entry) = tt_entry {
-            tt_value = tt_entry.value.from_tt(self.ply);
+            tt_value = tt_entry.value().from_tt(self.ply);
 
             if !NT::PV && can_use_tt_value(tt_entry.bound, tt_value, alpha, beta) {
                 return tt_value;
@@ -63,7 +63,7 @@ impl SearchWorker {
             // Update best move from hash table
             tt_bound = tt_entry.bound;
             tt_move = tt_entry.best_move;
-            tt_eval = tt_entry.eval;
+            tt_eval = tt_entry.eval();
         }
 
         // --- Stand Pat Score ---
