@@ -1,7 +1,9 @@
+use std::future;
+
 use chess::Move;
 
 use crate::{
-    Depth, SearchWorker,
+    Depth, Interface, SEE_PIECE_VALUES, SearchWorker,
     constants::{CONT_HIST_SIZE, MAX_DEPTH},
     eval::Eval,
     movepick::MovePicker,
@@ -47,41 +49,74 @@ impl SearchWorker {
         // --- Hash table probe ---
         let tt_entry = tt.get(self.board.key());
         let mut tt_move = Move::NONE;
+        let mut tt_bound = TTBound::None;
+        let mut tt_value = -Eval::INFINITY;
+        let mut tt_eval = -Eval::INFINITY;
 
         if let Some(tt_entry) = tt_entry {
-            let tt_value = tt_entry.value.from_tt(self.ply);
+            tt_value = tt_entry.value().from_tt(self.ply);
 
             if !NT::PV && can_use_tt_value(tt_entry.bound, tt_value, alpha, beta) {
                 return tt_value;
             }
 
             // Update best move from hash table
+            tt_bound = tt_entry.bound;
             tt_move = tt_entry.best_move;
+            tt_eval = tt_entry.eval();
         }
 
         // --- Stand Pat Score ---
         // Get the static evaluation of the current position.
         // This score assumes no further captures are made (the "stand pat" score).
-        let eval = self.static_eval(in_check, tt_entry);
-        let futility = if in_check {
-            -Eval::INFINITY
-        } else {
-            eval + Eval(-350)
-        };
-        // --- Alpha-Beta Pruning based on Stand Pat ---
-        // If the static evaluation is already >= beta, the opponent won't allow this position.
-        // We can prune immediately, assuming the static eval is a reasonable lower bound.
-        if eval >= beta {
-            return beta; // Fail-High based on static eval
-        }
-        // If the static evaluation is better than alpha, update alpha.
-        // This becomes the baseline score we need to beat with captures.
-        alpha = alpha.max(eval);
-
         // Initialize best_value with stand_pat. We are looking for captures that improve on this.
-        let mut best_value = eval;
+        let mut best_value;
         let mut child_pv = PVLine::default();
         let mut best_move = Move::NONE;
+        let mut raw_value = -Eval::INFINITY;
+        let mut futility = -Eval::INFINITY;
+        let correction_value = self.stats.crt.get(&self.board, Move::NONE);
+        if in_check {
+            best_value = -Eval::INFINITY;
+        } else {
+            best_value = if tt_entry.is_some() {
+                raw_value = if tt_eval.is_valid() {
+                    tt_eval
+                } else {
+                    self.evaluate()
+                };
+
+                self.ss_at_mut(0).eval = raw_value;
+                // (raw_value + correction_value).clamp(-Eval::MATE_BOUND, Eval::MATE_BOUND);
+
+                // TT value can be used as a better position evaluation
+                if !tt_value.is_terminal() && can_use_tt_value(tt_bound, tt_value, alpha, beta) {
+                    tt_value
+                } else {
+                    self.ss_at_mut(0).eval
+                }
+            } else {
+                raw_value = self.evaluate();
+                self.ss_at_mut(0).eval = raw_value;
+                // (raw_value + correction_value).clamp(-Eval::MATE_BOUND, Eval::MATE_BOUND);
+
+                self.ss_at_mut(0).eval
+            };
+
+            // --- Alpha-Beta Pruning based on Stand Pat ---
+            // If the static evaluation is already >= beta, the opponent won't allow this position.
+            // We can prune immediately, assuming the static eval is a reasonable lower bound.
+            if best_value >= beta {
+                return beta;
+            }
+
+            // If the static evaluation is better than alpha, update alpha.
+            // This becomes the baseline score we need to beat with captures.
+            alpha = alpha.max(best_value);
+
+            // Update futility value
+            futility = best_value + Eval(350);
+        }
 
         // --- Generate and Explore Captures Only ---
         let ss_buffer = [SearchStackEntry::default(); CONT_HIST_SIZE];
@@ -96,6 +131,13 @@ impl SearchWorker {
                 // --- Futility Pruning ---
                 // If the move does not win material and the current static eval is pessimistic enough,
                 // then we ignore the move
+                let mut piece_value = Eval::ZERO;
+                if move_.is_capture() {
+                    piece_value = unsafe {
+                        SEE_PIECE_VALUES[self.board.on_unchecked(move_.to()).pt().index()]
+                    }
+                };
+
                 if in_check && futility <= alpha && !see(&self.board, move_, Eval(1)) {
                     best_value = best_value.max(futility);
                     continue;
@@ -163,7 +205,7 @@ impl SearchWorker {
             self.ply,
             0,
             best_move,
-            eval,
+            raw_value,
             best_value,
         );
 

@@ -1,8 +1,8 @@
 use chess::{Move, PieceType};
 
 use crate::{
-    Depth, MoveStage, PV, SearchWorker,
-    constants::{MAX_DEPTH, MAX_MAIN_HISTORY},
+    Depth, Interface, MoveStage, PV, SearchWorker,
+    constants::{CORR_HIST_SIZE, MAX_DEPTH, MAX_MAIN_HISTORY},
     eval::Eval,
     movepick::MovePicker,
     search::PVLine,
@@ -147,12 +147,13 @@ impl SearchWorker {
         let mut tt_capture = false;
         let mut tt_bound: TTBound = TTBound::None;
         let mut tt_depth: Depth = -1;
-        let mut tt_value: Eval = Eval::ZERO;
+        let mut tt_value: Eval = -Eval::INFINITY;
+        let mut tt_eval: Eval = -Eval::INFINITY;
         // --- Hash Table Cut ---
         // If a previously stored value can be trusted (higher depth),
         // then it would be safe to cut the branch and return the stored value
         if let Some(tt_entry) = tt_entry {
-            tt_value = tt_entry.value.from_tt(self.ply);
+            tt_value = tt_entry.value().from_tt(self.ply);
 
             if !NT::PV
                 && !singular
@@ -167,10 +168,43 @@ impl SearchWorker {
             tt_capture = self.board.is_capture(tt_move);
             tt_bound = tt_entry.bound;
             tt_depth = tt_entry.depth as Depth;
+            tt_eval = tt_entry.eval();
         }
 
         // Get the best static evaluation of the position
-        let eval = self.static_eval(in_check, tt_entry);
+        // let raw_value = self.static_eval(in_check, tt_entry);
+        let mut raw_value = -Eval::INFINITY;
+        let correction_value = self.stats.crt.get(&self.board, Move::NONE);
+        let eval = if in_check {
+            self.ss_at_mut(0).eval = self.ss_at(2).eval;
+            self.ss_at(2).eval
+        } else if singular {
+            raw_value = self.ss_at(0).eval;
+            raw_value
+        } else if tt_entry.is_some() {
+            raw_value = if tt_eval.is_valid() {
+                tt_eval
+            } else {
+                self.evaluate()
+            };
+
+            self.ss_at_mut(0).eval = raw_value;
+            // (raw_value + correction_value).clamp(-Eval::MATE_BOUND, Eval::MATE_BOUND);
+
+            // TT value can be used as a better position evaluation
+            if can_use_tt_value(tt_bound, tt_value, alpha, beta) {
+                tt_value
+            } else {
+                self.ss_at(0).eval
+            }
+        } else {
+            raw_value = self.evaluate();
+            self.ss_at_mut(0).eval = raw_value;
+            // (raw_value + correction_value).clamp(-Eval::MATE_BOUND, Eval::MATE_BOUND);
+
+            self.ss_at_mut(0).eval
+        };
+
         // Set up flags to record trends of the game
         let improving = self.improving();
         let opp_worsening = self.opp_worsening();
@@ -455,16 +489,26 @@ impl SearchWorker {
                 TTBound::Upper
             };
 
-            assert!(depth >= 0);
-
             tt.write(
                 self.board.key(),
                 bound,
                 self.ply,
                 depth as u8,
                 best_move,
-                eval,
+                raw_value,
                 best_value,
+            );
+        }
+
+        if !in_check
+            && (!best_move.is_valid() || !best_move.is_capture())
+            && ((best_value < beta && best_value < eval)
+                || (best_move.is_valid() && best_value > eval))
+        {
+            self.stats.crt.update(
+                &self.board,
+                Move::NONE,
+                correction_bonus(best_value, eval, depth),
             );
         }
 

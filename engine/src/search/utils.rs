@@ -2,8 +2,13 @@ use chess::Move;
 
 use super::tt::TTBound;
 use crate::{
-    Depth, Eval, Interface, MoveStage, SearchWorker, constants::CONT_HIST_SIZE, evaluate_nnue,
-    search::tt::TTEntry, see, tunables::*, utils::MoveBuffer,
+    Depth, Eval, Interface, MoveStage, SearchWorker,
+    constants::{CONT_HIST_SIZE, CORR_HIST_MAX},
+    evaluate_nnue,
+    search::tt::TTEntry,
+    see,
+    tunables::*,
+    utils::MoveBuffer,
 };
 
 pub(crate) fn lmr_base_reduction(depth: Depth, move_count: usize) -> Depth {
@@ -37,6 +42,12 @@ pub(crate) fn can_use_tt_value(tt_bound: TTBound, tt_value: Eval, alpha: Eval, b
 
 pub(crate) fn calculate_bonus(depth: Depth) -> i16 {
     (hist_mult() * (depth.saturating_sub(1))).min(hist_base()) as i16
+}
+
+pub(crate) fn correction_bonus(best: Eval, static_eval: Eval, depth: Depth) -> i16 {
+    const MAX_DIFF: i16 = CORR_HIST_MAX / 4;
+
+    ((best - static_eval).0 as i16 * depth / 8).clamp(-MAX_DIFF, MAX_DIFF)
 }
 
 impl SearchWorker {
@@ -94,8 +105,8 @@ impl SearchWorker {
         } else if self.ss_at(0).excl_move.is_valid() {
             self.ss_at(0).eval
         } else if let Some(tt_entry) = tt_entry {
-            let tt_eval = tt_entry.eval;
-            let tt_value = tt_entry.value.from_tt(self.ply);
+            let tt_eval = tt_entry.eval();
+            let tt_value = tt_entry.value().from_tt(self.ply);
 
             let eval = if tt_eval.abs() >= Eval::INFINITY {
                 self.evaluate()

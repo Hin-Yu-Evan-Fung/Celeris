@@ -11,7 +11,8 @@ pub(crate) use stack::{SearchStack, SearchStackEntry};
 pub use tt::TT;
 
 use crate::{
-    CaptureHistory, ContinuationTable, CounterMoveHistory, Depth, Eval, MainHistory, time::Clock,
+    CaptureHistory, ContinuationTable, CorrHistory, CounterMoveHistory, Depth, Eval, MainHistory,
+    time::Clock,
 };
 use chess::board::Board;
 use nnue::accumulator::Accumulator;
@@ -22,6 +23,7 @@ pub struct SearchStats {
     pub cht: CaptureHistory,
     pub ct: Box<ContinuationTable>,
     pub cmt: CounterMoveHistory,
+    pub crt: CorrHistory,
 }
 
 #[derive(Debug, Clone)]
