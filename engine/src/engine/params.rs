@@ -27,6 +27,11 @@ pub mod constants {
     pub const MAX_MAIN_HISTORY: i16 = 16384;
     pub const MOVE_BUFFER_MAX: usize = 32;
     pub const CONT_HIST_SIZE: usize = SEARCH_STACK_OFFSET;
+
+    // Correction history size
+    pub const CORR_HIST_SIZE: usize = 32768;
+    pub const CORR_HIST_MAX: i16 = 1024;
+
     /// The value of the victim we are capturing
     pub const MVV: [i32; PieceType::NUM] = [0, 2400, 2400, 4800, 9600, 0];
 }

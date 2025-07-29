@@ -4,7 +4,7 @@ mod see;
 
 pub use history::*;
 pub use movepick::MovePicker;
-pub use see::see;
+pub use see::{SEE_PIECE_VALUES, see};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum MoveStage {

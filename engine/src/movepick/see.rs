@@ -5,7 +5,7 @@ use chess::{
 
 use crate::Eval;
 
-const VALUES: [Eval; PieceType::NUM] = [
+pub const SEE_PIECE_VALUES: [Eval; PieceType::NUM] = [
     Eval(150),
     Eval(340),
     Eval(360),
@@ -37,9 +37,9 @@ fn move_value(board: &Board, move_: Move) -> Eval {
     if move_.is_capture() {
         // En Passant Capture: Value is always a pawn's value.
         if move_.flag() == MoveFlag::EPCapture {
-            return VALUES[PieceType::Pawn.index()];
+            return SEE_PIECE_VALUES[PieceType::Pawn.index()];
         } else {
-            value += unsafe { VALUES[board.on_unchecked(to).pt().index()] }; // Value of captured piece
+            value += unsafe { SEE_PIECE_VALUES[board.on_unchecked(to).pt().index()] }; // Value of captured piece
         }
     }
 
@@ -48,7 +48,8 @@ fn move_value(board: &Board, move_: Move) -> Eval {
     if move_.is_promotion() {
         // Value is (Promoted Piece) - (Pawn).
         // Note: moved_pt is always Pawn for a promotion.
-        value += -VALUES[moved_pt] + VALUES[unsafe { move_.promotion_pt().index() }];
+        value +=
+            -SEE_PIECE_VALUES[moved_pt] + SEE_PIECE_VALUES[unsafe { move_.promotion_pt().index() }];
     }
 
     // --- Handle Quiet Moves (no capture, no promotion) ---
@@ -128,7 +129,7 @@ pub fn see(board: &Board, move_: Move, threshold: Eval) -> bool {
     // Subtract the value of the piece *making* the move. This represents the potential loss
     // if the opponent recaptures.
     // gain = (initial gain) - threshold - (value of moving piece)
-    gain -= VALUES[victim];
+    gain -= SEE_PIECE_VALUES[victim];
 
     // If, even after considering the loss of our moving piece, the gain is still positive
     // (meaning the initial capture was valuable enough), the move is profitable.
@@ -189,7 +190,7 @@ pub fn see(board: &Board, move_: Move, threshold: Eval) -> bool {
         stm = !stm;
 
         // Negamax the values (Incentivise the engine to not go for drawing trades with no goal in mind)
-        gain = -gain - Eval(1) - VALUES[lva_pt.index()];
+        gain = -gain - Eval(1) - SEE_PIECE_VALUES[lva_pt.index()];
 
         if gain >= Eval::ZERO {
             // If the recapturing piece is the king and the opponent has another attacker, then a
