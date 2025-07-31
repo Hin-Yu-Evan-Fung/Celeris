@@ -188,8 +188,8 @@ impl SearchWorker {
                 self.evaluate()
             };
 
-            self.ss_at_mut(0).eval = raw_value;
-            // (raw_value + correction_value).clamp(-Eval::MATE_BOUND, Eval::MATE_BOUND);
+            self.ss_at_mut(0).eval = (raw_value + correction_value / Eval(100))
+                .clamp(-Eval::MATE_BOUND, Eval::MATE_BOUND);
 
             // TT value can be used as a better position evaluation
             if can_use_tt_value(tt_bound, tt_value, alpha, beta) {
@@ -199,8 +199,8 @@ impl SearchWorker {
             }
         } else {
             raw_value = self.evaluate();
-            self.ss_at_mut(0).eval = raw_value;
-            // (raw_value + correction_value).clamp(-Eval::MATE_BOUND, Eval::MATE_BOUND);
+            self.ss_at_mut(0).eval = (raw_value + correction_value / Eval(100))
+                .clamp(-Eval::MATE_BOUND, Eval::MATE_BOUND);
 
             self.ss_at_mut(0).eval
         };
