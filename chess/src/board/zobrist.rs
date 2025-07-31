@@ -40,7 +40,7 @@ impl KeyBundle {
     /// based on the piece type.
     #[inline]
     pub fn toggle_piece(&mut self, piece: Piece, sq: Square) {
-        if piece.pt() as u8 == PieceType::Pawn as u8 {
+        if piece.pt() == PieceType::Pawn {
             self.pawn_key ^= piece_key(piece, sq);
         } else {
             self.non_pawn_key[piece.colour().index()] ^= piece_key(piece, sq);
@@ -149,12 +149,9 @@ const fn init_zobrist_table() -> ZobristTable {
 /// Retrieves the Zobrist key for a specific piece on a specific square.
 #[inline]
 pub fn piece_key(piece: Piece, sq: Square) -> Key {
-    unsafe {
-        *ZOBRIST
-            .pieces
-            .get_unchecked(piece.index())
-            .get_unchecked(sq.index())
-    }
+    assert!(piece.index() < Piece::NUM);
+    assert!(sq.index() < Square::NUM);
+    ZOBRIST.pieces[piece.index()][sq.index()]
 }
 
 /// Retrieves the Zobrist key for the side to move.
@@ -167,13 +164,15 @@ pub fn side_key() -> Key {
 /// Retrieves the Zobrist key for a given set of castling rights.
 #[inline]
 pub fn castle_key(flag: Castling) -> Key {
+    assert!((flag.0 as usize) < Castling::NUM);
     ZOBRIST.castling[flag.0 as usize]
 }
 
 /// Retrieves the Zobrist key for an en passant capture being possible on a given file.
 #[inline]
 pub fn ep_key(file: File) -> Key {
-    unsafe { *ZOBRIST.enpassant.get_unchecked(file.index()) }
+    assert!(file.index() < File::NUM);
+    ZOBRIST.enpassant[file.index()]
 }
 
 /******************************************\
