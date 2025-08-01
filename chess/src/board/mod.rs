@@ -322,11 +322,51 @@ impl Board {
     #[inline]
     pub fn is_draw(&self, ply_from_null: u16) -> bool {
         // Avoid returning true when checkmate by ignoring positions that are in check, delegating them to later logic
-        if self.state.fifty_move > 99 && !self.in_check() {
+        if (self.state.fifty_move > 99 && !self.in_check()) || self.is_insufficient_material() {
             return true;
         }
         // Check for threefold repetition.
         return self.state.repetitions != 0 && self.state.repetitions < ply_from_null as i8;
+    }
+
+    /// Checks if the current position suffers from insufficient material
+    fn is_insufficient_material(&self) -> bool {
+        let n = self.all_occupied_bb().count_bits();
+
+        let knights = self.piecetype_bb(PieceType::Knight);
+        let bishops = self.piecetype_bb(PieceType::Bishop);
+        let minor_pieces = knights | bishops;
+        let major_pieces = self.piecetype_bb(PieceType::Pawn)
+            | self.piecetype_bb(PieceType::Rook)
+            | self.piecetype_bb(PieceType::Queen);
+        let white_occ = self.occupied_bb(Colour::White);
+
+        match n {
+            // King vs King => draw,
+            2 => true,
+            // King vs King + minor piece =>  draw
+            3 => minor_pieces.is_occupied(),
+            // A few more special cases
+            4 => {
+                // If we have a piece that can checkmate, then it is not a draw
+                if major_pieces.is_occupied() {
+                    return false;
+                }
+
+                // If each side has one minor piece, then checkmate is impossible
+                if white_occ.count_bits() == 2 {
+                    return true;
+                }
+
+                // 2 knights are mostly a draw (Except in positions where the engine loses willingly)
+                if knights.count_bits() == 2 {
+                    return true;
+                }
+
+                false
+            }
+            _ => false,
+        }
     }
 
     /// Checks if a file is semi-open for the given color (no pawns of that color on the file).
