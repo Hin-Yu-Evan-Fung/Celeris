@@ -42,6 +42,7 @@ pub(crate) struct SearchWorker {
     nodes: u64,
     pub depth: Depth,
     seldepth: Depth,
+    last_best_move_depth: Depth,
     ply: u16,
     // Plies from previous null move
     ply_from_null: u16,
@@ -52,6 +53,7 @@ pub(crate) struct SearchWorker {
     // Search results
     pv: PVLine,
     eval: Eval,
+    avg_eval: Eval,
 
     // Search thread internal stop flag
     stop: bool,

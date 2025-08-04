@@ -25,11 +25,13 @@ impl SearchWorker {
             clock: Clock::default(stop, nodes),
             thread_id,
             eval: -Eval::INFINITY,
+            avg_eval: Eval::DRAW,
             board: Board::default(),
             stack: SearchStack::default(),
             nodes: 0,
             seldepth: 0,
             depth: 0,
+            last_best_move_depth: 0,
             ply: 0,
             ply_from_null: 0,
             pv: PVLine::default(),
@@ -56,7 +58,7 @@ impl SearchWorker {
         self.ply = 0;
         self.ply_from_null = 0;
         self.pv = PVLine::default();
-        self.eval = -Eval::INFINITY;
+        self.eval = Eval::DRAW;
         self.stop = false;
     }
 
@@ -70,9 +72,14 @@ impl SearchWorker {
 
     pub fn should_start_iteration(&mut self) -> bool {
         self.depth < MAX_DEPTH
-            && self
-                .clock
-                .start_search(self.depth + 1, self.nodes, self.best_move())
+            && self.clock.start_search(
+                self.depth + 1,
+                self.last_best_move_depth,
+                self.eval,
+                self.avg_eval,
+                self.nodes,
+                self.best_move(),
+            )
     }
 
     pub fn should_stop_search(&mut self) -> bool {
@@ -94,6 +101,21 @@ impl SearchWorker {
 
     pub(super) fn piece_to_at(&self, offset: i8) -> (Piece, Square) {
         self.ss_at(offset).piece_to()
+    }
+
+    pub(super) fn update_search_results(&mut self, eval: Eval, pv: PVLine) {
+        self.eval = eval;
+
+        if self.depth == 0 {
+            self.avg_eval = eval;
+        } else {
+            self.avg_eval = Eval((self.avg_eval.0 * 8 + eval.0 * 2) / 10);
+        }
+
+        if self.pv[0] != pv[0] {
+            self.last_best_move_depth = self.depth;
+        }
+        self.pv = pv;
     }
 
     pub(super) fn print_info(&self, tt: &TT) {
