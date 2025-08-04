@@ -83,8 +83,8 @@ impl std::fmt::Display for Eval {
                 write!(f, "mate -{}", moves_to_mate)
             }
         } else {
-            // let normalised = self.0 / 2;
-            write!(f, "cp {}", self.0)
+            let normalised = self.0 / 2;
+            write!(f, "cp {}", normalised)
         }
     }
 }

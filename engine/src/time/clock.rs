@@ -8,7 +8,7 @@ use std::{
 
 use chess::{Colour, Move, Square};
 
-use crate::{Depth, constants::MIN_DEPTH, time::TimeControl};
+use crate::{Depth, Eval, time::TimeControl};
 
 #[derive(Clone, Debug)]
 pub struct Clock {
@@ -20,6 +20,7 @@ pub struct Clock {
     max_time: Duration,
     pub last_nodes: u64,
     node_count: [[u64; Square::NUM]; Square::NUM],
+    pv_stability: u16,
 }
 
 impl Clock {
@@ -53,6 +54,7 @@ impl Clock {
             max_time,
             last_nodes: 0,
             node_count: [[0; Square::NUM]; Square::NUM],
+            pv_stability: 0,
         }
     }
 
@@ -116,19 +118,18 @@ impl Clock {
         movestogo: Option<u16>,
     ) -> (Duration, Duration) {
         let (time, inc) = Self::get_time_and_increment(stm, wtime, btime, winc, binc);
-        let (opt, max) = if let Some(moves) = movestogo {
-            // Formula from Crippa by Svart
-            // https://github.com/crippa1337/svart/blob/master/engine/src/uci/timeman.rs
-            let scale = 0.7 / (moves.min(50) as f64);
-            let five = 0.5 * time as f64;
-            let opt_time = (scale * time as f64).min(five);
-
-            (opt_time, (5.0 * opt_time).min(five))
+        let (mut opt, mut max) = if let Some(moves) = movestogo {
+            let opt = 2 * (time - Self::OVERHEAD) / (moves as u64 + 5) + inc;
+            let max = 10 * (time - Self::OVERHEAD) / (moves as u64 + 10) + inc;
+            (opt, max)
         } else {
-            let total = ((time / 20) + (inc * 3 / 4)) as f64;
-
-            (0.6 * total, (2.0 * total).min(0.5 * time as f64))
+            let opt = 2 * (time - Self::OVERHEAD) / 50 + inc / 2;
+            let max = 10 * (time - Self::OVERHEAD) / 50 + inc / 2;
+            (opt, max)
         };
+
+        opt = opt.min(time - Self::OVERHEAD);
+        max = max.min(time - Self::OVERHEAD);
 
         (
             Duration::from_millis(opt as u64),
@@ -144,13 +145,21 @@ impl Clock {
         self.start_time.elapsed()
     }
 
-    pub fn start_search(&mut self, depth: Depth, nodes: u64, best_move: Move) -> bool {
+    pub fn start_search(
+        &mut self,
+        depth: Depth,
+        last_best_move_depth: Depth,
+        avg_eval: Eval,
+        eval: Eval,
+        nodes: u64,
+        best_move: Move,
+    ) -> bool {
         if self.global_stop.load(Ordering::Relaxed) {
             return false;
         }
 
-        // at least depth 1
-        if depth <= MIN_DEPTH {
+        // At least depth 1
+        if depth <= 4 {
             return true;
         }
 
@@ -158,17 +167,27 @@ impl Clock {
             TimeControl::FixedDepth(d) => depth <= d,
             TimeControl::FixedNodes(n) => self.global_nodes() <= n,
             TimeControl::FixedTime(_) | TimeControl::Variable { .. } => {
-                let opt_scale = if best_move.is_valid() && nodes != 0 {
-                    let bm_nodes =
-                        self.node_count[best_move.from().index()][best_move.to().index()];
-                    let bm_fraction = bm_nodes as f64 / nodes as f64;
+                let stable = last_best_move_depth + 3 <= depth;
 
-                    (0.4 + (1.0 - bm_fraction) * 2.0 as f64).max(0.5)
+                self.pv_stability = if stable {
+                    (self.pv_stability + 1).min(10)
                 } else {
-                    1.0
+                    0
                 };
 
-                self.elapsed() < self.opt_time.mul_f64(opt_scale)
+                let pv_factor = 1.2 - 0.04 * self.pv_stability as f64;
+                let score_fluctuations = (avg_eval - eval).abs().0 as f64;
+                let score_factor = (0.05 * score_fluctuations).clamp(0.75, 1.25);
+
+                let best_move_nodes =
+                    self.node_count[best_move.from().index()][best_move.to().index()];
+                let best_move_percent = 1.0 - best_move_nodes as f64 / nodes as f64;
+                let best_move_factor = (2.0 * best_move_percent + 0.4).max(0.5);
+
+                self.elapsed()
+                    <= self
+                        .opt_time
+                        .mul_f64(best_move_factor * score_factor * pv_factor)
             }
             _ => true,
         };

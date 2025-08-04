@@ -65,8 +65,7 @@ impl SearchWorker {
                     search_depth -= 1;
                 }
             } else {
-                self.eval = eval;
-                self.pv = pv;
+                self.update_search_results(eval, pv);
                 break;
             }
 
