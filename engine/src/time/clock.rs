@@ -123,7 +123,7 @@ impl Clock {
             let max = 10 * (time - Self::OVERHEAD) / (moves as u64 + 10) + inc;
             (opt, max)
         } else {
-            let opt = 3 * (time - Self::OVERHEAD) / 50 + inc / 2;
+            let opt = 2 * (time - Self::OVERHEAD) / 50 + inc / 2;
             let max = 10 * (time - Self::OVERHEAD) / 50 + inc / 2;
             (opt, max)
         };
@@ -159,7 +159,7 @@ impl Clock {
         }
 
         // At least depth 1
-        if depth <= 1 {
+        if depth <= 4 {
             return true;
         }
 
@@ -177,11 +177,11 @@ impl Clock {
 
                 let pv_factor = 1.2 - 0.04 * self.pv_stability as f64;
                 let score_fluctuations = (avg_eval - eval).abs().0 as f64;
-                let score_factor = 1.2 - 0.04 * score_fluctuations.min(10.00);
+                let score_factor = (0.05 * score_fluctuations).clamp(0.75, 1.25);
 
                 let best_move_nodes =
                     self.node_count[best_move.from().index()][best_move.to().index()];
-                let best_move_percent = best_move_nodes as f64 / nodes as f64;
+                let best_move_percent = 1.0 - best_move_nodes as f64 / nodes as f64;
                 let best_move_factor = (2.0 * best_move_percent + 0.4).max(0.5);
 
                 self.elapsed()
