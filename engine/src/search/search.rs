@@ -241,9 +241,13 @@ impl SearchWorker {
             depth -= 1;
         }
 
-        // --- Quiescence search ---
-        if depth <= 0 {
-            return self.quiescence::<PV>(tt, pv, alpha, beta);
+        // --- Razoring ---
+        if eval < alpha - Eval((500 + 300 * depth * depth) as i32) {
+            let value = self.quiescence::<NonPV>(tt, pv, alpha - Eval(1), alpha);
+
+            if value < alpha && !value.is_terminal() {
+                return value;
+            }
         }
 
         // --- Set up main loop ---
