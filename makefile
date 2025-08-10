@@ -16,7 +16,7 @@ endif
 
 build:
 	cargo clean
-	cargo rustc --release --package engine --bin engine $(FEATURES_ARG) -- -C target-cpu=native --emit link=$(NAME)
+	cargo rustc --release --package engine --bin engine $(FEATURES_ARG) -- --emit link=$(NAME)
 	
 doc:
 	cargo doc --no-deps --open

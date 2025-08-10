@@ -180,7 +180,7 @@ impl SearchWorker {
     }
 
     pub(super) fn can_do_lmr(&self, depth: Depth, move_count: usize, is_pv: bool) -> bool {
-        depth >= lmr_depth() && move_count as i32 > lmr_move_count() + is_pv as i32
+        depth >= 2 && move_count as i32 > 1 + is_pv as i32
     }
 
     pub(super) fn can_do_see_prune(
