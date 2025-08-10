@@ -176,7 +176,9 @@ impl SearchWorker {
     }
 
     pub(super) fn can_do_lmp(&self, depth: Depth, move_count: usize, improving: bool) -> bool {
-        depth <= 8 && move_count >= ((5 + 2 * depth * depth) / (2 - improving as i16)) as usize
+        depth <= 8
+            && move_count
+                >= ((lmp_base() + lmp_mult() * depth * depth / 2) / (2 - improving as i16)) as usize
     }
 
     pub(super) fn can_do_lmr(&self, depth: Depth, move_count: usize, is_pv: bool) -> bool {

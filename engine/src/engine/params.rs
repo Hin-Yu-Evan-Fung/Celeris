@@ -40,18 +40,22 @@ init_tunables! {
     // Format:
     // value: type = val, min, max, step;
 
+    // Late Move Pruning
+    lmp_base: i16 = 5, 3, 7, 1;
+    lmp_mult: i16 = 3, 1, 6, 1;
+
     // Late Move Reduction
-    lmr_base_quiet: i32 = 754, 500, 2000, 100;
-    lmr_mult: i32 = 2090, 1500, 4000, 100;
+    lmr_base_quiet: i32 = 713, 500, 2000, 100;
+    lmr_mult: i32 = 2095, 1500, 4000, 100;
     lmr_base_cap: i16 = 3, 1, 5, 1;
     lmr_depth: i16 = 2, 2, 5, 1;
-    lmr_move_count: i32 = 2, 1, 5, 1;
-    lmr_hist_quiet: i32 = 8057, 5000, 10000, 200;
-    lmr_hist_cap: i32 = 4986, 3000, 8000, 200;
+    lmr_move_count: i32 = 1, 1, 5, 1;
+    lmr_hist_quiet: i32 = 8077, 5000, 10000, 200;
+    lmr_hist_cap: i32 = 4896, 3000, 8000, 200;
 
     // History bonus
-    hist_base: i16 = 1600, 1000, 3000, 100;
-    hist_mult: i16 = 350, 200, 500, 50;
+    hist_base: i16 = 1583, 1000, 3000, 100;
+    hist_mult: i16 = 324, 200, 500, 50;
 
     // Null Move Pruning
     nmp_min: i16 = 4, 2, 6, 1;
