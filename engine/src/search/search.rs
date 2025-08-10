@@ -2,11 +2,11 @@ use chess::{Move, PieceType};
 
 use crate::{
     Depth, Interface, MoveStage, PV, SearchWorker,
-    constants::{CORR_HIST_SIZE, MAX_DEPTH, MAX_MAIN_HISTORY},
+    constants::MAX_DEPTH,
     eval::Eval,
     movepick::MovePicker,
     search::PVLine,
-    tunables::{lmr_base_cap, lmr_hist_cap, lmr_hist_quiet},
+    tunables::{lmr_hist_cap, lmr_hist_quiet},
     utils::MoveBuffer,
 };
 
@@ -100,8 +100,6 @@ impl SearchWorker {
         }
 
         let in_check = self.board.in_check();
-        let excl_move = self.ss_at(0).excl_move;
-        let singular = excl_move.is_valid();
 
         // --- Quiescence search in base case ---
         if depth == 0 && !in_check {
@@ -128,6 +126,8 @@ impl SearchWorker {
         }
 
         // --- Set up Search ---
+        let excl_move = self.ss_at(0).excl_move;
+        let singular = excl_move.is_valid();
         // Make sure the depth is not going to be negative
         depth = depth.max(1);
         // Update self depth
@@ -143,7 +143,6 @@ impl SearchWorker {
         // --- Hash Table Lookup ---
         let tt_entry = tt.get(self.board.key());
         let mut tt_move = Move::NONE;
-        let mut tt_capture = false;
         let mut tt_bound: TTBound = TTBound::None;
         let mut tt_depth: Depth = -1;
         let mut tt_value: Eval = -Eval::INFINITY;
@@ -164,7 +163,6 @@ impl SearchWorker {
 
             // Update best move from hash table
             tt_move = tt_entry.best_move;
-            tt_capture = self.board.is_capture(tt_move);
             tt_bound = tt_entry.bound;
             tt_depth = tt_entry.depth as Depth;
             tt_eval = tt_entry.eval();
@@ -206,7 +204,6 @@ impl SearchWorker {
 
         // Set up flags to record trends of the game
         let improving = self.improving();
-        let opp_worsening = self.opp_worsening();
 
         // --- Pruning ---
         if !NT::PV && !in_check && !singular {
@@ -273,16 +270,14 @@ impl SearchWorker {
             move_count += 1;
             // Move flags
             let is_capture = move_.is_capture();
-            let is_promotion = move_.is_promotion();
             let moved_piece = unsafe { self.ss_at(0).moved.unwrap_unchecked() };
             let gives_check = self.board.in_check();
             let hist = self.hist_score(move_);
-            let threshold = Eval(MAX_MAIN_HISTORY as i32 / 2);
             // New depth
             let mut new_depth = depth.max(1) - 1;
 
             // --- Quiet Move Pruning ---
-            if !NT::ROOT && !in_check && self.can_do_pruning(best_value) {
+            if !NT::PV && !in_check && self.can_do_pruning(best_value) {
                 // --- Late Move Pruning ---
                 // Near the leafs, trust that the move ordering is sound
                 // and ignore the quiet moves after a certain threshold
@@ -378,7 +373,7 @@ impl SearchWorker {
                     r -= (hist / Eval(lmr_hist_quiet())).0 as Depth;
                 // Different logic for capture moves
                 } else {
-                    r = lmr_base_cap() - (hist / Eval(lmr_hist_cap())).0 as Depth;
+                    r = 3 - (hist / Eval(lmr_hist_cap())).0 as Depth;
                     // Reduce for moves that give check (Tactical)
                     r -= gives_check as Depth;
                 }

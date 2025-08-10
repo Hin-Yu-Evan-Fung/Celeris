@@ -1,5 +1,3 @@
-use std::future;
-
 use chess::Move;
 
 use crate::{
