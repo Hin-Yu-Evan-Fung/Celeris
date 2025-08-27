@@ -216,19 +216,24 @@ type MainHistoryEntry = Entry<MAX_MAIN_HISTORY>;
 define_history!(
     MainHistory,
     MainHistoryEntry,
-    [Colour::NUM, Piece::NUM, Square::NUM]
+    [2, 2, Piece::NUM, Square::NUM]
 );
 
-impl_history_probe!(MainHistory, MainHistoryEntry, [colour, piece, square]);
+impl_history_probe!(
+    MainHistory,
+    MainHistoryEntry,
+    [threat_to, threat_from, piece, square]
+);
 
 impl MainHistory {
     /// Helper function to get the indices for the history table.
     #[inline(always)]
-    fn get_indices(board: &Board, move_: Move) -> (usize, usize, usize) {
+    fn get_indices(board: &Board, move_: Move) -> (usize, usize, usize, usize) {
         // Safety: Assumes the 'from' square is occupied, which should be true for valid moves.
         let moved_piece = unsafe { board.on(move_.from()).unwrap_unchecked() };
         (
-            board.stm() as usize,
+            (board.attacked() & move_.to().bb()).is_occupied() as usize,
+            (board.attacked() & move_.from().bb()).is_occupied() as usize,
             moved_piece as usize,
             move_.to() as usize,
         )

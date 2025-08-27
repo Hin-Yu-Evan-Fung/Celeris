@@ -2,17 +2,14 @@ use std::mem;
 
 use crate::utils::Align64;
 
- 
 pub const INPUT: usize = 768;
 pub const L1: usize = 1024;
 
- 
 pub const QA: i32 = 255;
 pub const QB: i32 = 64;
 pub const QAB: i32 = QA * QB;
 pub const SCALE: i32 = 400;
 
- 
 #[inline]
 pub fn screlu(x: i16) -> i32 {
     (x.clamp(0, QA as i16) as i32).pow(2)
@@ -27,4 +24,4 @@ pub struct NNUEParams {
     pub output_bias: i16,
 }
 
-pub static MODEL: NNUEParams = unsafe { mem::transmute(*include_bytes!("../../data/small.nnue")) };
+pub static MODEL: NNUEParams = unsafe { mem::transmute(*include_bytes!("../data/small.nnue")) };
