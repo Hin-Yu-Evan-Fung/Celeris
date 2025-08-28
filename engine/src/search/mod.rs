@@ -15,7 +15,7 @@ use crate::{
     time::Clock,
 };
 use chess::board::Board;
-use nnue::accumulator::Accumulator;
+use nnue::NNUE;
 
 #[derive(Debug, Clone, Default)]
 pub struct SearchStats {
@@ -59,7 +59,7 @@ pub(crate) struct SearchWorker {
     stop: bool,
 
     // NNUE
-    pub nnue: Accumulator,
+    pub nnue: NNUE,
 }
 
 pub trait NodeType {

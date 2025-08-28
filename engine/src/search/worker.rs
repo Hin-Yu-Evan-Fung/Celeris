@@ -4,7 +4,7 @@ use std::sync::{
 };
 
 use chess::{Move, Piece, Square, board::Board};
-use nnue::accumulator::Accumulator;
+use nnue::{NNUE, accumulator::Accumulator};
 
 use crate::{
     HistoryTable, SearchStats, SearchWorker,
@@ -37,7 +37,7 @@ impl SearchWorker {
             pv: PVLine::default(),
             stop: false,
             stats: SearchStats::default(),
-            nnue: Accumulator::default(),
+            nnue: NNUE::default(),
         }
     }
 

@@ -137,6 +137,11 @@ impl Square {
         unsafe { Self::from_unchecked((*self as u8) ^ Square::A8 as u8) }
     }
 
+    /// Flips the file of a square along the middle of the board
+    pub const fn flip_file(&self) -> Self {
+        unsafe { Self::from_unchecked((*self as u8) ^ Square::H1 as u8) }
+    }
+
     /// Returns the square relative to the perspectives of `col: Colour`
     ///
     /// For White, the square remains the same.

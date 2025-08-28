@@ -2,10 +2,10 @@ use crate::engine::tunables::*;
 
 use super::Eval;
 use chess::{PieceType, board::Board};
-use nnue::accumulator::Accumulator;
+use nnue::NNUE;
 
 #[rustfmt::skip]
- pub fn evaluate_nnue(board: &Board, nnue: &mut Accumulator) -> Eval {
+ pub fn evaluate_nnue(board: &Board, nnue: &mut NNUE) -> Eval {
      // nnue output
      let mut v = nnue.evaluate(board);
  
