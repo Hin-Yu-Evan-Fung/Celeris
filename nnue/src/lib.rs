@@ -18,12 +18,12 @@ pub mod utils;
 
 #[derive(Clone, Debug)]
 pub struct NNUE {
-    table: Box<[[Accumulator; 2 * NUM_INPUT_BUCKETS]; 2 * NUM_OUTPUT_BUCKETS]>,
+    table: Box<[[Accumulator; 2 * NUM_INPUT_BUCKETS]; 2 * NUM_INPUT_BUCKETS]>,
 }
 
 impl Default for NNUE {
     fn default() -> Self {
-        let mut table: Box<[[Accumulator; 2 * NUM_INPUT_BUCKETS]; 2 * NUM_OUTPUT_BUCKETS]> =
+        let mut table: Box<[[Accumulator; 2 * NUM_INPUT_BUCKETS]; 2 * NUM_INPUT_BUCKETS]> =
             box_array();
 
         for x in table.iter_mut() {
