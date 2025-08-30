@@ -1,9 +1,9 @@
 # Celeris Chess Engine
 - A fast chess engine made for the purpose of learning rust
 
-## CCRL Ratings
-- Version 1.0 - 3128 Elo
-- Version 2.0 - 3472 Elo
+## CCRL Blitz Ratings (as of 30th August 2025)
+- Version 2.0 - (3480)[https://computerchess.org.uk/ccrl/404/cgi/engine_details.cgi?print=Details&each_game=1&eng=Celeris%202.0%2064-bit#Celeris_2_0_64-bit] Elo
+- Version 1.0 - (3129)[https://computerchess.org.uk/ccrl/404/cgi/engine_details.cgi?match_length=30&each_game=1&print=Details&each_game=1&eng=Celeris%200.0.1%2064-bit#Celeris_0_0_1_64-bit] Elo
 
 ## Move generation
 - Magic Bitboards ([wiki](https://www.chessprogramming.org/Magic_Bitboards))
